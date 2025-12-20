@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Car Log</string>
+    
+    <!-- Common -->
+    <string name="ok">ОК</string>
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="edit">Редактировать</string>
+    <string name="add">Добавить</string>
+    <string name="back">Назад</string>
+    <string name="search">Поиск</string>
+    <string name="settings">Настройки</string>
+    
+    <!-- Navigation -->
+    <string name="nav_my_cars">Мои авто</string>
+    <string name="nav_statistics">Статистика</string>
+    <string name="nav_settings">Настройки</string>
+    
+    <!-- Car List Screen -->
+    <string name="car_list_title">Мои автомобили</string>
+    <string name="car_list_empty_title">У вас пока нет автомобилей</string>
+    <string name="car_list_empty_subtitle">Добавьте свой первый автомобиль, чтобы начать вести учёт</string>
+    <string name="add_car">Добавить автомобиль</string>
+    
+    <!-- Car Fields -->
+    <string name="car_brand">Марка</string>
+    <string name="car_model">Модель</string>
+    <string name="car_year">Год выпуска</string>
+    <string name="car_color">Цвет</string>
+    <string name="car_license_plate">Госномер</string>
+    <string name="car_vin">VIN код</string>
+    <string name="car_engine_model">Модель двигателя</string>
+    <string name="car_engine_volume">Объем двигателя (л)</string>
+    <string name="car_transmission">Тип КПП</string>
+    <string name="car_drive_type">Привод</string>
+    <string name="car_fuel_type">Тип топлива</string>
+    <string name="car_mileage">Пробег (км)</string>
+    <string name="car_current_mileage">Текущий пробег</string>
+    <string name="car_purchase_mileage">Пробег при покупке</string>
+    <string name="car_purchase_date">Дата покупки</string>
+    <string name="car_notes">Заметки</string>
+    <string name="car_photo">Фото автомобиля</string>
+    
+    <!-- Transmission Types -->
+    <string name="transmission_automatic">Автомат</string>
+    <string name="transmission_manual">Механика</string>
+    <string name="transmission_robot">Робот</string>
+    <string name="transmission_cvt">Вариатор</string>
+    
+    <!-- Drive Types -->
+    <string name="drive_fwd">Передний</string>
+    <string name="drive_rwd">Задний</string>
+    <string name="drive_awd">Полный</string>
+    
+    <!-- Fuel Types -->
+    <string name="fuel_petrol_92">Бензин АИ-92</string>
+    <string name="fuel_petrol_95">Бензин АИ-95</string>
+    <string name="fuel_petrol_98">Бензин АИ-98</string>
+    <string name="fuel_diesel">Дизель</string>
+    <string name="fuel_gas">Газ</string>
+    <string name="fuel_electric">Электричество</string>
+    <string name="fuel_hybrid">Гибрид</string>
+    
+    <!-- Validation -->
+    <string name="error_required_field">Обязательное поле</string>
+    <string name="error_invalid_number">Неверное число</string>
+    <string name="error_invalid_year">Неверный год</string>
+    
+    <!-- Settings Screen -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_about">О приложении</string>
+    
+    <!-- Theme Options -->
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_system">Системная</string>
+    
+    <!-- Statistics -->
+    <string name="statistics_title">Статистика</string>
+    <string name="stats_fuel_consumption">Расход топлива</string>
+    <string name="stats_maintenance_cost">Стоимость содержания</string>
+    <string name="stats_total_mileage">Общий пробег</string>
+    
+    <!-- Error Messages -->
+    <string name="error_loading">Ошибка загрузки</string>
+    <string name="error_saving">Ошибка сохранения</string>
+    <string name="error_deleting">Ошибка удаления</string>
+</resources>
