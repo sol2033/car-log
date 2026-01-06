@@ -2,6 +2,44 @@
 <resources>
     <string name="app_name">Car Log</string>
     
+    <!-- Welcome Screen -->
+    <string name="welcome_title">Welcome!</string>
+    <string name="welcome_message">Thank you for installing my car logbook application.\n\nPlease read the information section to understand the functionality.</string>
+    <string name="welcome_read_info">Read Information</string>
+    <string name="welcome_skip">Later</string>
+    
+    <!-- App Info Screen -->
+    <string name="app_info_title">App Information</string>
+    <string name="info_expand">Expand</string>
+    <string name="info_collapse">Collapse</string>
+    
+    <string name="info_important_title">IMPORTANT</string>
+    <string name="info_important_content">Welcome once again to my application.\n\nThis is a completely free product that I, a student and car enthusiast, initially created only for personal use, but decided to share with you as well. I have no goal to make money from this, gain popularity, I just wanted to try to create a convenient application by personal standards for keeping car statistics.\n\nMobile development is not my area of interest and I admit I don\'t understand much about it, so this project was completely written with the help of vibe coding, therefore, some minor shortcomings and errors are likely, which I am ready to try to fix in further updates (contact me through the contacts specified in the application settings)\n\nSince the project is free and I\'ll be honest: I don\'t want to spend money on a database to store your records, so all records are stored LOCALLY. This means that if you delete the application and reinstall it, you will LOSE all data.\n\nBut what to do if you changed your phone/broke the old one/reinstalled the application for another reason? For this, I implemented export and import of your data (see Phone Settings). This is not the most convenient way, but the only free one. Accordingly, I recommend sometimes performing an \"export\" of your data in case of their loss.</string>
+    
+    <string name="info_cars_title">Cars</string>
+    <string name="info_cars_content">Here you manage your cars. You can:\n\n• Add new cars with photos and detailed information (make, model, VIN, license plate, etc.)\n• View car cards with basic statistics\n• Edit car information\n• Delete cars (all related records will also be deleted)\n\nThe car card displays general statistics: total mileage, number of refuelings, average fuel consumption and other useful information.</string>
+    
+    <string name="info_consumables_title">Consumables</string>
+    <string name="info_consumables_content">Section for tracking consumable materials:\n\n• Various categories: engine oil, transmission oil, brake fluid, antifreeze, air/cabin/fuel filters, spark plugs, brake pads, tires\n• For each consumable, specify installation date, mileage, manufacturer, part number\n• Setting replacement intervals (by mileage, time, or both parameters)\n• Automatic reminders about the need for replacement\n• Replacement history for each category\n• Ability to add work cost and photos\n\nThe application automatically tracks the condition of consumables and warns about the need for replacement.</string>
+    
+    <string name="info_parts_title">Parts</string>
+    <string name="info_parts_content">Accounting for all parts and assemblies of the car:\n\n• Adding parts with indication of name, manufacturer, part number\n• Installation date and current mileage\n• Cost of the part and installation work\n• Mark about breakdown with indication of date and mileage\n• Ability to replace the part (creates a new record, the old one is marked as broken)\n• Part photos\n• Notes and comments\n\nThis allows you to keep a complete history of all installed parts and track their reliability.</string>
+    
+    <string name="info_breakdowns_title">Breakdowns</string>
+    <string name="info_breakdowns_content">Log of all breakdowns and repairs:\n\n• Recording breakdowns with indication of name, date and mileage\n• Description of the problem and work performed\n• Repair cost\n• Service information (name, address)\n• Repair status (in progress / completed)\n• Photos before and after repair\n• Notes\n\nHelps track all problems with the car and plan the repair budget.</string>
+    
+    <string name="info_accidents_title">Accidents</string>
+    <string name="info_accidents_content">Accounting for road traffic accidents:\n\n• Date and place of the accident\n• Description of circumstances\n• Information about the culprit\n• Insurance company and case number\n• Status (in progress / closed)\n• Amount of damage and compensation\n• Photos from the accident scene and damage\n\nImportant information for insurance cases and legal issues.</string>
+    
+    <string name="info_refueling_title">Refueling</string>
+    <string name="info_refueling_content">Accounting for all car refuelings:\n\n• Date, mileage and refueling location\n• Fuel volume and type (gasoline/diesel/gas)\n• Cost per liter and total cost\n• Full/partial tank\n• Automatic fuel consumption calculation\n• Gas equipment support\n\nThe application automatically calculates the average consumption per 100 km and displays fuel consumption statistics.</string>
+    
+    <string name="info_expenses_title">Other Expenses</string>
+    <string name="info_expenses_content">Accounting for all other car expenses:\n\n• Various categories: parking, car wash, fines, insurance, technical inspection, taxes, other\n• Date, mileage and amount of expense\n• Service information\n• Notes\n\nAllows you to keep a complete record of all car expenses and analyze the structure of expenses.</string>
+    
+    <string name="info_statistics_title">Statistics</string>
+    <string name="info_statistics_content">Detailed car statistics:\n\n• General statistics: total mileage, number of refuelings, average fuel consumption\n• Fuel consumption graphs over time\n• Expense analysis by categories\n• Statistics on consumables and parts\n• Information about breakdowns and repairs\n• Data export in various formats\n\nAll data is presented in a convenient visual format with graphs and charts.</string>
+    
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
@@ -96,7 +134,15 @@
     <string name="settings_about">About</string>
     <string name="settings_version">Version</string>
     <string name="settings_developer">Developer</string>
+    <string name="developer_name">Titov Dmitry</string>
+    <string name="settings_drive2">My Drive2</string>
+    <string name="settings_repository">Project Repository</string>
     <string name="settings_language_title">App Language</string>
+    <string name="settings_backup_title">Backup &amp; Restore</string>
+    <string name="settings_export_data">Export Data</string>
+    <string name="settings_export_description">Save all data to file</string>
+    <string name="settings_import_data">Import Data</string>
+    <string name="settings_import_description">Restore data from file</string>
     
     <!-- Theme Options -->
     <string name="theme_light">Light</string>

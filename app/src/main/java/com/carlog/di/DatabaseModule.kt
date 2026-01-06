@@ -6,6 +6,7 @@ import com.carlog.data.local.CarLogDatabase
 import com.carlog.data.local.MIGRATION_7_8
 import com.carlog.data.local.MIGRATION_8_9
 import com.carlog.data.local.MIGRATION_9_10
+import com.carlog.data.local.MIGRATION_10_11
 import com.carlog.data.local.dao.AccidentDao
 import com.carlog.data.local.dao.BreakdownDao
 import com.carlog.data.local.dao.CarDao
@@ -34,8 +35,7 @@ object DatabaseModule {
             CarLogDatabase::class.java,
             CarLogDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
-            .fallbackToDestructiveMigration()
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
             .build()
     }
     

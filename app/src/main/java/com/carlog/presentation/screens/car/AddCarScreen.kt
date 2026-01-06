@@ -416,7 +416,7 @@ fun AddCarScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             
             Text(
                 text = "Фотографии автомобиля",
@@ -531,7 +531,7 @@ fun AddCarScreen(
                 )
             }
             
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             
             OutlinedTextField(
                 value = state.notes,

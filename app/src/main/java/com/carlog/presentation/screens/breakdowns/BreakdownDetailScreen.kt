@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -47,7 +47,7 @@ fun BreakdownDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, stringResource(R.string.back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -175,7 +175,7 @@ private fun BreakdownDetailContent(
                 InfoRow(label = "Название", value = breakdown.title)
                 
                 if (!breakdown.description.isNullOrBlank()) {
-                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
                         text = "Описание",
                         style = MaterialTheme.typography.bodyMedium,
@@ -253,7 +253,7 @@ private fun BreakdownDetailContent(
                 InfoRow(label = "Стоимость запчастей", value = "₽%.2f".format(breakdown.partsCost))
                 InfoRow(label = "Стоимость работы", value = "₽%.2f".format(breakdown.serviceCost))
                 
-                Divider(modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 
                 InfoRow(
                     label = "Общая стоимость",

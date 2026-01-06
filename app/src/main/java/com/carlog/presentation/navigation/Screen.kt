@@ -6,6 +6,8 @@ import java.nio.charset.StandardCharsets
 sealed class Screen(val route: String) {
     // Onboarding
     object LanguageSelection : Screen("language_selection")
+    object Welcome : Screen("welcome")
+    object AppInfo : Screen("app_info")
     
     // Main screens
     object CarList : Screen("car_list")

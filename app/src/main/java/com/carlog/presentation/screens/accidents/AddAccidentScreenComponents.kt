@@ -208,7 +208,7 @@ fun RepairSection(
                             }
                         }
                         
-                        Divider()
+                        HorizontalDivider()
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),

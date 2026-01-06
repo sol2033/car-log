@@ -9,6 +9,9 @@ interface CarDao {
     @Query("SELECT * FROM cars ORDER BY updatedAt DESC")
     fun getAllCars(): Flow<List<Car>>
     
+    @Query("SELECT * FROM cars ORDER BY updatedAt DESC")
+    suspend fun getAllCarsOnce(): List<Car>
+    
     @Query("SELECT * FROM cars WHERE id = :carId")
     fun getCarById(carId: Long): Flow<Car?>
     

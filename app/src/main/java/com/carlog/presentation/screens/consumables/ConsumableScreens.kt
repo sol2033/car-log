@@ -34,7 +34,7 @@ import java.util.*
 @Composable
 fun AddConsumableScreen(
     carId: Long,
-    category: String?,
+    category: String,
     consumableId: Long?,
     onNavigateBack: () -> Unit,
     viewModel: AddConsumableViewModel = hiltViewModel()

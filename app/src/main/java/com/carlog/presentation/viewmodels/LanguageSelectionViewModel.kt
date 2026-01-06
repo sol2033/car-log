@@ -12,6 +12,6 @@ class LanguageSelectionViewModel @Inject constructor(
 
     suspend fun selectLanguage(languageCode: String) {
         appPreferences.setLanguage(languageCode)
-        appPreferences.setFirstLaunchCompleted()
+        // НЕ вызываем setFirstLaunchCompleted() здесь - только после Welcome screen
     }
 }

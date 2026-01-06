@@ -56,8 +56,45 @@ fun NavGraph(
         composable(route = Screen.LanguageSelection.route) {
             com.carlog.presentation.screens.language.LanguageSelectionScreen(
                 onLanguageSelected = {
-                    navController.navigate(Screen.CarList.route) {
+                    navController.navigate(Screen.Welcome.route) {
                         popUpTo(Screen.LanguageSelection.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // Welcome Screen (First Launch)
+        composable(route = Screen.Welcome.route) {
+            com.carlog.presentation.screens.welcome.WelcomeScreen(
+                onSkip = {
+                    navController.navigate(Screen.CarList.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                },
+                onReadInfo = {
+                    navController.navigate("${Screen.AppInfo.route}?firstTime=true") {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // App Info Screen
+        composable(
+            route = Screen.AppInfo.route + "?firstTime={firstTime}",
+            arguments = listOf(
+                navArgument("firstTime") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val isFirstTime = backStackEntry.arguments?.getBoolean("firstTime") ?: false
+            com.carlog.presentation.screens.info.AppInfoScreen(
+                isFirstTime = isFirstTime,
+                onNavigateBack = {
+                    navController.navigate(Screen.CarList.route) {
+                        popUpTo(Screen.AppInfo.route) { inclusive = true }
                     }
                 }
             )
@@ -77,6 +114,9 @@ fun NavGraph(
                 },
                 onSettingsClick = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onInfoClick = {
+                    navController.navigate(Screen.AppInfo.route)
                 }
             )
         }
@@ -435,7 +475,7 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
-            val category = backStackEntry.arguments?.getString("category")
+            val category = backStackEntry.arguments?.getString("category") ?: return@composable
             AddConsumableScreen(
                 carId = carId,
                 category = category,
@@ -456,7 +496,7 @@ fun NavGraph(
             val consumableId = backStackEntry.arguments?.getLong("consumableId") ?: return@composable
             AddConsumableScreen(
                 carId = carId,
-                category = null,
+                category = "",
                 consumableId = consumableId,
                 onNavigateBack = { navController.popBackStack() }
             )

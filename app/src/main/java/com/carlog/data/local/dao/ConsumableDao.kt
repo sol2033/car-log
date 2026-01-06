@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ConsumableDao {
     
+    @Query("SELECT * FROM consumables ORDER BY installationDate DESC")
+    suspend fun getAllConsumablesOnce(): List<Consumable>
+    
     @Query("SELECT * FROM consumables WHERE carId = :carId ORDER BY installationDate DESC")
     fun getConsumablesByCarId(carId: Long): Flow<List<Consumable>>
     

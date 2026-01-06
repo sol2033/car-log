@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface RefuelingDao {
     
+    @Query("SELECT * FROM refuelings ORDER BY date DESC")
+    suspend fun getAllRefuelingsOnce(): List<Refueling>
+    
     @Query("SELECT * FROM refuelings WHERE carId = :carId ORDER BY date DESC, mileage DESC")
     fun getRefuelingsByCarId(carId: Long): Flow<List<Refueling>>
     

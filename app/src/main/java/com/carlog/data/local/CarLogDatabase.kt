@@ -28,7 +28,7 @@ import com.carlog.domain.model.Refueling
         Refueling::class,
         Expense::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

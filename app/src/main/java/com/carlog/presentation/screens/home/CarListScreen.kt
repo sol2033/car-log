@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ fun CarListScreen(
     onAddCarClick: () -> Unit,
     onStatisticsClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onInfoClick: () -> Unit,
     viewModel: CarListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -37,6 +39,12 @@ fun CarListScreen(
             TopAppBar(
                 title = { Text("Car Log") },
                 actions = {
+                    IconButton(onClick = onInfoClick) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "App Info"
+                        )
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,

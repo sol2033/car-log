@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AccidentDao {
     
+    @Query("SELECT * FROM accidents ORDER BY date DESC")
+    suspend fun getAllAccidentsOnce(): List<Accident>
+    
     @Query("SELECT * FROM accidents WHERE carId = :carId ORDER BY date DESC")
     fun getAccidentsByCarId(carId: Long): Flow<List<Accident>>
     

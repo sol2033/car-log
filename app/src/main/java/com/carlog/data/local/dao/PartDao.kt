@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface PartDao {
     
+    @Query("SELECT * FROM parts ORDER BY installDate DESC")
+    suspend fun getAllPartsOnce(): List<Part>
+    
     @Query("SELECT * FROM parts WHERE carId = :carId ORDER BY installDate DESC")
     fun getPartsByCarId(carId: Long): Flow<List<Part>>
     
