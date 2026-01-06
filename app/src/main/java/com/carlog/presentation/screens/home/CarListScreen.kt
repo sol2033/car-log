@@ -11,10 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.carlog.R
 import com.carlog.domain.model.Car
 
@@ -155,7 +158,7 @@ private fun EmptyState(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Добавить автомобиль")
+            Text(stringResource(R.string.add_car))
         }
     }
 }
@@ -171,17 +174,34 @@ private fun CarCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // Title: Brand + Model
-            Text(
-                text = "${car.brand} ${car.model}",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            // Основное фото автомобиля (если есть)
+            if (car.mainPhotoPath != null) {
+                AsyncImage(
+                    model = car.mainPhotoPath,
+                    contentDescription = "Фото ${car.brand} ${car.model}",
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(120.dp)
+                        .clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+            ) {
+                // Title: Brand + Model
+                Text(
+                    text = "${car.brand} ${car.model}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             
             // Year and Color
             if (car.year != null || car.color != null) {
@@ -250,6 +270,7 @@ private fun CarCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
+            }
             }
         }
     }

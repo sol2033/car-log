@@ -12,6 +12,23 @@
     <string name="back">Back</string>
     <string name="search">Search</string>
     <string name="settings">Settings</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="mark">Mark</string>
+    <string name="select_date">Select Date</string>
+    <string name="installed">Installed:</string>
+    <string name="mileage">Mileage:</string>
+    <string name="broken_on">Broken:</string>
+    <string name="part_mileage_driven">Part driven: %1$d km</string>
+    <string name="service">Service:</string>
+    <string name="photos">Photos:</string>
+    <string name="photo_part">Part Photo</string>
+    <string name="no_parts_yet">No parts yet</string>
+    <string name="no_active_parts">No active parts</string>
+    <string name="no_broken_parts">No broken parts</string>
+    <string name="no_accident_parts">No parts installed due to accident</string>
+    <string name="no_non_accident_parts">No parts without accident</string>
+    <string name="add_first_part">Tap + to add first part</string>
     
     <!-- Navigation -->
     <string name="nav_my_cars">My Cars</string>
@@ -23,21 +40,24 @@
     <string name="car_list_empty_title">You don\'t have any cars yet</string>
     <string name="car_list_empty_subtitle">Add your first car to start tracking</string>
     <string name="add_car">Add Car</string>
+    <string name="edit_car_title">Edit Car</string>
+    <string name="save_changes">Save Changes</string>
     
     <!-- Car Fields -->
-    <string name="car_brand">Brand</string>
-    <string name="car_model">Model</string>
+    <string name="car_brand">Brand *</string>
+    <string name="car_model">Model *</string>
     <string name="car_year">Year</string>
     <string name="car_color">Color</string>
     <string name="car_license_plate">License Plate</string>
     <string name="car_vin">VIN Code</string>
     <string name="car_engine_model">Engine Model</string>
     <string name="car_engine_volume">Engine Volume (L)</string>
-    <string name="car_transmission">Transmission</string>
+    <string name="car_transmission">Transmission Type</string>
     <string name="car_drive_type">Drive Type</string>
-    <string name="car_fuel_type">Fuel Type</string>
+    <string name="car_fuel_type">Fuel Type *</string>
+    <string name="car_gas_type">Gas Type *</string>
     <string name="car_mileage">Mileage (km)</string>
-    <string name="car_current_mileage">Current Mileage</string>
+    <string name="car_current_mileage">Current Mileage (km) *</string>
     <string name="car_purchase_mileage">Purchase Mileage</string>
     <string name="car_purchase_date">Purchase Date</string>
     <string name="car_notes">Notes</string>
@@ -70,23 +90,324 @@
     
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>
-    <string name="settings_language">Language</string>
+    <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>
+    <string name="settings_currency">Currency</string>
     <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_developer">Developer</string>
+    <string name="settings_language_title">App Language</string>
     
     <!-- Theme Options -->
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_system">System</string>
     
+    <!-- Accidents Screen -->
+    <string name="accidents_title">Accidents</string>
+    <string name="accident_detail_title">Accident Details</string>
+    <string name="add_accident">Add Accident</string>
+    <string name="edit_accident">Edit Accident</string>
+    <string name="accident_date">Accident Date *</string>
+    <string name="accident_location">Accident Location (optional)</string>
+    <string name="damage_description">Damage Description *</string>
+    <string name="damage_severity">Damage Severity *</string>
+    <string name="severity_minor">Minor</string>
+    <string name="severity_moderate">Moderate</string>
+    <string name="severity_serious">Serious</string>
+    <string name="severity_total">Total Loss</string>
+    <string name="my_role_in_accident">My Role in Accident</string>
+    <string name="i_am_victim">I am the victim</string>
+    <string name="i_am_at_fault">I am at fault</string>
+    <string name="delete_accident_title">Delete accident record?</string>
+    <string name="delete_accident_confirmation">Are you sure you want to delete this record?</string>
+    <string name="delete_accident_detail_title">Delete accident?</string>
+    <string name="delete_accident_detail_message">This action cannot be undone</string>
+    
+    <!-- Consumables Screen -->
+    <string name="active_tab">Active</string>
+    <string name="history_tab">History</string>
+    <string name="add_consumable">Add Consumable</string>
+    <string name="start">Start</string>
+    <string name="sort_by_date_newest">By date: newest first</string>
+    <string name="sort_by_date_oldest">By date: oldest first</string>
+    <string name="sort_by_mileage_high">By mileage: highest first</string>
+    <string name="sort_by_mileage_low">By mileage: lowest first</string>
+    <string name="installed_now">Installed now</string>
+    
+    <!-- Expenses Screen -->
+    <string name="other_expenses">Other Expenses</string>
+    <string name="expense_detail_title">Expense Details</string>
+    <string name="add_expense_title">Add Expense</string>
+    <string name="expense_category">Category *</string>
+    <string name="expense_cost">Cost (₽) *</string>
+    <string name="service_name">Service Name</string>
+    <string name="service_address">Service Address</string>
+    <string name="delete_expense_title">Delete expense?</string>
+    <string name="delete_expense_message">This action cannot be undone</string>
+    <string name="sort_by_cost_high">By cost (highest)</string>
+    <string name="sort_by_cost_low">By cost (lowest)</string>
+    
+    <!-- Refuelings Screen -->
+    <string name="delete_refueling_title">Delete record?</string>
+    <string name="delete_refueling_message_gas">Are you sure you want to delete this refueling record?</string>
+    <string name="delete_refueling_message_electric">Are you sure you want to delete this charging record?</string>
+    <string name="mileage_km">Mileage (km) *</string>
+    <string name="fuel_type_label">Fuel Type</string>
+    <string name="select_fuel_type">Select type: %1$s or %2$s</string>
+    <string name="auto_calculated_total">Total cost calculated automatically</string>
+    <string name="total_cost_rub">Total Cost (₽)</string>
+    <string name="fill_if_no_price_per_liter">Fill if price per liter not specified</string>
+    <string name="disabled_using_price_per_liter">Disabled - using price per liter</string>
+    <string name="optional">Optional</string>
+    <string name="notes">Notes</string>
+    
+    <!-- Parts Screen -->
+    <string name="delete_part_title">Delete part?</string>
+    <string name="delete_part_message">Are you sure you want to delete %1$s?</string>
+    <string name="mark_broken_title">Mark part as broken?</string>
+    <string name="mark_broken_message">Is the part \"%1$s\" really broken?</string>
+    <string name="add_new_part_title">Add new part?</string>
+    <string name="add_new_part_message">Do you want to add a new part to replace the broken \"%1$s\"?</string>
+    <string name="yes_add">Yes, add</string>
+    <string name="no_dont_add">No, don\'t add</string>
+    <string name="mark_part_broken">Mark part as broken</string>
+    
     <!-- Statistics -->
     <string name="statistics_title">Statistics</string>
     <string name="stats_fuel_consumption">Fuel Consumption</string>
     <string name="stats_maintenance_cost">Maintenance Cost</string>
     <string name="stats_total_mileage">Total Mileage</string>
+    <string name="tab_general">General</string>
+    <string name="tab_fuel">Fuel</string>
+    <string name="tab_repairs">Repairs</string>
+    <string name="tab_other_expenses">Other Expenses</string>
+    <string name="tab_consumables">Consumables</string>
+    <string name="select_month">Select month...</string>
+    <string name="select_month_and_year">Select month and year</string>
+    <string name="select">Select</string>
     
     <!-- Error Messages -->
     <string name="error_loading">Loading error</string>
     <string name="error_saving">Saving error</string>
     <string name="error_deleting">Deleting error</string>
+    
+    <!-- Car Detail Screen -->
+    <string name="car_details">Car Details</string>
+    <string name="car_screen_title">Car</string>
+    <string name="current_mileage">Current Mileage</string>
+    <string name="update_mileage_dialog_title">Update current mileage?</string>
+    <string name="update_mileage_dialog_message">Do you want to update the car\'s current mileage?</string>
+    <string name="new_mileage_dialog_title">New Mileage</string>
+    <string name="new_mileage_label">Mileage (km)</string>
+    <string name="km">km</string>
+    <string name="liters">L</string>
+    <string name="basic_information">Basic Information</string>
+    <string name="technical_specifications">Technical Specifications</string>
+    <string name="brand">Brand</string>
+    <string name="model">Model</string>
+    <string name="year">Year</string>
+    <string name="color">Color</string>
+    <string name="license_plate">License Plate</string>
+    <string name="vin">VIN</string>
+    <string name="engine_model">Engine Model</string>
+    <string name="engine_volume">Engine Volume</string>
+    <string name="transmission_type">Transmission</string>
+    <string name="drive_type">Drive Type</string>
+    <string name="fuel_type">Fuel Type</string>
+    <string name="delete_car">Delete Car</string>
+    <string name="delete_car_confirmation">Are you sure you want to delete %1$s?</string>
+    <string name="edit_car">Edit Car</string>
+    
+    <!-- Parts -->
+    <string name="parts">Parts</string>
+    <string name="part_screen_title">Part</string>
+    <string name="add_part">Add Part</string>
+    <string name="edit_part">Edit Part</string>
+    <string name="delete_part">Delete Part</string>
+    <string name="delete_part_dialog_title">Delete part?</string>
+    <string name="delete_part_dialog_message">Are you sure you want to delete %1$s?</string>
+    <string name="part_name">Part Name *</string>
+    <string name="part_name_field">Part Name</string>
+    <string name="manufacturer">Manufacturer</string>
+    <string name="article_number">Article Number</string>
+    <string name="installation_mileage">Installation Mileage (km) *</string>
+    <string name="cost_rub">Cost (₽) *</string>
+    <string name="service_installed">Installed at service</string>
+    <string name="service_cost_consumable">Service cost (₽)</string>
+    <string name="volume_liters">Volume (L)</string>
+    <string name="mileage_interval_km">Mileage interval (km)</string>
+    <string name="days_interval_label">Days interval</string>
+    <string name="consumable_details">Consumable Details</string>
+    <string name="delete_consumable_title">Delete consumable?</string>
+    <string name="delete_consumable_message">This action cannot be undone.</string>
+    <string name="replace_consumable_title">Replace consumable</string>
+    <string name="replace_consumable_message">Are you installing the same consumable or a different one?</string>
+    <string name="same_consumable">Same</string>
+    <string name="different_consumable">Different</string>
+    <string name="replace_same_title">Replace with same consumable</string>
+    <string name="consumable_cost_label">Consumable cost</string>
+    <string name="replace_button">Replace</string>
+    <string name="consumable_history_title">Consumable History</string>
+    <string name="consumable_settings_label">Consumable Settings</string>
+    <string name="default_volume_label">Default volume (L)</string>
+    <string name="save_settings">Save settings</string>
+    <string name="category_label">Category *</string>
+    <string name="amount_label">Amount</string>
+    <string name="by_parts_label">By parts</string>
+    <string name="total_amount_label">Total amount</string>
+    <string name="add_part_button">Add part</string>
+    <string name="labor_cost_optional">Labor cost (optional)</string>
+    <string name="total_repair_cost_label">Total repair cost</string>
+    <string name="add_part_dialog_title">Add part</string>
+    <string name="part_name_required">Name *</string>
+    <string name="part_manufacturer_label">Manufacturer</string>
+    <string name="part_price_required">Price *</string>
+    <string name="car_brand_required">Brand *</string>
+    <string name="car_model_required">Model *</string>
+    <string name="current_mileage_required">Current Mileage (km) *</string>
+    <string name="fuel_type_required">Fuel Type *</string>
+    <string name="gas_type_required">Gas Type *</string>
+    <string name="not_selected">Not selected</string>
+    <string name="transmission_type_label">Transmission Type</string>
+    <string name="drive_type_label">Drive Type</string>
+    <string name="engine_model_label">Engine Model</string>
+    <string name="engine_volume_label">Engine Volume (L)</string>
+    <string name="part_number">Part Number</string>
+    <string name="install_date">Install Date *</string>
+    <string name="install_mileage">Install Mileage (km) *</string>
+    <string name="installation_type">Installation Type</string>
+    <string name="installation_type_label">Installation Type *</string>
+    <string name="self_installation">Self</string>
+    <string name="service_installation">Service</string>
+    <string name="part_price">Part Price (₽) *</string>
+    <string name="service_price">Service Price (₽)</string>
+    <string name="part_photos">Part Photos</string>
+    <string name="add_photo">Add Photo</string>
+    <string name="total_cost">Total Cost</string>
+    <string name="total_cost_label">Total Cost:</string>
+    <string name="part_active">Active</string>
+    <string name="part_broken">Broken</string>
+    <string name="part_status_broken_label">Broken</string>
+    <string name="part_status_active_label">Active</string>
+    <string name="part_accident_label">Accident</string>
+    <string name="sort_by_date">By Date</string>
+    <string name="sort_by_price">By Price</string>
+    <string name="sort_by_mileage">By Install Mileage</string>
+    <string name="filter_all">All</string>
+    <string name="filter_active">Active</string>
+    <string name="filter_broken">Broken</string>
+    <string name="filter_accident_only">Accident Only</string>
+    <string name="filter_no_accident">No Accident</string>
+    <string name="mark_broken_dialog_title">Mark as broken</string>
+    <string name="mark_broken_dialog_message">Specify breakdown date and mileage for %1$s</string>
+    <string name="breakdown_date_label">Breakdown Date</string>
+    <string name="breakdown_mileage_label">Breakdown Mileage (km)</string>
+    <string name="mark_broken_part_dialog_title">Mark part as broken?</string>
+    <string name="mark_broken_part_dialog_message">Is the part \"%1$s\" really broken?</string>
+    <string name="add_replacement_part_dialog_title">Add new part?</string>
+    <string name="add_replacement_part_dialog_message">Do you want to add a new part to replace broken \"%1$s\"?</string>
+    
+    <!-- Consumables specific -->
+    <string name="consumable_not_added">Consumable not added</string>
+    <string name="interval_exceeded_mileage">Interval exceeded by %1$s</string>
+    <string name="date_exceeded">Date exceeded by %1$s</string>
+    <string name="interval_and_date_exceeded">Interval exceeded by %1$s and date exceeded by %2$s</string>
+    <string name="remaining_mileage_or_days">Remaining %1$s</string>
+    <string name="interval_exceeded">Interval exceeded</string>
+    <string name="remaining">Remaining</string>
+    <string name="no_active_consumables">No active consumables</string>
+    <string name="consumable_settings_title">Consumable Settings</string>
+    <string name="consumable_welcome_message">Configure consumables for your car</string>
+    <string name="additional_categories">Additional Categories</string>
+    
+    <string name="basic_info">Basic Information *</string>
+    <string name="installation_info">Installation *</string>
+    <string name="installation_info_title">Installation Information</string>
+    <string name="breakdown_info_title">Breakdown Information</string>
+    <string name="cost_info">Cost *</string>
+    <string name="cost_title">Cost</string>
+    <string name="service_info_title">Service Information</string>
+    <string name="remove_photo">Remove Photo</string>
+    <string name="installed_on">Install Date</string>
+    <string name="install_mileage_detail">Install Mileage</string>
+    <string name="installation_method">Installation Type</string>
+    <string name="part_mileage_driven_label">Part Mileage Driven</string>
+    <string name="part_price_label">Part Price</string>
+    <string name="service_cost_detail">Service Cost</string>
+    <string name="breakdown_date_detail">Breakdown Date</string>
+    <string name="breakdown_mileage_detail">Breakdown Mileage</string>
+    <string name="part_installed_after_accident">Part installed after accident</string>
+    <string name="name_label">Name</string>
+    <string name="address_label">Address</string>
+    <string name="photos_title">Photos</string>
+    
+    <!-- Breakdowns -->
+    <string name="breakdowns">Breakdowns &amp; Repairs</string>
+    <string name="breakdown_screen_title">Breakdown</string>
+    <string name="add_breakdown">Add Breakdown</string>
+    <string name="edit_breakdown">Edit Breakdown</string>
+    <string name="delete_breakdown">Delete Breakdown</string>
+    <string name="delete_breakdown_dialog_title">Delete breakdown?</string>
+    <string name="delete_breakdown_dialog_message">Are you sure you want to delete %1$s?</string>
+    <string name="breakdown_title">Breakdown Title *</string>
+    <string name="breakdown_description">Description *</string>
+    <string name="breakdown_date">Breakdown Date *</string>
+    <string name="breakdown_mileage">Breakdown Mileage (km) *</string>
+    <string name="broken_part">Broken Part</string>
+    <string name="parts_cost">Parts Cost (₽) *</string>
+    <string name="service_cost">Service Cost (₽)</string>
+    <string name="part_name_breakdown_label">Part Name</string>
+    <string name="part_price_breakdown_label">Price (₽)</string>
+    <string name="service_cost_label">Service Cost (₽)</string>
+    <string name="breakdown_info_label">Breakdown Information *</string>
+    <string name="repair_cost_label">Repair Cost *</string>
+    <string name="general_parts_cost">General parts cost</string>
+    <string name="specific_parts_list">Specific parts list</string>
+    <string name="warranty_repair">Dealer warranty repair</string>
+    <string name="service_info_label">Service Information</string>
+    <string name="parts_label">Parts:</string>
+    <string name="services_label">Services:</string>
+    <string name="total_cost_label_long">Total cost:</string>
+    
+    <!-- Refuelings -->
+    <string name="refuelings">Refuelings</string>
+    <string name="add_refueling">Add Refueling</string>
+    <string name="charging_title">Charging</string>
+    <string name="charging_history">Electric vehicle charging history</string>
+    <string name="refueling_history">Fuel refueling history and consumption</string>
+    
+    <!-- Expenses -->
+    <string name="expenses">Other Expenses</string>
+    <string name="add_expense">Add Expense</string>
+    
+    <!-- Sections -->
+    <string name="sections_title">Sections</string>
+    <string name="statistics_section_title">Statistics</string>
+    <string name="statistics_section_description">Cost analysis, graphs and key metrics</string>
+    <string name="parts_section_title">Parts</string>
+    <string name="parts_section_description">Installed parts and their condition</string>
+    <string name="breakdowns_section_title">Breakdowns and Repairs</string>
+    <string name="breakdowns_section_description">Repair history and costs</string>
+    <string name="accidents_section_title">Accidents</string>
+    <string name="accidents_section_description">Accident history and insurance payouts</string>
+    <string name="consumables_section_title">Consumables</string>
+    <string name="consumables_section_description">Oils, filters, pads and other consumables</string>
+    <string name="expenses_section_title">Other Expenses</string>
+    <string name="expenses_section_description">Car wash, accessories, detailing and more</string>
+    
+    <!-- Language names -->
+    <string name="language_russian">Russian</string>
+    <string name="language_english">English</string>
+    
+    <string name="body_type">Body Type</string>
+    <string name="photos_header">Photos</string>
+    
+    <!-- Fuel Types -->
+    <string name="fuel_type_benzin">gasoline</string>
+    <string name="fuel_type_dizel">diesel</string>
+    <string name="fuel_type_electro">electricity</string>
+    <string name="fuel_type_gaz">gas</string>
+    <string name="fuel_type_lpg">propane</string>
+    <string name="fuel_type_cng">methane</string>
 </resources>

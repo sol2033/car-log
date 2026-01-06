@@ -12,6 +12,23 @@
     <string name="back">Назад</string>
     <string name="search">Поиск</string>
     <string name="settings">Настройки</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="mark">Отметить</string>
+    <string name="select_date">Выбрать дату</string>
+    <string name="installed">Установлена:</string>
+    <string name="mileage">Пробег:</string>
+    <string name="broken_on">Сломалась:</string>
+    <string name="part_mileage_driven">Проехала запчасть: %1$d км</string>
+    <string name="service">Сервис:</string>
+    <string name="photos">Фото:</string>
+    <string name="photo_part">Фото запчасти</string>
+    <string name="no_parts_yet">Запчастей пока нет</string>
+    <string name="no_active_parts">Нет активных запчастей</string>
+    <string name="no_broken_parts">Нет сломанных запчастей</string>
+    <string name="no_accident_parts">Нет запчастей, установленных из-за ДТП</string>
+    <string name="no_non_accident_parts">Нет запчастей без привязки к ДТП</string>
+    <string name="add_first_part">Нажмите +, чтобы добавить первую запчасть</string>
     
     <!-- Navigation -->
     <string name="nav_my_cars">Мои авто</string>
@@ -23,10 +40,12 @@
     <string name="car_list_empty_title">У вас пока нет автомобилей</string>
     <string name="car_list_empty_subtitle">Добавьте свой первый автомобиль, чтобы начать вести учёт</string>
     <string name="add_car">Добавить автомобиль</string>
+    <string name="edit_car_title">Редактировать автомобиль</string>
+    <string name="save_changes">Сохранить изменения</string>
     
     <!-- Car Fields -->
-    <string name="car_brand">Марка</string>
-    <string name="car_model">Модель</string>
+    <string name="car_brand">Марка *</string>
+    <string name="car_model">Модель *</string>
     <string name="car_year">Год выпуска</string>
     <string name="car_color">Цвет</string>
     <string name="car_license_plate">Госномер</string>
@@ -35,9 +54,10 @@
     <string name="car_engine_volume">Объем двигателя (л)</string>
     <string name="car_transmission">Тип КПП</string>
     <string name="car_drive_type">Привод</string>
-    <string name="car_fuel_type">Тип топлива</string>
+    <string name="car_fuel_type">Тип топлива *</string>
+    <string name="car_gas_type">Тип газа *</string>
     <string name="car_mileage">Пробег (км)</string>
-    <string name="car_current_mileage">Текущий пробег</string>
+    <string name="car_current_mileage">Текущий пробег (км) *</string>
     <string name="car_purchase_mileage">Пробег при покупке</string>
     <string name="car_purchase_date">Дата покупки</string>
     <string name="car_notes">Заметки</string>
@@ -70,23 +90,324 @@
     
     <!-- Settings Screen -->
     <string name="settings_title">Настройки</string>
-    <string name="settings_language">Язык</string>
+    <string name="settings_appearance">Внешний вид</string>
     <string name="settings_theme">Тема</string>
+    <string name="settings_currency">Валюта</string>
     <string name="settings_about">О приложении</string>
+    <string name="settings_version">Версия</string>
+    <string name="settings_developer">Разработчик</string>
+    <string name="settings_language_title">Язык приложения</string>
     
     <!-- Theme Options -->
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="theme_system">Системная</string>
     
+    <!-- Accidents Screen -->
+    <string name="accidents_title">ДТП</string>
+    <string name="accident_detail_title">Детали ДТП</string>
+    <string name="add_accident">Добавить ДТП</string>
+    <string name="edit_accident">Редактировать ДТП</string>
+    <string name="accident_date">Дата ДТП *</string>
+    <string name="accident_location">Место ДТП (необязательно)</string>
+    <string name="damage_description">Описание повреждений *</string>
+    <string name="damage_severity">Серьезность повреждений *</string>
+    <string name="severity_minor">Незначительная</string>
+    <string name="severity_moderate">Средняя</string>
+    <string name="severity_serious">Серьезная</string>
+    <string name="severity_total">Тотальная</string>
+    <string name="my_role_in_accident">Моя роль в ДТП</string>
+    <string name="i_am_victim">Я пострадавший</string>
+    <string name="i_am_at_fault">Я виновник</string>
+    <string name="delete_accident_title">Удалить запись о ДТП?</string>
+    <string name="delete_accident_confirmation">Вы уверены, что хотите удалить эту запись?</string>
+    <string name="delete_accident_detail_title">Удалить ДТП?</string>
+    <string name="delete_accident_detail_message">Это действие нельзя отменить</string>
+    
+    <!-- Consumables Screen -->
+    <string name="active_tab">Активные</string>
+    <string name="history_tab">История</string>
+    <string name="add_consumable">Добавить расходник</string>
+    <string name="start">Начать</string>
+    <string name="sort_by_date_newest">По дате: новые первые</string>
+    <string name="sort_by_date_oldest">По дате: старые первые</string>
+    <string name="sort_by_mileage_high">По пробегу: большой первый</string>
+    <string name="sort_by_mileage_low">По пробегу: малый первый</string>
+    <string name="installed_now">Установлен сейчас</string>
+    
+    <!-- Expenses Screen -->
+    <string name="other_expenses">Прочие расходы</string>
+    <string name="expense_detail_title">Детали расхода</string>
+    <string name="add_expense_title">Добавить расход</string>
+    <string name="expense_category">Категория *</string>
+    <string name="expense_cost">Стоимость (₽) *</string>
+    <string name="service_name">Название сервиса</string>
+    <string name="service_address">Адрес сервиса</string>
+    <string name="delete_expense_title">Удалить расход?</string>
+    <string name="delete_expense_message">Это действие нельзя будет отменить</string>
+    <string name="sort_by_cost_high">По стоимости (больше)</string>
+    <string name="sort_by_cost_low">По стоимости (меньше)</string>
+    
+    <!-- Refuelings Screen -->
+    <string name="delete_refueling_title">Удалить запись?</string>
+    <string name="delete_refueling_message_gas">Вы уверены, что хотите удалить эту запись о заправке?</string>
+    <string name="delete_refueling_message_electric">Вы уверены, что хотите удалить эту запись о зарядке?</string>
+    <string name="mileage_km">Пробег (км) *</string>
+    <string name="fuel_type_label">Тип топлива</string>
+    <string name="select_fuel_type">Выберите тип: %1$s или %2$s</string>
+    <string name="auto_calculated_total">Автоматически рассчитана общая стоимость</string>
+    <string name="total_cost_rub">Общая стоимость (₽)</string>
+    <string name="fill_if_no_price_per_liter">Заполняется, если не указана цена за литр</string>
+    <string name="disabled_using_price_per_liter">Отключено - используется цена за литр</string>
+    <string name="optional">Опционально</string>
+    <string name="notes">Заметки</string>
+    
+    <!-- Parts Screen -->
+    <string name="delete_part_title">Удалить запчасть?</string>
+    <string name="delete_part_message">Вы уверены, что хотите удалить %1$s?</string>
+    <string name="mark_broken_title">Отметить запчасть сломанной?</string>
+    <string name="mark_broken_message">Запчасть \"%1$s\" действительно сломана?</string>
+    <string name="add_new_part_title">Добавить новую запчасть?</string>
+    <string name="add_new_part_message">Хотите добавить новую запчасть взамен сломанной \"%1$s\"?</string>
+    <string name="yes_add">Да, добавить</string>
+    <string name="no_dont_add">Нет, не добавлять</string>
+    <string name="mark_part_broken">Отметить запчасть сломанной</string>
+    
     <!-- Statistics -->
     <string name="statistics_title">Статистика</string>
     <string name="stats_fuel_consumption">Расход топлива</string>
     <string name="stats_maintenance_cost">Стоимость содержания</string>
     <string name="stats_total_mileage">Общий пробег</string>
+    <string name="tab_general">Общее</string>
+    <string name="tab_fuel">Топливо</string>
+    <string name="tab_repairs">Ремонты</string>
+    <string name="tab_other_expenses">Прочие расходы</string>
+    <string name="tab_consumables">Расходники</string>
+    <string name="select_month">Выбрать месяц...</string>
+    <string name="select_month_and_year">Выберите месяц и год</string>
+    <string name="select">Выбрать</string>
     
     <!-- Error Messages -->
     <string name="error_loading">Ошибка загрузки</string>
     <string name="error_saving">Ошибка сохранения</string>
     <string name="error_deleting">Ошибка удаления</string>
+    
+    <!-- Car Detail Screen -->
+    <string name="car_details">Детали автомобиля</string>
+    <string name="car_screen_title">Автомобиль</string>
+    <string name="current_mileage">Текущий пробег</string>
+    <string name="update_mileage_dialog_title">Обновить текущий пробег?</string>
+    <string name="update_mileage_dialog_message">Хотите обновить текущий пробег автомобиля?</string>
+    <string name="new_mileage_dialog_title">Новый пробег</string>
+    <string name="new_mileage_label">Пробег (км)</string>
+    <string name="km">км</string>
+    <string name="liters">л</string>
+    <string name="basic_information">Основная информация</string>
+    <string name="technical_specifications">Технические характеристики</string>
+    <string name="brand">Марка</string>
+    <string name="model">Модель</string>
+    <string name="year">Год</string>
+    <string name="color">Цвет</string>
+    <string name="license_plate">Госномер</string>
+    <string name="vin">VIN</string>
+    <string name="engine_model">Модель двигателя</string>
+    <string name="engine_volume">Объем двигателя</string>
+    <string name="transmission_type">КПП</string>
+    <string name="drive_type">Привод</string>
+    <string name="fuel_type">Тип топлива</string>
+    <string name="delete_car">Удалить автомобиль</string>
+    <string name="delete_car_confirmation">Вы уверены, что хотите удалить %1$s?</string>
+    <string name="edit_car">Редактировать автомобиль</string>
+    
+    <!-- Parts -->
+    <string name="parts">Запчасти</string>
+    <string name="part_screen_title">Запчасть</string>
+    <string name="add_part">Добавить запчасть</string>
+    <string name="edit_part">Редактировать запчасть</string>
+    <string name="delete_part">Удалить запчасть</string>
+    <string name="delete_part_dialog_title">Удалить запчасть?</string>
+    <string name="delete_part_dialog_message">Вы уверены, что хотите удалить %1$s?</string>
+    <string name="part_name">Название запчасти *</string>
+    <string name="part_name_field">Название запчасти</string>
+    <string name="manufacturer">Производитель</string>
+    <string name="article_number">Артикул</string>
+    <string name="installation_mileage">Пробег установки (км) *</string>
+    <string name="cost_rub">Стоимость (₽) *</string>
+    <string name="service_installed">Установлено в сервисе</string>
+    <string name="service_cost_consumable">Стоимость услуги сервиса (₽)</string>
+    <string name="volume_liters">Объем (л)</string>
+    <string name="mileage_interval_km">Интервал по пробегу (км)</string>
+    <string name="days_interval_label">Интервал по дням</string>
+    <string name="consumable_details">Детали расходника</string>
+    <string name="delete_consumable_title">Удалить расходник?</string>
+    <string name="delete_consumable_message">Это действие нельзя отменить.</string>
+    <string name="replace_consumable_title">Заменить расходник</string>
+    <string name="replace_consumable_message">Вы устанавливаете тот же расходник или другой?</string>
+    <string name="same_consumable">Тот же</string>
+    <string name="different_consumable">Другой</string>
+    <string name="replace_same_title">Замена на тот же расходник</string>
+    <string name="consumable_cost_label">Стоимость расходника</string>
+    <string name="replace_button">Заменить</string>
+    <string name="consumable_history_title">История расходников</string>
+    <string name="consumable_settings_label">Настройки расходников</string>
+    <string name="default_volume_label">Объем по умолчанию (л)</string>
+    <string name="save_settings">Сохранить настройки</string>
+    <string name="category_label">Категория *</string>
+    <string name="amount_label">Сумма</string>
+    <string name="by_parts_label">По запчастям</string>
+    <string name="total_amount_label">Общая сумма</string>
+    <string name="add_part_button">Добавить запчасть</string>
+    <string name="labor_cost_optional">Стоимость работ (необязательно)</string>
+    <string name="total_repair_cost_label">Общая стоимость ремонта</string>
+    <string name="add_part_dialog_title">Добавить запчасть</string>
+    <string name="part_name_required">Название *</string>
+    <string name="part_manufacturer_label">Производитель</string>
+    <string name="part_price_required">Цена *</string>
+    <string name="car_brand_required">Марка *</string>
+    <string name="car_model_required">Модель *</string>
+    <string name="current_mileage_required">Текущий пробег (км) *</string>
+    <string name="fuel_type_required">Тип топлива *</string>
+    <string name="gas_type_required">Тип газа *</string>
+    <string name="not_selected">Не выбрано</string>
+    <string name="transmission_type_label">Тип КПП</string>
+    <string name="drive_type_label">Привод</string>
+    <string name="engine_model_label">Модель двигателя</string>
+    <string name="engine_volume_label">Объем двигателя (л)</string>
+    <string name="part_number">Артикул</string>
+    <string name="install_date">Дата установки *</string>
+    <string name="install_mileage">Пробег при установке (км) *</string>
+    <string name="installation_type">Способ установки</string>
+    <string name="installation_type_label">Способ установки *</string>
+    <string name="self_installation">Самостоятельно</string>
+    <string name="service_installation">Сервис</string>
+    <string name="part_price">Цена запчасти (₽) *</string>
+    <string name="service_price">Стоимость работы сервиса (₽)</string>
+    <string name="part_photos">Фотографии запчасти</string>
+    <string name="add_photo">Добавить фото</string>
+    <string name="total_cost">Общая стоимость</string>
+    <string name="total_cost_label">Общая стоимость:</string>
+    <string name="part_active">Активна</string>
+    <string name="part_broken">Сломана</string>
+    <string name="part_status_broken_label">Сломана</string>
+    <string name="part_status_active_label">Активна</string>
+    <string name="part_accident_label">ДТП</string>
+    <string name="sort_by_date">По дате</string>
+    <string name="sort_by_price">По цене</string>
+    <string name="sort_by_mileage">По пробегу установки</string>
+    <string name="filter_all">Все</string>
+    <string name="filter_active">Активные</string>
+    <string name="filter_broken">Сломанные</string>
+    <string name="filter_accident_only">Только ДТП</string>
+    <string name="filter_no_accident">Без ДТП</string>
+    <string name="mark_broken_dialog_title">Отметить как сломанную</string>
+    <string name="mark_broken_dialog_message">Укажите дату и пробег поломки для %1$s</string>
+    <string name="breakdown_date_label">Дата поломки</string>
+    <string name="breakdown_mileage_label">Пробег поломки (км)</string>
+    <string name="mark_broken_part_dialog_title">Отметить запчасть сломанной?</string>
+    <string name="mark_broken_part_dialog_message">Запчасть \"%1$s\" действительно сломана?</string>
+    <string name="add_replacement_part_dialog_title">Добавить новую запчасть?</string>
+    <string name="add_replacement_part_dialog_message">Хотите добавить новую запчасть взамен сломанной \"%1$s\"?</string>
+    
+    <!-- Consumables specific -->
+    <string name="consumable_not_added">Расходник не добавлен</string>
+    <string name="interval_exceeded_mileage">Интервал превышен на %1$s</string>
+    <string name="date_exceeded">Дата превышена на %1$s</string>
+    <string name="interval_and_date_exceeded">Интервал превышен на %1$s и дата превышена на %2$s</string>
+    <string name="remaining_mileage_or_days">Осталось %1$s</string>
+    <string name="interval_exceeded">Интервал превышен</string>
+    <string name="remaining">Осталось</string>
+    <string name="no_active_consumables">Нет активных расходников</string>
+    <string name="consumable_settings_title">Настройки расходников</string>
+    <string name="consumable_welcome_message">Настройте расходники для вашего автомобиля</string>
+    <string name="additional_categories">Дополнительные категории</string>
+    
+    <string name="basic_info">Основная информация *</string>
+    <string name="installation_info">Установка *</string>
+    <string name="installation_info_title">Информация об установке</string>
+    <string name="breakdown_info_title">Информация о поломке</string>
+    <string name="cost_info">Стоимость *</string>
+    <string name="cost_title">Стоимость</string>
+    <string name="service_info_title">Информация о сервисе</string>
+    <string name="remove_photo">Удалить фото</string>
+    <string name="installed_on">Дата установки</string>
+    <string name="install_mileage_detail">Пробег при установке</string>
+    <string name="installation_method">Способ установки</string>
+    <string name="part_mileage_driven_label">Проехала запчасть</string>
+    <string name="part_price_label">Цена запчасти</string>
+    <string name="service_cost_detail">Стоимость работы</string>
+    <string name="breakdown_date_detail">Дата поломки</string>
+    <string name="breakdown_mileage_detail">Пробег при поломке</string>
+    <string name="part_installed_after_accident">Запчасть установлена после ДТП</string>
+    <string name="name_label">Название</string>
+    <string name="address_label">Адрес</string>
+    <string name="photos_title">Фотографии</string>
+    
+    <!-- Breakdowns -->
+    <string name="breakdowns">Поломки и ремонты</string>
+    <string name="breakdown_screen_title">Поломка</string>
+    <string name="add_breakdown">Добавить поломку</string>
+    <string name="edit_breakdown">Редактировать поломку</string>
+    <string name="delete_breakdown">Удалить поломку</string>
+    <string name="delete_breakdown_dialog_title">Удалить поломку?</string>
+    <string name="delete_breakdown_dialog_message">Вы уверены, что хотите удалить %1$s?</string>
+    <string name="breakdown_title">Название поломки *</string>
+    <string name="breakdown_description">Описание *</string>
+    <string name="breakdown_date">Дата поломки *</string>
+    <string name="breakdown_mileage">Пробег при поломке (км) *</string>
+    <string name="broken_part">Сломанная запчасть</string>
+    <string name="parts_cost">Стоимость запчастей (₽) *</string>
+    <string name="service_cost">Стоимость работы (₽)</string>
+    <string name="part_name_breakdown_label">Название запчасти</string>
+    <string name="part_price_breakdown_label">Цена (₽)</string>
+    <string name="service_cost_label">Стоимость работы сервиса (₽)</string>
+    <string name="breakdown_info_label">Информация о поломке *</string>
+    <string name="repair_cost_label">Стоимость ремонта *</string>
+    <string name="general_parts_cost">Общая стоимость запчастей</string>
+    <string name="specific_parts_list">Список конкретных запчастей</string>
+    <string name="warranty_repair">Гарантийный ремонт у дилера</string>
+    <string name="service_info_label">Информация о сервисе</string>
+    <string name="parts_label">Запчасти:</string>
+    <string name="services_label">Услуги:</string>
+    <string name="total_cost_label_long">Общая стоимость:</string>
+    
+    <!-- Refuelings -->
+    <string name="refuelings">Заправки</string>
+    <string name="add_refueling">Добавить заправку</string>
+    <string name="charging_title">Зарядки</string>
+    <string name="charging_history">История зарядок электромобиля</string>
+    <string name="refueling_history">История заправок и расход топлива</string>
+    
+    <!-- Expenses -->
+    <string name="expenses">Прочие расходы</string>
+    <string name="add_expense">Добавить расход</string>
+    
+    <!-- Sections -->
+    <string name="sections_title">Разделы</string>
+    <string name="statistics_section_title">Статистика</string>
+    <string name="statistics_section_description">Анализ расходов, графики и ключевые показатели</string>
+    <string name="parts_section_title">Запчасти</string>
+    <string name="parts_section_description">Установленные запчасти и их состояние</string>
+    <string name="breakdowns_section_title">Поломки и ремонты</string>
+    <string name="breakdowns_section_description">История ремонтов и стоимость</string>
+    <string name="accidents_section_title">ДТП</string>
+    <string name="accidents_section_description">История аварий и страховые выплаты</string>
+    <string name="consumables_section_title">Расходники</string>
+    <string name="consumables_section_description">Масла, фильтры, колодки и другие расходники</string>
+    <string name="expenses_section_title">Прочие расходы</string>
+    <string name="expenses_section_description">Мойка, аксессуары, детейлинг и прочее</string>
+    
+    <!-- Language names -->
+    <string name="language_russian">Русский</string>
+    <string name="language_english">Английский</string>
+    
+    <string name="body_type">Тип кузова</string>
+    <string name="photos_header">Фотографии</string>
+    
+    <!-- Fuel Types -->
+    <string name="fuel_type_benzin">бензин</string>
+    <string name="fuel_type_dizel">дизель</string>
+    <string name="fuel_type_electro">электричество</string>
+    <string name="fuel_type_gaz">газ</string>
+    <string name="fuel_type_lpg">пропан</string>
+    <string name="fuel_type_cng">метан</string>
 </resources>

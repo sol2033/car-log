@@ -1,6 +1,11 @@
 package com.carlog.domain.model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "cars")
 data class Car(
+    @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val brand: String,
     val model: String,
@@ -12,7 +17,10 @@ data class Car(
     val engineVolume: Double?,
     val transmissionType: String?,
     val driveType: String?,
-    val fuelType: String,
+    val bodyType: String?,
+    val fuelType: String, // Petrol, Diesel, Electric
+    val hasGasEquipment: Boolean = false,
+    val gasType: String? = null, // Methane, LPG (only if hasGasEquipment = true)
     val currentMileage: Int,
     val purchaseMileage: Int?,
     val purchaseDate: Long?,

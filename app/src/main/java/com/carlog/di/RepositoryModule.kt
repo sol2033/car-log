@@ -1,6 +1,6 @@
 package com.carlog.di
 
-import com.carlog.data.local.dao.CarDao
+import com.carlog.data.local.dao.*
 import com.carlog.data.repository.CarRepository
 import dagger.Module
 import dagger.Provides
@@ -15,8 +15,14 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideCarRepository(
-        carDao: CarDao
+        carDao: CarDao,
+        breakdownDao: BreakdownDao,
+        refuelingDao: RefuelingDao,
+        consumableDao: ConsumableDao,
+        partDao: PartDao,
+        accidentDao: AccidentDao,
+        expenseDao: ExpenseDao
     ): CarRepository {
-        return CarRepository(carDao)
+        return CarRepository(carDao, breakdownDao, refuelingDao, consumableDao, partDao, accidentDao, expenseDao)
     }
 }
