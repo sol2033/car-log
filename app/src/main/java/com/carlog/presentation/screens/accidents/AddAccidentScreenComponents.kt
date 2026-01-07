@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.carlog.util.FileHelper
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -371,10 +373,15 @@ fun PhotosSection(
     onAddPhoto: (String) -> Unit,
     onRemovePhoto: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.toString()?.let { onAddPhoto(it) }
+        uri?.let {
+            FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
+                onAddPhoto(savedPath)
+            }
+        }
     }
     
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -2,7 +2,10 @@ package com.carlog.presentation.screens.parts
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.carlog.util.FileHelper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -281,11 +284,14 @@ fun AddPartScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 
+                val context = LocalContext.current
                 val photoPickerLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.GetContent()
+                    contract = ActivityResultContracts.PickVisualMedia()
                 ) { uri: Uri? ->
-                    uri?.toString()?.let { photoPath ->
-                        viewModel.addPhoto(photoPath)
+                    uri?.let {
+                        FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
+                            viewModel.addPhoto(savedPath)
+                        }
                     }
                 }
                 
@@ -297,7 +303,11 @@ fun AddPartScreen(
                         Card(
                             modifier = Modifier
                                 .size(100.dp)
-                                .clickable { photoPickerLauncher.launch("image/*") },
+                                .clickable { 
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer
                             )

@@ -2,7 +2,10 @@ package com.carlog.presentation.screens.car
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.carlog.util.FileHelper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -424,11 +427,15 @@ fun AddCarScreen(
                 color = MaterialTheme.colorScheme.primary
             )
             
+            val context = LocalContext.current
             val photoPickerLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.GetContent()
+                contract = ActivityResultContracts.PickVisualMedia()
             ) { uri: Uri? ->
-                uri?.toString()?.let { photoPath ->
-                    viewModel.addPhoto(photoPath)
+                uri?.let {
+                    // Копируем файл во внутреннее хранилище
+                    FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
+                        viewModel.addPhoto(savedPath)
+                    }
                 }
             }
             
@@ -440,7 +447,11 @@ fun AddCarScreen(
                     Card(
                         modifier = Modifier
                             .size(120.dp)
-                            .clickable { photoPickerLauncher.launch("image/*") },
+                            .clickable { 
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         )

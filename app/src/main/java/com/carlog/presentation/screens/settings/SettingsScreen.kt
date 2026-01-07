@@ -199,7 +199,7 @@ fun SettingsScreen(
             // === О приложении ===
             SettingsSection(title = "О приложении")
 
-            InfoItem(label = stringResource(R.string.settings_version), value = "1.0.1")
+            InfoItem(label = stringResource(R.string.settings_version), value = "1.0.2")
             InfoItem(label = stringResource(R.string.settings_developer), value = stringResource(R.string.developer_name))
             
             LinkItem(

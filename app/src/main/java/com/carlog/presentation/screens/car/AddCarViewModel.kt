@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Car
+import com.carlog.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -196,6 +197,9 @@ class AddCarViewModel @Inject constructor(
     }
     
     fun removePhoto(photoPath: String) {
+        // Удаляем файл из хранилища
+        FileHelper.deleteFile(photoPath)
+        
         val currentPaths = _state.value.photosPaths.toMutableList()
         currentPaths.remove(photoPath)
         
