@@ -81,7 +81,7 @@ fun FuelStatisticsTab(
 ) {
     if (statistics == null) {
         EmptyTabContent(
-            message = "Функция заправок еще не реализована.\nСтатистика будет доступна после добавления этой функции.",
+            message = "Нет данных для отображения статистики по заправкам.\nДобавьте заправки для просмотра статистики.",
             modifier = modifier
         )
         return

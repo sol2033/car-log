@@ -104,8 +104,8 @@ class StatisticsViewModel @Inject constructor(
                 
                 android.util.Log.d("StatisticsViewModel", "Filtered ${filteredExpenses.size} expenses after period filter")
                 
-                // Get part IDs that are already counted in breakdowns to avoid double counting
-                val partIdsInBreakdowns = breakdowns.flatMap { it.installedPartIds ?: emptyList() }.toSet()
+                // Get part IDs that are already counted in filtered breakdowns to avoid double counting
+                val partIdsInBreakdowns = filteredBreakdowns.flatMap { it.installedPartIds ?: emptyList() }.toSet()
                 
                 // Filter parts: only those not already counted in breakdowns
                 val filteredParts = filterByPeriod(parts, startDate, endDate)
@@ -390,13 +390,27 @@ class StatisticsViewModel @Inject constructor(
         
         // Calculate average km per day and month
         val carAgeInDays = if (car.purchaseDate != null) {
+            // Use purchase date if available
             ChronoUnit.DAYS.between(
                 LocalDate.ofEpochDay(car.purchaseDate / (24 * 60 * 60 * 1000)),
                 LocalDate.now()
             ).toDouble()
-        } else 1.0
+        } else {
+            // Otherwise use car creation date in the app
+            ChronoUnit.DAYS.between(
+                LocalDate.ofEpochDay(car.createdAt / (24 * 60 * 60 * 1000)),
+                LocalDate.now()
+            ).toDouble()
+        }
         
-        val averageKmPerDay = if (carAgeInDays > 0) car.currentMileage / carAgeInDays else 0.0
+        // Calculate pробег since purchase/creation
+        val mileageSincePurchase = if (car.purchaseMileage != null) {
+            car.currentMileage - car.purchaseMileage
+        } else {
+            car.currentMileage
+        }
+        
+        val averageKmPerDay = if (carAgeInDays > 0) mileageSincePurchase / carAgeInDays else 0.0
         val averageKmPerMonth = averageKmPerDay * 30.0
         
         // Find most expensive month
