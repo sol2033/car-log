@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
@@ -151,6 +152,67 @@ fun AddConsumableScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                
+                // Дата установки
+                var showDatePicker by remember { mutableStateOf(false) }
+                
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showDatePicker = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Дата установки",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = SimpleDateFormat("dd MMMM yyyy", Locale("ru")).format(Date(state.installationDate)),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                
+                if (showDatePicker) {
+                    val datePickerState = rememberDatePickerState(
+                        initialSelectedDateMillis = state.installationDate
+                    )
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    datePickerState.selectedDateMillis?.let { millis ->
+                                        viewModel.updateInstallationDate(millis)
+                                    }
+                                    showDatePicker = false
+                                }
+                            ) {
+                                Text("OK")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text(stringResource(R.string.cancel))
+                            }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
                 
                 OutlinedTextField(
                     value = state.cost,
@@ -387,6 +449,8 @@ fun ConsumableDetailScreen(
         var cost by remember { mutableStateOf(currentState.consumable.cost?.toString() ?: "") }
         var isService by remember { mutableStateOf(currentState.consumable.isInstalledAtService) }
         var serviceCost by remember { mutableStateOf(currentState.consumable.serviceCost?.toString() ?: "") }
+        var replacementDate by remember { mutableStateOf(System.currentTimeMillis()) }
+        var showReplacementDatePicker by remember { mutableStateOf(false) }
         
         AlertDialog(
             onDismissRequest = { viewModel.dismissReplaceSameDialog() },
@@ -395,6 +459,36 @@ fun ConsumableDetailScreen(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Дата замены
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { showReplacementDatePicker = true }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Дата замены",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Text(
+                                    text = SimpleDateFormat("dd MMM yyyy", Locale("ru")).format(Date(replacementDate)),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    
                     OutlinedTextField(
                         value = cost,
                         onValueChange = { cost = it },
@@ -432,6 +526,7 @@ fun ConsumableDetailScreen(
                         newCost = cost.toDoubleOrNull(),
                         isInstalledAtService = isService,
                         serviceCost = if (isService) serviceCost.toDoubleOrNull() else null,
+                        replacementDate = replacementDate,
                         onReplaced = { onNavigateBack() }
                     )
                     viewModel.dismissReplaceSameDialog()
@@ -445,6 +540,34 @@ fun ConsumableDetailScreen(
                 }
             }
         )
+        
+        if (showReplacementDatePicker) {
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = replacementDate
+            )
+            DatePickerDialog(
+                onDismissRequest = { showReplacementDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                replacementDate = millis
+                            }
+                            showReplacementDatePicker = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReplacementDatePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
 }
 

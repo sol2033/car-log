@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.carlog.domain.model.GeneralStatistics
 import com.carlog.domain.model.StatisticsPeriod
@@ -172,15 +173,32 @@ fun GeneralStatisticsTab(
                     value = formatCurrency(statistics.costPerKm) + "/км"
                 )
                 
-                MetricRow(
-                    label = "Средний пробег в день",
-                    value = formatNumber(statistics.averageKmPerDay) + " км"
-                )
-                
-                MetricRow(
-                    label = "Средний пробег в месяц",
-                    value = formatNumber(statistics.averageKmPerMonth) + " км"
-                )
+                // Show mileage metrics only if appropriate
+                if (statistics.shouldHideKmPerDay) {
+                    // При фильтре по конкретному диапазону пробега метрика км/день не имеет смысла
+                    Text(
+                        text = "Средний пробег в день не рассчитывается для выбранного диапазона пробега",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else if (statistics.needsPurchaseDateInfo) {
+                    MetricRow(
+                        label = "Средний пробег",
+                        value = "Нет даты покупки (зайдите в редактирование информации об авто).",
+                        isWarning = true
+                    )
+                } else {
+                    MetricRow(
+                        label = "Средний пробег в день",
+                        value = formatNumber(statistics.averageKmPerDay) + " км"
+                    )
+                    
+                    MetricRow(
+                        label = "Средний пробег в месяц",
+                        value = formatNumber(statistics.averageKmPerMonth) + " км"
+                    )
+                }
                 
                 if (statistics.mostExpensiveMonth != null) {
                     MetricRow(
@@ -225,19 +243,24 @@ internal fun DistributionItem(
 }
 
 @Composable
-internal fun MetricRow(label: String, value: String) {
+internal fun MetricRow(label: String, value: String, isWarning: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.4f)
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isWarning) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(0.6f),
+            textAlign = if (isWarning) TextAlign.End else TextAlign.End
         )
     }
 }

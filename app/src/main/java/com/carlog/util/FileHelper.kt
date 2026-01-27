@@ -19,14 +19,14 @@ object FileHelper {
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             
             // Создаём директорию для фото, если её нет
-            val imagesDir = File(context.filesDir, "images")
-            if (!imagesDir.exists()) {
-                imagesDir.mkdirs()
+            val photosDir = File(context.filesDir, "photos")
+            if (!photosDir.exists()) {
+                photosDir.mkdirs()
             }
             
             // Генерируем уникальное имя файла
             val fileName = "IMG_${UUID.randomUUID()}.jpg"
-            val outputFile = File(imagesDir, fileName)
+            val outputFile = File(photosDir, fileName)
             
             // Копируем содержимое
             inputStream.use { input ->

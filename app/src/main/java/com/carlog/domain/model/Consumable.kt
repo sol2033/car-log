@@ -13,6 +13,7 @@ data class Consumable(
     val articleNumber: String?, // Артикул
     val installationMileage: Int, // Пробег установки
     val installationDate: Long, // Дата установки (timestamp)
+    val linkedMaintenanceId: Long? = null, // ID связанного ТО (если создан в рамках ТО)
     val replacementMileage: Int?, // Пробег замены (null если активен)
     val replacementDate: Long?, // Дата замены (null если активен)
     val cost: Double?, // Стоимость

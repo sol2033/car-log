@@ -52,6 +52,21 @@ data class SpecificMonthPeriod(
     }
 }
 
+/**
+ * Фильтр по пробегу для статистики
+ */
+sealed class MileageFilter {
+    object AllMileage : MileageFilter()
+    object Last10k : MileageFilter()
+    data class CustomRange(val fromMileage: Int, val toMileage: Int) : MileageFilter()
+    
+    fun getDisplayName(): String = when (this) {
+        is AllMileage -> "Весь пробег"
+        is Last10k -> "Последние 10 тыс. км"
+        is CustomRange -> "$fromMileage - $toMileage км"
+    }
+}
+
 
 /**
  * Общая статистика по автомобилю
@@ -62,6 +77,8 @@ data class GeneralStatistics(
     val averageKmPerDay: Double,                // Средний пробег в день
     val averageKmPerMonth: Double,              // Средний пробег в месяц
     val mostExpensiveMonth: String?,            // Самый дорогой месяц (формат "январь 2024")
+    val needsPurchaseDateInfo: Boolean = false, // Нужно ли указать дату покупки для точного расчёта
+    val shouldHideKmPerDay: Boolean = false,    // Скрыть метрику км/день (для фильтра по пробегу)
     val costDistribution: List<CostDistributionItem>, // Распределение расходов по категориям
     val costTrend: List<CostTrendItem>          // Тренд расходов по времени
 )
@@ -129,7 +146,8 @@ data class RepairsStatistics(
     val repairsCount: Int,                      // Количество ремонтов
     val averageRepairCost: Double,              // Средняя стоимость ремонта
     val monthlyRepairCosts: List<MonthlyCostItem>, // Расходы на ремонты по месяцам
-    val partsVsLaborDistribution: List<CostDistributionItem> // Распределение: запчасти vs работа
+    val partsVsLaborDistribution: List<CostDistributionItem>, // Распределение: запчасти vs работа
+    val maintenanceTypeDistribution: List<CostDistributionItem> = emptyList() // Распределение по типам обслуживания (Ремонт/ТО/Тюнинг)
 )
 
 /**

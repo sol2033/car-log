@@ -117,6 +117,8 @@ sealed class Screen(val route: String) {
             else "add_expense/$carId"
     }
     
-    // Settings
+    // Settings & Backup
     object Settings : Screen("settings")
+    object Backup : Screen("backup")
+    object RestoreBackup : Screen("restore_backup")
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.domain.model.MileageFilter
 import com.carlog.domain.model.StatisticsPeriod
 import java.time.YearMonth
 
@@ -51,6 +52,13 @@ fun StatisticsScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             
+            // Mileage filter
+            MileageFilterRow(
+                selectedMileageFilter = uiState.selectedMileageFilter,
+                onMileageFilterSelected = viewModel::setMileageFilter,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            
             // Exclude accidents checkbox (visible on all tabs)
             Row(
                 modifier = Modifier
@@ -76,27 +84,52 @@ fun StatisticsScreen(
                 Tab(
                     selected = selectedTabIndex == 0,
                     onClick = { selectedTabIndex = 0 },
-                    text = { Text(stringResource(R.string.tab_general)) }
+                    text = { 
+                        Text(
+                            text = stringResource(R.string.tab_general),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTabIndex == 1,
                     onClick = { selectedTabIndex = 1 },
-                    text = { Text(stringResource(R.string.tab_fuel)) }
+                    text = { 
+                        Text(
+                            text = stringResource(R.string.tab_fuel),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTabIndex == 2,
                     onClick = { selectedTabIndex = 2 },
-                    text = { Text(stringResource(R.string.tab_repairs)) }
+                    text = { 
+                        Text(
+                            text = stringResource(R.string.tab_repairs_stats),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTabIndex == 3,
                     onClick = { selectedTabIndex = 3 },
-                    text = { Text(stringResource(R.string.tab_other_expenses)) }
+                    text = { 
+                        Text(
+                            text = stringResource(R.string.tab_other_expenses),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTabIndex == 4,
                     onClick = { selectedTabIndex = 4 },
-                    text = { Text(stringResource(R.string.tab_consumables)) }
+                    text = { 
+                        Text(
+                            text = stringResource(R.string.tab_consumables),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 )
             }
             
@@ -266,6 +299,157 @@ private fun getMonthYearText(yearMonth: YearMonth): String {
         else -> ""
     }
     return "$monthName ${yearMonth.year}"
+}
+
+@Composable
+private fun MileageFilterRow(
+    selectedMileageFilter: MileageFilter,
+    onMileageFilterSelected: (MileageFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showCustomRangeDialog by remember { mutableStateOf(false) }
+    
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Пробег:",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(selectedMileageFilter.getDisplayName())
+            }
+            
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Весь пробег") },
+                    onClick = {
+                        onMileageFilterSelected(MileageFilter.AllMileage)
+                        expanded = false
+                    }
+                )
+                
+                DropdownMenuItem(
+                    text = { Text("Последние 10 тыс. км") },
+                    onClick = {
+                        onMileageFilterSelected(MileageFilter.Last10k)
+                        expanded = false
+                    }
+                )
+                
+                HorizontalDivider()
+                
+                DropdownMenuItem(
+                    text = { Text("Диапазон...") },
+                    onClick = {
+                        expanded = false
+                        showCustomRangeDialog = true
+                    }
+                )
+            }
+        }
+    }
+    
+    if (showCustomRangeDialog) {
+        MileageRangeDialog(
+            initialFilter = selectedMileageFilter as? MileageFilter.CustomRange,
+            onDismiss = { showCustomRangeDialog = false },
+            onConfirm = { fromMileage, toMileage ->
+                onMileageFilterSelected(MileageFilter.CustomRange(fromMileage, toMileage))
+                showCustomRangeDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun MileageRangeDialog(
+    initialFilter: MileageFilter.CustomRange?,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    var fromMileage by remember { mutableStateOf(initialFilter?.fromMileage?.toString() ?: "") }
+    var toMileage by remember { mutableStateOf(initialFilter?.toMileage?.toString() ?: "") }
+    var fromError by remember { mutableStateOf(false) }
+    var toError by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Диапазон пробега") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = fromMileage,
+                    onValueChange = { 
+                        fromMileage = it.filter { char -> char.isDigit() }
+                        fromError = false
+                    },
+                    label = { Text("От (км)") },
+                    isError = fromError,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = toMileage,
+                    onValueChange = { 
+                        toMileage = it.filter { char -> char.isDigit() }
+                        toError = false
+                    },
+                    label = { Text("До (км)") },
+                    isError = toError,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                if (fromError || toError) {
+                    Text(
+                        text = "Укажите корректный диапазон",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val from = fromMileage.toIntOrNull()
+                    val to = toMileage.toIntOrNull()
+                    
+                    when {
+                        from == null || from < 0 -> fromError = true
+                        to == null || to < 0 -> toError = true
+                        from >= to -> {
+                            fromError = true
+                            toError = true
+                        }
+                        else -> onConfirm(from, to)
+                    }
+                }
+            ) {
+                Text("Применить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
 }
 
 @Composable

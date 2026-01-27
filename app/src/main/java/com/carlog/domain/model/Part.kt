@@ -37,6 +37,7 @@ data class Part(
     val breakdownMileage: Int? = null,
     val mileageDriven: Int? = null,
     val notes: String? = null,
+    val maintenanceType: String? = null, // "REPAIR", "SCHEDULED_SERVICE", "MODIFICATION"
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

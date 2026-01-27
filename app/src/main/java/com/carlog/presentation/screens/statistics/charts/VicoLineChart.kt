@@ -47,6 +47,11 @@ fun VicoLineChart(
         }
     }
     
+    val startAxisValueFormatter = AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
+        // Округляем до целого числа для читаемости
+        value.toInt().toString()
+    }
+    
     val textColor = MaterialTheme.colorScheme.onSurface
     val axisLineColor = MaterialTheme.colorScheme.onSurfaceVariant
     
@@ -56,6 +61,7 @@ fun VicoLineChart(
                 chart = lineChart(),
                 model = chartEntryModel,
                 startAxis = if (showYAxis) rememberStartAxis(
+                    valueFormatter = startAxisValueFormatter,
                     label = textComponent(
                         color = textColor
                     ),

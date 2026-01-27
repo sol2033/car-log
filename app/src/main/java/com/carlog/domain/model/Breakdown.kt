@@ -25,6 +25,9 @@ data class Breakdown(
     val description: String,
     val breakdownDate: Long,
     val breakdownMileage: Int,
+    val maintenanceType: String? = null, // Тип обслуживания: REPAIR/SCHEDULED_SERVICE/MODIFICATION
+    val linkedConsumableIds: List<Long>? = null, // ID связанных расходников (для ТО)
+    val isServiceMaintenance: Boolean = false, // Выполнено в сервисе
     val brokenPartId: Long? = null,
     val brokenPartName: String? = null,
     val installedPartIds: List<Long>? = null,

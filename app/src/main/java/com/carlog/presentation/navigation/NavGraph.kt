@@ -112,6 +112,9 @@ fun NavGraph(
                 onStatisticsClick = {
                     navController.navigate(Screen.Statistics.route)
                 },
+                onBackupClick = {
+                    navController.navigate(Screen.Backup.route)
+                },
                 onSettingsClick = {
                     navController.navigate(Screen.Settings.route)
                 },
@@ -194,6 +197,21 @@ fun NavGraph(
         // Settings Screen
         composable(route = Screen.Settings.route) {
             com.carlog.presentation.screens.settings.SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Backup Screen
+        composable(route = Screen.Backup.route) {
+            com.carlog.presentation.screens.backup.BackupScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRestoreBackup = { navController.navigate(Screen.RestoreBackup.route) }
+            )
+        }
+        
+        // Restore Backup Screen
+        composable(route = Screen.RestoreBackup.route) {
+            com.carlog.presentation.screens.settings.RestoreBackupScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -322,7 +340,10 @@ fun NavGraph(
             val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
             AddBreakdownScreen(
                 carId = carId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddConsumable = { id ->
+                    navController.navigate("${Screen.AddConsumable.route.replace("/{carId}", "")}/$id?forMaintenance=true")
+                }
             )
         }
         
@@ -339,7 +360,10 @@ fun NavGraph(
             AddBreakdownScreen(
                 carId = carId,
                 breakdownId = breakdownId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddConsumable = { id ->
+                    navController.navigate("${Screen.AddConsumable.route.replace("/{carId}", "")}/$id?forMaintenance=true")
+                }
             )
         }
         

@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.consumables
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
@@ -43,6 +44,7 @@ data class AddConsumableState(
 class AddConsumableViewModel @Inject constructor(
     private val consumableRepository: ConsumableRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     private val preferences: ConsumablePreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -254,6 +256,9 @@ class AddConsumableViewModel @Inject constructor(
                 
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageIfNeeded(carId, currentState.installationMileage.toInt())
+                
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
                 
                 _state.value = currentState.copy(isSaving = false, isSaved = true)
             } catch (e: Exception) {

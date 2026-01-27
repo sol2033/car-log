@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.parts
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
@@ -24,6 +25,7 @@ sealed class PartDetailUiState {
 class PartDetailViewModel @Inject constructor(
     private val partRepository: PartRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -76,6 +78,8 @@ class PartDetailViewModel @Inject constructor(
                 partRepository.deletePart(part)
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageAfterDelete(part.carId, part.installMileage)
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
                 onDeleted()
             } catch (e: Exception) {
                 _uiState.value = PartDetailUiState.Error(e.message ?: "Ошибка удаления")
@@ -114,6 +118,8 @@ class PartDetailViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 partRepository.updatePart(updatedPart)
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
                 _showMarkBrokenDialog.value = false
             } catch (e: Exception) {
                 _uiState.value = PartDetailUiState.Error(e.message ?: "Ошибка обновления")

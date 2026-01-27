@@ -33,6 +33,8 @@ fun AddExpenseScreen(
     val date by viewModel.date.collectAsState()
     val mileage by viewModel.mileage.collectAsState()
     val mileageError by viewModel.mileageError.collectAsState()
+    val expenseTitle by viewModel.title.collectAsState()
+    val titleError by viewModel.titleError.collectAsState()
     val category by viewModel.category.collectAsState()
     val categoryError by viewModel.categoryError.collectAsState()
     val cost by viewModel.cost.collectAsState()
@@ -119,6 +121,18 @@ fun AddExpenseScreen(
                 modifier = Modifier.fillMaxWidth(),
                 isError = mileageError != null,
                 supportingText = mileageError?.let { { Text(it) } }
+            )
+            
+            // Название
+            OutlinedTextField(
+                value = expenseTitle,
+                onValueChange = { viewModel.updateTitle(it) },
+                label = { Text("Название *") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                isError = titleError != null,
+                supportingText = titleError?.let { { Text(it) } },
+                placeholder = { Text("Например: Мойка кузова") }
             )
             
             // Категория

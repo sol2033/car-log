@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.expenses
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ExpenseRepository
 import com.carlog.domain.model.Car
@@ -20,6 +21,7 @@ import javax.inject.Inject
 class AddExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -41,6 +43,9 @@ class AddExpenseViewModel @Inject constructor(
 
     private val _mileage = MutableStateFlow("")
     val mileage: StateFlow<String> = _mileage.asStateFlow()
+
+    private val _title = MutableStateFlow("")
+    val title: StateFlow<String> = _title.asStateFlow()
 
     private val _category = MutableStateFlow(ExpenseCategories.SELF_WASH)
     val category: StateFlow<String> = _category.asStateFlow()
@@ -64,6 +69,9 @@ class AddExpenseViewModel @Inject constructor(
 
     private val _mileageError = MutableStateFlow<String?>(null)
     val mileageError: StateFlow<String?> = _mileageError.asStateFlow()
+
+    private val _titleError = MutableStateFlow<String?>(null)
+    val titleError: StateFlow<String?> = _titleError.asStateFlow()
 
     private val _categoryError = MutableStateFlow<String?>(null)
     val categoryError: StateFlow<String?> = _categoryError.asStateFlow()
@@ -96,6 +104,7 @@ class AddExpenseViewModel @Inject constructor(
                     _expense.value = loadedExpense
                     _date.value = loadedExpense.date
                     _mileage.value = loadedExpense.mileage.toString()
+                    _title.value = loadedExpense.title ?: ""
                     _category.value = loadedExpense.category
                     _cost.value = loadedExpense.cost.toString()
                     _serviceName.value = loadedExpense.serviceName ?: ""
@@ -116,6 +125,11 @@ class AddExpenseViewModel @Inject constructor(
     fun updateMileage(newMileage: String) {
         _mileage.value = newMileage
         _mileageError.value = null
+    }
+
+    fun updateTitle(newTitle: String) {
+        _title.value = newTitle
+        _titleError.value = null
     }
 
     fun updateCategory(newCategory: String) {
@@ -158,6 +172,11 @@ class AddExpenseViewModel @Inject constructor(
                 hasError = true
             }
 
+            if (_title.value.isBlank()) {
+                _titleError.value = "Введите название"
+                hasError = true
+            }
+
             if (_category.value.isBlank()) {
                 _categoryError.value = "Выберите категорию"
                 hasError = true
@@ -181,6 +200,7 @@ class AddExpenseViewModel @Inject constructor(
                 _expense.value!!.copy(
                     date = _date.value,
                     mileage = mileageValue!!,
+                    title = _title.value.ifBlank { null },
                     category = _category.value,
                     cost = costValue!!,
                     serviceName = _serviceName.value.ifBlank { null },
@@ -193,6 +213,7 @@ class AddExpenseViewModel @Inject constructor(
                     carId = carId,
                     date = _date.value,
                     mileage = mileageValue!!,
+                    title = _title.value.ifBlank { null },
                     category = _category.value,
                     cost = costValue!!,
                     serviceName = _serviceName.value.ifBlank { null },
@@ -209,6 +230,9 @@ class AddExpenseViewModel @Inject constructor(
 
             // Обновляем пробег автомобиля
             carRepository.updateCarMileageIfNeeded(carId, mileageValue!!)
+            
+            // Уведомляем о изменении данных для резервного копирования
+            dataChangeNotifier.notifyDataChanged()
 
             _saveSuccess.value = true
         }

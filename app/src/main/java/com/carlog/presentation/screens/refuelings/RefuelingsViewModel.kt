@@ -2,6 +2,7 @@ package com.carlog.presentation.screens.refuelings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Car
@@ -15,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RefuelingsViewModel @Inject constructor(
     private val refuelingRepository: RefuelingRepository,
-    private val carRepository: CarRepository
+    private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier
 ) : ViewModel() {
     
     private val _carId = MutableStateFlow<Long?>(null)
@@ -78,6 +80,8 @@ class RefuelingsViewModel @Inject constructor(
             refuelingRepository.deleteRefueling(refueling)
             // Обновляем пробег автомобиля до максимального
             carRepository.updateCarMileageAfterDelete(refueling.carId, refueling.mileage)
+            // Уведомляем о изменении данных
+            dataChangeNotifier.notifyDataChanged()
         }
     }
 }

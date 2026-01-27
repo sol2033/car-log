@@ -141,7 +141,7 @@ fun RepairsStatisticsTab(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Запчасти vs Работа",
+                        text = "Запчасти и работа",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -189,13 +189,5 @@ fun RepairsStatisticsTab(
                 )
             }
         }
-        
-        // Hint about navigation
-        Text(
-            text = "Нажмите на карточку с графиком, чтобы перейти к списку ремонтов",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
     }
 }

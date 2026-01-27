@@ -219,6 +219,16 @@ private fun FilterChips(
             onClick = { onFilterSelected(PartFilter.WithoutAccident) },
             label = { Text(stringResource(R.string.filter_no_accident)) }
         )
+        FilterChip(
+            selected = currentFilter == PartFilter.Repair,
+            onClick = { onFilterSelected(PartFilter.Repair) },
+            label = { Text("Ремонт") }
+        )
+        FilterChip(
+            selected = currentFilter == PartFilter.Tuning,
+            onClick = { onFilterSelected(PartFilter.Tuning) },
+            label = { Text("Тюнинг") }
+        )
     }
 }
 
@@ -293,6 +303,32 @@ private fun PartCard(
                             labelColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     )
+                }
+                
+                // Метка типа обслуживания
+                part.maintenanceType?.let { type ->
+                    when (type) {
+                        "REPAIR" -> {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text("Ремонт") },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            )
+                        }
+                        "MODIFICATION" -> {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text("Тюнинг") },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            )
+                        }
+                    }
                 }
                 
                 // Метка "Установлена из-за ДТП"
@@ -658,6 +694,8 @@ private fun EmptyPartsState(
                 PartFilter.Broken -> stringResource(R.string.no_broken_parts)
                 PartFilter.OnlyAccident -> stringResource(R.string.no_accident_parts)
                 PartFilter.WithoutAccident -> stringResource(R.string.no_non_accident_parts)
+                PartFilter.Repair -> "Нет запчастей из ремонтов"
+                PartFilter.Tuning -> "Нет запчастей из тюнинга"
             }
             
             Text(

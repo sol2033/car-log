@@ -226,7 +226,7 @@
     <string name="stats_total_mileage">Total Mileage</string>
     <string name="tab_general">General</string>
     <string name="tab_fuel">Fuel</string>
-    <string name="tab_repairs">Repairs</string>
+    <string name="tab_repairs_stats">Repairs</string>
     <string name="tab_other_expenses">Other Expenses</string>
     <string name="tab_consumables">Consumables</string>
     <string name="select_month">Select month...</string>
@@ -389,9 +389,9 @@
     <string name="photos_title">Photos</string>
     
     <!-- Breakdowns -->
-    <string name="breakdowns">Breakdowns &amp; Repairs</string>
+    <string name="breakdowns">Service, Repairs, Tuning</string>
     <string name="breakdown_screen_title">Breakdown</string>
-    <string name="add_breakdown">Add Breakdown</string>
+    <string name="add_breakdown">Add Object</string>
     <string name="edit_breakdown">Edit Breakdown</string>
     <string name="delete_breakdown">Delete Breakdown</string>
     <string name="delete_breakdown_dialog_title">Delete breakdown?</string>
@@ -416,6 +416,21 @@
     <string name="services_label">Services:</string>
     <string name="total_cost_label_long">Total cost:</string>
     
+    <!-- Maintenance Types -->
+    <string name="maintenance_type">Maintenance Type *</string>
+    <string name="maintenance_type_repair">Repair</string>
+    <string name="maintenance_type_scheduled_service">Service</string>
+    <string name="maintenance_type_modification">Tuning</string>
+    <string name="tab_all">All</string>
+    <string name="tab_repairs">Repairs</string>
+    <string name="tab_service">Service</string>
+    <string name="tab_modifications">Tuning</string>
+    <string name="service_maintenance">At service</string>
+    <string name="linked_consumables">Consumables for service</string>
+    <string name="consumable_name">Consumable name *</string>
+    <string name="consumable_price">Price (₽) *</string>
+    <string name="calculated_parts_cost">Calculated parts cost</string>
+    
     <!-- Refuelings -->
     <string name="refuelings">Refuelings</string>
     <string name="add_refueling">Add Refueling</string>
@@ -433,8 +448,8 @@
     <string name="statistics_section_description">Cost analysis, graphs and key metrics</string>
     <string name="parts_section_title">Parts</string>
     <string name="parts_section_description">Installed parts and their condition</string>
-    <string name="breakdowns_section_title">Breakdowns and Repairs</string>
-    <string name="breakdowns_section_description">Repair history and costs</string>
+    <string name="breakdowns_section_title">Service, Repairs, Tuning</string>
+    <string name="breakdowns_section_description">Maintenance, repairs and modifications</string>
     <string name="accidents_section_title">Accidents</string>
     <string name="accidents_section_description">Accident history and insurance payouts</string>
     <string name="consumables_section_title">Consumables</string>

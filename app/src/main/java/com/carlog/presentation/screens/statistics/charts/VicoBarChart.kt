@@ -46,6 +46,11 @@ fun VicoBarChart(
         }
     }
     
+    val startAxisValueFormatter = AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
+        // Округляем до целого числа для читаемости
+        value.toInt().toString()
+    }
+    
     val textColor = MaterialTheme.colorScheme.onSurface
     val axisLineColor = MaterialTheme.colorScheme.onSurfaceVariant
     
@@ -55,6 +60,7 @@ fun VicoBarChart(
                 chart = columnChart(),
                 model = chartEntryModel,
                 startAxis = if (showYAxis) rememberStartAxis(
+                    valueFormatter = startAxisValueFormatter,
                     label = textComponent(
                         color = textColor
                     ),

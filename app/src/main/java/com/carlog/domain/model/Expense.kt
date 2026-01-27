@@ -12,6 +12,7 @@ import androidx.room.PrimaryKey
  * @property carId ID автомобиля (Foreign Key)
  * @property date Дата расхода в миллисекундах
  * @property mileage Пробег автомобиля на момент расхода
+ * @property title Название расхода (опционально)
  * @property category Категория расхода
  * @property cost Общая стоимость (включая работы и материалы)
  * @property serviceName Название сервиса (опционально)
@@ -38,6 +39,7 @@ data class Expense(
     val carId: Long,
     val date: Long,
     val mileage: Int,
+    val title: String? = null,
     val category: String, // Самомойка, Аксессуары, Автозвук, Детейлинг салона, Диски, Шины, Другие
     val cost: Double,
     val serviceName: String? = null,

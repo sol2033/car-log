@@ -162,6 +162,7 @@ private fun ExpenseDetailContent(
         ) {
             InfoRow("Дата", dateFormat.format(Date(expense.date)))
             InfoRow("Пробег", "${expense.mileage} км")
+            InfoRow("Название", expense.title ?: "Без названия")
             InfoRow("Категория", expense.category)
         }
         

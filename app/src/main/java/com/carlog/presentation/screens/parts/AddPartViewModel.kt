@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.parts
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
@@ -44,6 +45,7 @@ data class AddPartState(
 class AddPartViewModel @Inject constructor(
     private val partRepository: PartRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     

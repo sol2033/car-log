@@ -27,6 +27,7 @@ data class StatisticsUiState(
     val statistics: CarStatistics = CarStatistics(null, null, null, null, null, true),
     val selectedPeriod: StatisticsPeriod = StatisticsPeriod.ALL_TIME,
     val specificMonth: YearMonth? = null, // Конкретный месяц для фильтрации
+    val selectedMileageFilter: MileageFilter = MileageFilter.AllMileage,
     val excludeAccidents: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null
@@ -63,6 +64,11 @@ class StatisticsViewModel @Inject constructor(
         loadStatistics()
     }
     
+    fun setMileageFilter(mileageFilter: MileageFilter) {
+        _uiState.value = _uiState.value.copy(selectedMileageFilter = mileageFilter)
+        loadStatistics()
+    }
+    
     fun toggleExcludeAccidents() {
         _uiState.value = _uiState.value.copy(excludeAccidents = !_uiState.value.excludeAccidents)
         loadStatistics()
@@ -75,6 +81,7 @@ class StatisticsViewModel @Inject constructor(
                 
                 val period = _uiState.value.selectedPeriod
                 val specificMonth = _uiState.value.specificMonth
+                val mileageFilter = _uiState.value.selectedMileageFilter
                 val excludeAccidents = _uiState.value.excludeAccidents
                 val (startDate, endDate) = if (specificMonth != null) {
                     getSpecificMonthDates(specificMonth)
@@ -91,30 +98,35 @@ class StatisticsViewModel @Inject constructor(
                 val refuelings = refuelingDao.getRefuelingsByCarId(carId).firstOrNull() ?: emptyList()
                 val expenses = expenseDao.getExpensesByCarId(carId).firstOrNull() ?: emptyList()
                 
-                // Debug logging
-                android.util.Log.d("StatisticsViewModel", "Loaded ${expenses.size} expenses for carId=$carId")
-                expenses.forEach { expense ->
-                    android.util.Log.d("StatisticsViewModel", "Expense: id=${expense.id}, category=${expense.category}, cost=${expense.cost}, date=${expense.date}")
+                // Filter by period (time)
+                val filteredByPeriod = FilteredData(
+                    breakdowns = filterByPeriod(breakdowns, startDate, endDate),
+                    consumables = filterByPeriod(consumables, startDate, endDate),
+                    parts = filterByPeriod(parts, startDate, endDate),
+                    refuelings = filterByPeriod(refuelings, startDate, endDate),
+                    expenses = filterByPeriod(expenses, startDate, endDate)
+                )
+                
+                // Filter by mileage (AND logic with period filter)
+                val filteredByMileage = if (mileageFilter != MileageFilter.AllMileage) {
+                    filterByMileage(filteredByPeriod, mileageFilter, car)
+                } else {
+                    filteredByPeriod
                 }
                 
-                // Filter by period
-                val filteredBreakdowns = filterByPeriod(breakdowns, startDate, endDate)
-                val filteredConsumables = filterByPeriod(consumables, startDate, endDate)
-                val filteredExpenses = filterByPeriod(expenses, startDate, endDate)
-                
-                android.util.Log.d("StatisticsViewModel", "Filtered ${filteredExpenses.size} expenses after period filter")
-                
                 // Get part IDs that are already counted in filtered breakdowns to avoid double counting
-                val partIdsInBreakdowns = filteredBreakdowns.flatMap { it.installedPartIds ?: emptyList() }.toSet()
+                val partIdsInBreakdowns = filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }.toSet()
                 
                 // Filter parts: only those not already counted in breakdowns
-                val filteredParts = filterByPeriod(parts, startDate, endDate)
-                    .filter { !partIdsInBreakdowns.contains(it.id) }
+                val filteredParts = filteredByMileage.parts.filter { !partIdsInBreakdowns.contains(it.id) }
                 
                 val filteredAccidents = if (excludeAccidents) emptyList() else accidents
                 
-                // Filter refuelings by period
-                val filteredRefuelings = filterByPeriod(refuelings, startDate, endDate)
+                // Use filtered data
+                val filteredBreakdowns = filteredByMileage.breakdowns
+                val filteredConsumables = filteredByMileage.consumables
+                val filteredRefuelings = filteredByMileage.refuelings
+                val filteredExpenses = filteredByMileage.expenses
                 
                 // Pre-calculate all periods once for reuse (optimization)
                 val groupingType = getGroupingType(period, specificMonth)
@@ -123,13 +135,11 @@ class StatisticsViewModel @Inject constructor(
                 // Calculate statistics
                 val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
                 val generalStats = calculateGeneralStatistics(
-                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredAccidents, filteredRefuelings, filteredExpenses, period, allPeriods, groupingType
+                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredAccidents, filteredRefuelings, filteredExpenses, period, allPeriods, groupingType, mileageFilter
                 )
                 val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
                 val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
                 val expensesStats = calculateExpensesStatistics(filteredExpenses, allPeriods, groupingType)
-                
-                android.util.Log.d("StatisticsViewModel", "ExpensesStats: ${if (expensesStats == null) "NULL" else "total=${expensesStats.totalExpensesCost}, categories=${expensesStats.categoryDistribution.size}"}")
                 
                 val statistics = CarStatistics(
                     general = generalStats,
@@ -333,6 +343,14 @@ class StatisticsViewModel @Inject constructor(
         }
     }
     
+    private data class FilteredData(
+        val breakdowns: List<Breakdown>,
+        val consumables: List<Consumable>,
+        val parts: List<Part>,
+        val refuelings: List<Refueling>,
+        val expenses: List<Expense>
+    )
+    
     private fun <T> filterByPeriod(items: List<T>, startDate: Long, endDate: Long): List<T> where T : Any {
         return items.filter {
             val date = when (it) {
@@ -347,6 +365,28 @@ class StatisticsViewModel @Inject constructor(
         }
     }
     
+    private fun filterByMileage(data: FilteredData, mileageFilter: MileageFilter, car: Car?): FilteredData {
+        val (fromMileage, toMileage) = when (mileageFilter) {
+            is MileageFilter.AllMileage -> return data
+            is MileageFilter.Last10k -> {
+                val currentMileage = car?.currentMileage ?: return data
+                val from = (currentMileage - 10000).coerceAtLeast(0)
+                from to currentMileage
+            }
+            is MileageFilter.CustomRange -> {
+                mileageFilter.fromMileage to mileageFilter.toMileage
+            }
+        }
+        
+        return FilteredData(
+            breakdowns = data.breakdowns.filter { it.breakdownMileage in fromMileage..toMileage },
+            consumables = data.consumables.filter { it.installationMileage in fromMileage..toMileage },
+            parts = data.parts.filter { it.installMileage in fromMileage..toMileage },
+            refuelings = data.refuelings.filter { it.mileage in fromMileage..toMileage },
+            expenses = data.expenses.filter { it.mileage in fromMileage..toMileage }
+        )
+    }
+    
     private fun calculateGeneralStatistics(
         car: Car?,
         breakdowns: List<Breakdown>,
@@ -357,35 +397,81 @@ class StatisticsViewModel @Inject constructor(
         expenses: List<Expense>,
         period: StatisticsPeriod,
         allPeriods: List<LocalDate>,
-        groupingType: GroupingType
+        groupingType: GroupingType,
+        mileageFilter: MileageFilter
     ): GeneralStatistics? {
         if (car == null) return null
         
         // Calculate total costs
         // Services = breakdown service costs + part installation service costs
+        // Разделяем breakdowns по типам для правильного учёта в категориях
+        val scheduledServiceBreakdowns = breakdowns.filter { 
+            it.maintenanceType?.let { type -> 
+                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.SCHEDULED_SERVICE 
+            } ?: false
+        }
+        
+        val repairBreakdowns = breakdowns.filter { 
+            it.maintenanceType?.let { type -> 
+                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.REPAIR 
+            } ?: true // Старые записи без типа считаем ремонтами
+        }
+        
+        val modificationBreakdowns = breakdowns.filter { 
+            it.maintenanceType?.let { type -> 
+                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.MODIFICATION 
+            } ?: false
+        }
+        
+        // ВСЕ услуги сервисов (из всех типов обслуживания)
         val servicesCost = breakdowns.sumOf { it.serviceCost ?: 0.0 } + 
                           parts.sumOf { it.servicePrice ?: 0.0 }
         
-        // Parts = breakdown parts costs + standalone parts prices (without service)
-        val partsCost = breakdowns.sumOf { it.partsCost } + 
-                       parts.sumOf { it.price }
+        // ТО = запчасти из ТО breakdowns + расходники БЕЗ привязки к ТО
+        val scheduledServicePartsCost = scheduledServiceBreakdowns.sumOf { it.partsCost }
+        // Считаем только расходники, которые НЕ привязаны к обслуживанию (standalone)
+        val standaloneConsumablesCost = consumables
+            .filter { it.linkedMaintenanceId == null }
+            .sumOf { it.cost ?: 0.0 }
+        val toCost = scheduledServicePartsCost + standaloneConsumablesCost
         
-        val consumablesCost = consumables.sumOf { it.cost ?: 0.0 }
+        // Ремонты = запчасти из ремонтов + отдельные запчасти (БЕЗ услуг)
+        val repairsCost = repairBreakdowns.sumOf { it.partsCost } + parts.sumOf { it.price }
+        
+        // Тюнинг = запчасти из тюнинга (БЕЗ услуг)
+        val modificationsCost = modificationBreakdowns.sumOf { it.partsCost }
+        
         val accidentsCost = accidents.sumOf { it.repairCost ?: 0.0 }
         val fuelCost = refuelings.sumOf { it.totalCost ?: 0.0 }
         val expensesCost = expenses.sumOf { it.cost }
-        val totalCost = servicesCost + partsCost + consumablesCost + accidentsCost + fuelCost + expensesCost
-        
-        android.util.Log.d("StatisticsViewModel", "GeneralStats calculation: expensesCost=$expensesCost (from ${expenses.size} expenses), totalCost=$totalCost")
+        val totalCost = toCost + repairsCost + modificationsCost + servicesCost + accidentsCost + fuelCost + expensesCost
         
         if (totalCost == 0.0 && breakdowns.isEmpty() && consumables.isEmpty() && parts.isEmpty() && accidents.isEmpty() && refuelings.isEmpty() && expenses.isEmpty()) {
             return null
         }
         
         // Calculate cost per km (always excluding accidents)
-        val costForKmCalculation = servicesCost + partsCost + consumablesCost + fuelCost + expensesCost
-        val costPerKm = if (car.currentMileage > 0) {
-            costForKmCalculation / car.currentMileage
+        val costForKmCalculation = toCost + repairsCost + modificationsCost + servicesCost + fuelCost + expensesCost
+        
+        // Calculate actual mileage range from filtered data
+        val allMileages = buildList {
+            addAll(breakdowns.map { it.breakdownMileage })
+            addAll(consumables.map { it.installationMileage })
+            addAll(parts.map { it.installMileage })
+            addAll(refuelings.map { it.mileage })
+            addAll(expenses.map { it.mileage })
+        }
+        
+        val actualMileage = if (allMileages.isNotEmpty()) {
+            val maxMileage = allMileages.maxOrNull() ?: 0
+            val minMileage = allMileages.minOrNull() ?: 0
+            maxMileage - minMileage
+        } else {
+            car.currentMileage // Fallback to total mileage if no data
+        }
+        
+        val costPerKm = if (actualMileage > 0) {
+            costForKmCalculation / actualMileage
         } else 0.0
         
         // Calculate average km per day and month
@@ -418,25 +504,32 @@ class StatisticsViewModel @Inject constructor(
         
         // Cost distribution
         val costDistribution = buildList {
+            if (toCost > 0) {
+                add(CostDistributionItem(
+                    category = "ТО",
+                    amount = toCost,
+                    percentage = (toCost / totalCost * 100).toFloat()
+                ))
+            }
+            if (repairsCost > 0) {
+                add(CostDistributionItem(
+                    category = "Ремонты",
+                    amount = repairsCost,
+                    percentage = (repairsCost / totalCost * 100).toFloat()
+                ))
+            }
+            if (modificationsCost > 0) {
+                add(CostDistributionItem(
+                    category = "Тюнинг",
+                    amount = modificationsCost,
+                    percentage = (modificationsCost / totalCost * 100).toFloat()
+                ))
+            }
             if (servicesCost > 0) {
                 add(CostDistributionItem(
                     category = "Услуги сервисов",
                     amount = servicesCost,
                     percentage = (servicesCost / totalCost * 100).toFloat()
-                ))
-            }
-            if (partsCost > 0) {
-                add(CostDistributionItem(
-                    category = "Запчасти",
-                    amount = partsCost,
-                    percentage = (partsCost / totalCost * 100).toFloat()
-                ))
-            }
-            if (consumablesCost > 0) {
-                add(CostDistributionItem(
-                    category = "Расходники",
-                    amount = consumablesCost,
-                    percentage = (consumablesCost / totalCost * 100).toFloat()
                 ))
             }
             if (fuelCost > 0) {
@@ -465,12 +558,21 @@ class StatisticsViewModel @Inject constructor(
         // Cost trend (по месяцам)
         val costTrend = calculateCostTrend(breakdowns, consumables, parts, accidents, refuelings, expenses, period, allPeriods, groupingType)
         
+        // Определяем, нужно ли скрыть метрику км/день
+        val shouldHideKmPerDay = when (mileageFilter) {
+            is MileageFilter.CustomRange -> true  // Скрываем для CustomRange
+            is MileageFilter.Last10k -> true       // Скрываем для Last10k
+            is MileageFilter.AllMileage -> false   // Показываем для AllMileage
+        }
+        
         return GeneralStatistics(
             totalCost = totalCost,
             costPerKm = costPerKm,
             averageKmPerDay = averageKmPerDay,
             averageKmPerMonth = averageKmPerMonth,
             mostExpensiveMonth = mostExpensiveMonth,
+            needsPurchaseDateInfo = car.purchaseDate == null,
+            shouldHideKmPerDay = shouldHideKmPerDay,
             costDistribution = costDistribution,
             costTrend = costTrend
         )
@@ -669,6 +771,8 @@ class StatisticsViewModel @Inject constructor(
         val monthlyCostItems = fillEmptyPeriods(periodRepairCosts, allPeriods, groupingType)
         
         // Parts vs Labor distribution
+        // Note: 'parts' here only contains standalone parts (not from breakdowns, already filtered)
+        // breakdown.partsCost already includes cost of parts installed through breakdowns
         val totalPartsCost = breakdowns.sumOf { breakdown ->
             breakdown.partsCost
         } + parts.sumOf { it.price }
@@ -692,16 +796,64 @@ class StatisticsViewModel @Inject constructor(
             }
         }
         
+        // Maintenance type distribution (Ремонт/ТО/Тюнинг) - только запчасти, БЕЗ услуг
+        val maintenanceTypeDistribution = buildList {
+            val repairCost = breakdowns.filter { 
+                it.maintenanceType?.let { type -> 
+                    com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.REPAIR 
+                } ?: true // Старые записи без типа считаем ремонтами
+            }.sumOf { it.partsCost }
+            
+            val serviceCost = breakdowns.filter { 
+                it.maintenanceType?.let { type -> 
+                    com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.SCHEDULED_SERVICE 
+                } ?: false
+            }.sumOf { it.partsCost }
+            
+            val modificationCost = breakdowns.filter { 
+                it.maintenanceType?.let { type -> 
+                    com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.MODIFICATION 
+                } ?: false
+            }.sumOf { it.partsCost }
+            
+            // Total только для запчастей (для процентов)
+            val partsOnlyTotal = repairCost + serviceCost + modificationCost
+            
+            if (repairCost > 0) {
+                add(CostDistributionItem(
+                    category = "Ремонт",
+                    amount = repairCost,
+                    percentage = if (partsOnlyTotal > 0) (repairCost / partsOnlyTotal * 100).toFloat() else 0f
+                ))
+            }
+            if (serviceCost > 0) {
+                add(CostDistributionItem(
+                    category = "ТО",
+                    amount = serviceCost,
+                    percentage = if (partsOnlyTotal > 0) (serviceCost / partsOnlyTotal * 100).toFloat() else 0f
+                ))
+            }
+            if (modificationCost > 0) {
+                add(CostDistributionItem(
+                    category = "Тюнинг",
+                    amount = modificationCost,
+                    percentage = if (partsOnlyTotal > 0) (modificationCost / partsOnlyTotal * 100).toFloat() else 0f
+                ))
+            }
+        }
+        
         return RepairsStatistics(
             totalRepairsCost = totalRepairsCost,
             repairsCount = repairsCount,
             averageRepairCost = averageRepairCost,
             monthlyRepairCosts = monthlyCostItems,
-            partsVsLaborDistribution = partsVsLabor
+            partsVsLaborDistribution = partsVsLabor,
+            maintenanceTypeDistribution = maintenanceTypeDistribution
         )
     }
     
     private fun calculateConsumablesStatistics(consumables: List<Consumable>): ConsumablesStatistics? {
+        // Все расходники учитываются (включая добавленные через ТО)
         if (consumables.isEmpty()) return null
         
         val totalCost = consumables.sumOf { it.cost ?: 0.0 }

@@ -158,14 +158,6 @@ fun ConsumablesStatisticsTab(
                 )
             }
         }
-        
-        // Hint about navigation
-        Text(
-            text = "Нажмите на карточку с графиком, чтобы перейти к списку расходников",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
     }
 }
 

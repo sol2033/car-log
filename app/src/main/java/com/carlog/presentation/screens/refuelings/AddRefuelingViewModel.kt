@@ -4,6 +4,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Car
@@ -17,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AddRefuelingViewModel @Inject constructor(
     private val refuelingRepository: RefuelingRepository,
-    private val carRepository: CarRepository
+    private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier
 ) : ViewModel() {
     
     private val _carId = MutableStateFlow<Long?>(null)
@@ -290,6 +292,9 @@ class AddRefuelingViewModel @Inject constructor(
                 
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageIfNeeded(carId, _mileage.value.toInt())
+                
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
                 
                 onSuccess()
             } catch (e: Exception) {

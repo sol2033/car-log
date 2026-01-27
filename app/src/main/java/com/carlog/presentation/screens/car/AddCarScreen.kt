@@ -18,10 +18,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -126,6 +130,62 @@ fun AddCarScreen(
                 label = { Text(stringResource(R.string.current_mileage_required)) },
                 isError = state.mileageError != null,
                 supportingText = state.mileageError?.let { { Text(it) } },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            // Purchase Date Picker
+            var showDatePicker by remember { mutableStateOf(false) }
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = state.purchaseDateMillis ?: System.currentTimeMillis()
+            )
+            
+            OutlinedTextField(
+                value = state.purchaseDate,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Дата покупки") },
+                isError = state.purchaseDateError != null,
+                supportingText = state.purchaseDateError?.let { { Text(it) } },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "Выбрать дату")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+            )
+            
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.updatePurchaseDate(datePickerState.selectedDateMillis)
+                                showDatePicker = false
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Отмена")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+            
+            OutlinedTextField(
+                value = state.purchaseMileage,
+                onValueChange = viewModel::updatePurchaseMileage,
+                label = { Text("Пробег при покупке (км) *") },
+                isError = state.purchaseMileageError != null,
+                supportingText = state.purchaseMileageError?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -408,14 +468,6 @@ fun AddCarScreen(
                 onValueChange = viewModel::updateEngineVolume,
                 label = { Text(stringResource(R.string.engine_volume_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            OutlinedTextField(
-                value = state.purchaseMileage,
-                onValueChange = viewModel::updatePurchaseMileage,
-                label = { Text("Пробег при покупке (км)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
             

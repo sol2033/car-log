@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
 import com.carlog.domain.model.Breakdown
+import com.carlog.domain.model.MaintenanceType
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,77 +48,118 @@ fun BreakdownsScreen(
             }
         }
     ) { paddingValues ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Tabs for filtering
+            ScrollableTabRow(
+                selectedTabIndex = when (uiState.selectedMaintenanceType) {
+                    null -> 0
+                    MaintenanceType.REPAIR -> 1
+                    MaintenanceType.SCHEDULED_SERVICE -> 2
+                    MaintenanceType.MODIFICATION -> 3
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Tab(
+                    selected = uiState.selectedMaintenanceType == null,
+                    onClick = { viewModel.selectMaintenanceType(null) },
+                    text = { Text(stringResource(R.string.tab_all)) }
+                )
+                Tab(
+                    selected = uiState.selectedMaintenanceType == MaintenanceType.REPAIR,
+                    onClick = { viewModel.selectMaintenanceType(MaintenanceType.REPAIR) },
+                    text = { Text(stringResource(R.string.tab_repairs)) }
+                )
+                Tab(
+                    selected = uiState.selectedMaintenanceType == MaintenanceType.SCHEDULED_SERVICE,
+                    onClick = { viewModel.selectMaintenanceType(MaintenanceType.SCHEDULED_SERVICE) },
+                    text = { Text(stringResource(R.string.tab_service)) }
+                )
+                Tab(
+                    selected = uiState.selectedMaintenanceType == MaintenanceType.MODIFICATION,
+                    onClick = { viewModel.selectMaintenanceType(MaintenanceType.MODIFICATION) },
+                    text = { Text(stringResource(R.string.tab_modifications)) }
+                )
             }
-            uiState.error != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = uiState.error ?: "Ошибка загрузки",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            uiState.breakdowns.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+            
+            // Content
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Build,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
+                        CircularProgressIndicator()
+                    }
+                }
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "Поломок пока нет",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Нажмите +, чтобы добавить первую поломку",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = uiState.error ?: "Ошибка загрузки",
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = uiState.breakdowns,
-                        key = { it.id }
-                    ) { breakdown ->
-                        BreakdownCard(
-                            breakdown = breakdown,
-                            onBreakdownClick = { onNavigateToBreakdownDetail(carId, breakdown.id) },
-                            onDeleteClick = { viewModel.deleteBreakdown(breakdown) }
-                        )
+                uiState.filteredBreakdowns.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Build,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = if (uiState.selectedMaintenanceType == null) {
+                                    "Записей пока нет"
+                                } else {
+                                    "Записей этого типа пока нет"
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (uiState.selectedMaintenanceType == null) {
+                                Text(
+                                    text = "Нажмите +, чтобы добавить первую запись",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            items = uiState.filteredBreakdowns,
+                            key = { it.id }
+                        ) { breakdown ->
+                            BreakdownCard(
+                                breakdown = breakdown,
+                                onBreakdownClick = { onNavigateToBreakdownDetail(carId, breakdown.id) },
+                                onDeleteClick = { viewModel.deleteBreakdown(breakdown) }
+                            )
+                        }
                     }
                 }
             }
@@ -133,9 +175,26 @@ private fun BreakdownCard(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     
+    // Определяем цвет фона карточки на основе типа обслуживания
+    val maintenanceType = breakdown.maintenanceType?.let { MaintenanceType.fromString(it) } 
+        ?: MaintenanceType.REPAIR  // Старые записи без типа = Ремонты
+    
+    val cardColors = when (maintenanceType) {
+        MaintenanceType.REPAIR -> CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+        )
+        MaintenanceType.SCHEDULED_SERVICE -> CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        )
+        MaintenanceType.MODIFICATION -> CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+        )
+    }
+    
     ElevatedCard(
         onClick = onBreakdownClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = cardColors
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -146,6 +205,21 @@ private fun BreakdownCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    // Показываем тип обслуживания
+                    breakdown.maintenanceType?.let { typeString ->
+                        MaintenanceType.fromString(typeString)?.let { type ->
+                            Text(
+                                text = type.getDisplayName(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = when (type) {
+                                    MaintenanceType.REPAIR -> MaterialTheme.colorScheme.error
+                                    MaintenanceType.SCHEDULED_SERVICE -> MaterialTheme.colorScheme.primary
+                                    MaintenanceType.MODIFICATION -> MaterialTheme.colorScheme.tertiary
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     Text(
                         text = breakdown.title,
                         style = MaterialTheme.typography.titleMedium,

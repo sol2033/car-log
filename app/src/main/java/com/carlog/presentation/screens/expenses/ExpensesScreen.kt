@@ -325,9 +325,17 @@ private fun ExpenseCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = expense.category,
+                    text = expense.title ?: "Без названия",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = expense.category,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Spacer(modifier = Modifier.height(4.dp))

@@ -2,6 +2,7 @@ package com.carlog.presentation.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Car
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +20,8 @@ data class CarListState(
 
 @HiltViewModel
 class CarListViewModel @Inject constructor(
-    private val carRepository: CarRepository
+    private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(CarListState())
@@ -53,6 +55,8 @@ class CarListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 carRepository.deleteCar(car)
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
             }

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.domain.model.MaintenanceType
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -28,9 +29,12 @@ fun AddBreakdownScreen(
     carId: Long,
     breakdownId: Long? = null,
     onNavigateBack: () -> Unit,
+    onNavigateToAddConsumable: (Long) -> Unit = {},
     viewModel: AddBreakdownViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val availableCategories by viewModel.availableCategories.collectAsState()
+    var showAddConsumableDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -81,16 +85,85 @@ fun AddBreakdownScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Динамические заголовки в зависимости от типа обслуживания
+                val infoLabel = when (state.maintenanceType) {
+                    MaintenanceType.REPAIR -> "Информация о поломке *"
+                    MaintenanceType.SCHEDULED_SERVICE -> "Информация о ТО *"
+                    MaintenanceType.MODIFICATION -> "Информация о тюнинге *"
+                    null -> "Информация о поломке *"
+                }
+                
+                val titleLabel = when (state.maintenanceType) {
+                    MaintenanceType.REPAIR -> "Название поломки *"
+                    MaintenanceType.SCHEDULED_SERVICE -> "Название ТО *"
+                    MaintenanceType.MODIFICATION -> "Название тюнинга *"
+                    null -> "Название поломки *"
+                }
+                
+                val dateLabel = when (state.maintenanceType) {
+                    MaintenanceType.REPAIR -> "Дата поломки *"
+                    MaintenanceType.SCHEDULED_SERVICE -> "Дата ТО *"
+                    MaintenanceType.MODIFICATION -> "Дата тюнинга *"
+                    null -> "Дата поломки *"
+                }
+                
+                val mileageLabel = when (state.maintenanceType) {
+                    MaintenanceType.REPAIR -> "Пробег при поломке (км) *"
+                    MaintenanceType.SCHEDULED_SERVICE -> "Пробег на момент ТО (км) *"
+                    MaintenanceType.MODIFICATION -> "Пробег при тюнинге (км) *"
+                    null -> "Пробег при поломке (км) *"
+                }
+                
+                val costLabel = when (state.maintenanceType) {
+                    MaintenanceType.REPAIR -> "Стоимость ремонта *"
+                    MaintenanceType.SCHEDULED_SERVICE -> "Стоимость ремонта *" // Не показывается для ТО
+                    MaintenanceType.MODIFICATION -> "Стоимость тюнинга *"
+                    null -> "Стоимость ремонта *"
+                }
+                
                 Text(
-                    text = stringResource(R.string.breakdown_info_label),
+                    text = infoLabel,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 
+                // Maintenance Type Selector
+                Text(
+                    text = stringResource(R.string.maintenance_type),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MaintenanceType.values().forEach { type ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = state.maintenanceType == type,
+                                onClick = { viewModel.updateMaintenanceType(type) }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = type.getDisplayName(),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+                
+                state.maintenanceTypeError?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                
                 OutlinedTextField(
                     value = state.title,
                     onValueChange = viewModel::updateTitle,
-                    label = { Text(stringResource(R.string.breakdown_title)) },
+                    label = { Text(titleLabel) },
                     isError = state.titleError != null,
                     supportingText = state.titleError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -111,7 +184,7 @@ fun AddBreakdownScreen(
                 OutlinedTextField(
                     value = formatDate(state.breakdownDate),
                     onValueChange = {},
-                    label = { Text(stringResource(R.string.breakdown_date)) },
+                    label = { Text(dateLabel) },
                     readOnly = true,
                     trailingIcon = {
                         IconButton(onClick = { showDatePicker = true }) {
@@ -152,7 +225,7 @@ fun AddBreakdownScreen(
                 OutlinedTextField(
                     value = state.breakdownMileage,
                     onValueChange = viewModel::updateBreakdownMileage,
-                    label = { Text(stringResource(R.string.breakdown_mileage)) },
+                    label = { Text(mileageLabel) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = state.breakdownMileageError != null,
                     supportingText = state.breakdownMileageError?.let { { Text(it) } },
@@ -161,42 +234,44 @@ fun AddBreakdownScreen(
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 
-                Text(
-                    text = stringResource(R.string.repair_cost_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                // Переключатель типа ввода запчастей
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = state.useGeneralPartsCost,
-                        onClick = { viewModel.toggleUseGeneralPartsCost(true) }
-                    )
+                // Для ТО - только расходники, для Ремонтов и Модификаций - стоимость ремонта
+                if (state.maintenanceType != MaintenanceType.SCHEDULED_SERVICE) {
                     Text(
-                        text = stringResource(R.string.general_parts_cost),
-                        modifier = Modifier.padding(start = 8.dp)
+                        text = costLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                }
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = !state.useGeneralPartsCost,
-                        onClick = { viewModel.toggleUseGeneralPartsCost(false) }
-                    )
-                    Text(
-                        text = stringResource(R.string.specific_parts_list),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-                
-                if (state.useGeneralPartsCost) {
+                    
+                    // Переключатель типа ввода запчастей
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = state.useGeneralPartsCost,
+                            onClick = { viewModel.toggleUseGeneralPartsCost(true) }
+                        )
+                        Text(
+                            text = stringResource(R.string.general_parts_cost),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = !state.useGeneralPartsCost,
+                            onClick = { viewModel.toggleUseGeneralPartsCost(false) }
+                        )
+                        Text(
+                            text = stringResource(R.string.specific_parts_list),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    
+                    if (state.useGeneralPartsCost) {
                     OutlinedTextField(
                         value = state.partsCost,
                         onValueChange = viewModel::updatePartsCost,
@@ -289,53 +364,187 @@ fun AddBreakdownScreen(
                         }
                     }
                 }
+                } // Конец if (state.maintenanceType != MaintenanceType.SCHEDULED_SERVICE)
                 
-                OutlinedTextField(
-                    value = if (state.isWarrantyRepair) "ремонт по гарантии" else state.serviceCost,
-                    onValueChange = { if (!state.isWarrantyRepair) viewModel.updateServiceCost(it) },
-                    label = { Text(stringResource(R.string.service_cost_label)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    readOnly = state.isWarrantyRepair,
-                    enabled = !state.isWarrantyRepair,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Секция расходников для ТО
+                if (state.maintenanceType == MaintenanceType.SCHEDULED_SERVICE) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    Text(
+                        text = stringResource(R.string.linked_consumables),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    // Кнопка "Добавить расходник"
+                    Button(
+                        onClick = { showAddConsumableDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !state.isEditMode // Только при создании нового ТО
+                    ) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.add_consumable))
+                    }
+                    
+                    if (state.consumablesError != null) {
+                        Text(
+                            text = state.consumablesError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        )
+                    }
+                    
+                    // Список добавленных расходников
+                    state.temporaryConsumables.forEachIndexed { index, consumable ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = consumable.category,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                    consumable.manufacturer?.let { manufacturer ->
+                                        Text(
+                                            text = manufacturer,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    consumable.cost?.let { cost ->
+                                        Text(
+                                            text = "₽%.2f".format(cost),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                
+                                // Кнопка удаления (всегда доступна)
+                                IconButton(onClick = { viewModel.removeTemporaryConsumable(index) }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        stringResource(R.string.delete),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Показываем рассчитанную стоимость запчастей
+                    if (state.temporaryConsumables.isNotEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.calculated_parts_cost),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "₽%.2f".format(state.calculatedPartsCost),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
                 
-                // Галочка гарантийного ремонта
+                // Галочка "В сервисе"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
-                        checked = state.isWarrantyRepair,
-                        onCheckedChange = viewModel::toggleWarrantyRepair
+                        checked = state.isServiceMaintenance,
+                        onCheckedChange = viewModel::toggleServiceMaintenance
                     )
                     Text(
-                        text = stringResource(R.string.warranty_repair),
+                        text = stringResource(R.string.service_maintenance),
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                // Стоимость услуг сервиса - показывается только при галочке "В сервисе"
+                if (state.isServiceMaintenance) {
+                    OutlinedTextField(
+                        value = if (state.isWarrantyRepair) "ремонт по гарантии" else state.serviceCost,
+                        onValueChange = { if (!state.isWarrantyRepair) viewModel.updateServiceCost(it) },
+                        label = { Text(stringResource(R.string.service_cost_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        readOnly = state.isWarrantyRepair,
+                        enabled = !state.isWarrantyRepair,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 
-                Text(
-                    text = stringResource(R.string.service_info_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                // Галочка гарантийного ремонта - только для REPAIR
+                if (state.maintenanceType == MaintenanceType.REPAIR) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = state.isWarrantyRepair,
+                            onCheckedChange = viewModel::toggleWarrantyRepair
+                        )
+                        Text(
+                            text = stringResource(R.string.warranty_repair),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
                 
-                OutlinedTextField(
-                    value = state.serviceName,
-                    onValueChange = viewModel::updateServiceName,
-                    label = { Text(stringResource(R.string.service_name)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                OutlinedTextField(
-                    value = state.serviceAddress,
-                    onValueChange = viewModel::updateServiceAddress,
-                    label = { Text(stringResource(R.string.service_address)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Название и адрес сервиса - только при галочке "В сервисе"
+                if (state.isServiceMaintenance) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    Text(
+                        text = stringResource(R.string.service_info_label),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    OutlinedTextField(
+                        value = state.serviceName,
+                        onValueChange = viewModel::updateServiceName,
+                        label = { Text(stringResource(R.string.service_name)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    OutlinedTextField(
+                        value = state.serviceAddress,
+                        onValueChange = viewModel::updateServiceAddress,
+                        label = { Text(stringResource(R.string.service_address)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 
@@ -445,6 +654,196 @@ fun AddBreakdownScreen(
             }
         }
     }
+    
+    // Dialog для добавления расходника
+    if (showAddConsumableDialog) {
+        AddConsumableDialog(
+            availableCategories = availableCategories,
+            onDismiss = { showAddConsumableDialog = false },
+            onAdd = { consumable ->
+                val success = viewModel.addTemporaryConsumable(consumable)
+                if (success) {
+                    showAddConsumableDialog = false
+                }
+            },
+            errorMessage = state.consumablesError
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddConsumableDialog(
+    availableCategories: List<String>,
+    onDismiss: () -> Unit,
+    onAdd: (TemporaryConsumable) -> Unit,
+    errorMessage: String?
+) {
+    var category by remember { mutableStateOf("") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var manufacturer by remember { mutableStateOf("") }
+    var articleNumber by remember { mutableStateOf("") }
+    var cost by remember { mutableStateOf("") }
+    var volume by remember { mutableStateOf("") }
+    var replacementIntervalMileage by remember { mutableStateOf("") }
+    var replacementIntervalDays by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Добавить расходник для ТО") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (errorMessage != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+                
+                // Dropdown для категории
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = !categoryExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Категория *") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        isError = errorMessage != null && category.isBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        availableCategories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    category = cat
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                OutlinedTextField(
+                    value = manufacturer,
+                    onValueChange = { manufacturer = it },
+                    label = { Text("Производитель") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = articleNumber,
+                    onValueChange = { articleNumber = it },
+                    label = { Text("Артикул") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = cost,
+                    onValueChange = { cost = it },
+                    label = { Text("Стоимость *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = cost.isBlank() || cost.toDoubleOrNull() == null
+                )
+                
+                OutlinedTextField(
+                    value = volume,
+                    onValueChange = { volume = it },
+                    label = { Text("Объем (л) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = volume.isBlank() || volume.toDoubleOrNull() == null
+                )
+                
+                OutlinedTextField(
+                    value = replacementIntervalMileage,
+                    onValueChange = { replacementIntervalMileage = it },
+                    label = { Text("Интервал замены (км) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = replacementIntervalMileage.isBlank() || replacementIntervalMileage.toIntOrNull() == null
+                )
+                
+                OutlinedTextField(
+                    value = replacementIntervalDays,
+                    onValueChange = { replacementIntervalDays = it },
+                    label = { Text("Интервал замены (дней) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = replacementIntervalDays.isBlank() || replacementIntervalDays.toIntOrNull() == null
+                )
+                
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Заметки") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (category.isNotBlank() && 
+                        cost.isNotBlank() && cost.toDoubleOrNull() != null &&
+                        volume.isNotBlank() && volume.toDoubleOrNull() != null &&
+                        replacementIntervalMileage.isNotBlank() && replacementIntervalMileage.toIntOrNull() != null &&
+                        replacementIntervalDays.isNotBlank() && replacementIntervalDays.toIntOrNull() != null) {
+                        onAdd(
+                            TemporaryConsumable(
+                                category = category,
+                                manufacturer = manufacturer.ifBlank { null },
+                                articleNumber = articleNumber.ifBlank { null },
+                                cost = cost.toDoubleOrNull(),
+                                isInstalledAtService = false,
+                                serviceCost = null,
+                                volume = volume.toDoubleOrNull(),
+                                replacementIntervalMileage = replacementIntervalMileage.toIntOrNull(),
+                                replacementIntervalDays = replacementIntervalDays.toIntOrNull(),
+                                notes = notes.ifBlank { null }
+                            )
+                        )
+                    }
+                },
+                enabled = category.isNotBlank() && 
+                         cost.isNotBlank() && cost.toDoubleOrNull() != null &&
+                         volume.isNotBlank() && volume.toDoubleOrNull() != null &&
+                         replacementIntervalMileage.isNotBlank() && replacementIntervalMileage.toIntOrNull() != null &&
+                         replacementIntervalDays.isNotBlank() && replacementIntervalDays.toIntOrNull() != null
+            ) {
+                Text("Добавить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
 }
 
 private fun formatDate(timestamp: Long): String {

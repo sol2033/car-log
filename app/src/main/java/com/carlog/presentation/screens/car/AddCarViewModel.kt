@@ -31,6 +31,8 @@ data class AddCarState(
     val gasType: String? = null,
     val currentMileage: String = "",
     val purchaseMileage: String = "",
+    val purchaseDate: String = "",
+    val purchaseDateMillis: Long? = null,
     val photosPaths: List<String> = emptyList(),
     val mainPhotoPath: String? = null,
     val notes: String = "",
@@ -39,6 +41,8 @@ data class AddCarState(
     val modelError: String? = null,
     val fuelTypeError: String? = null,
     val mileageError: String? = null,
+    val purchaseDateError: String? = null,
+    val purchaseMileageError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -87,6 +91,16 @@ class AddCarViewModel @Inject constructor(
                             gasType = car.gasType,
                             currentMileage = car.currentMileage.toString(),
                             purchaseMileage = car.purchaseMileage?.toString() ?: "",
+                            purchaseDate = car.purchaseDate?.let {
+                                val calendar = java.util.Calendar.getInstance()
+                                calendar.timeInMillis = it
+                                String.format("%02d.%02d.%04d",
+                                    calendar.get(java.util.Calendar.DAY_OF_MONTH),
+                                    calendar.get(java.util.Calendar.MONTH) + 1,
+                                    calendar.get(java.util.Calendar.YEAR)
+                                )
+                            } ?: "",
+                            purchaseDateMillis = car.purchaseDate,
                             photosPaths = car.photosPaths ?: emptyList(),
                             mainPhotoPath = car.mainPhotoPath,
                             notes = car.notes ?: "",
@@ -187,6 +201,23 @@ class AddCarViewModel @Inject constructor(
         _state.value = _state.value.copy(purchaseMileage = mileage)
     }
     
+    fun updatePurchaseDate(dateMillis: Long?) {
+        val dateString = dateMillis?.let {
+            val calendar = java.util.Calendar.getInstance()
+            calendar.timeInMillis = it
+            String.format("%02d.%02d.%04d",
+                calendar.get(java.util.Calendar.DAY_OF_MONTH),
+                calendar.get(java.util.Calendar.MONTH) + 1,
+                calendar.get(java.util.Calendar.YEAR)
+            )
+        } ?: ""
+        _state.value = _state.value.copy(
+            purchaseDate = dateString,
+            purchaseDateMillis = dateMillis,
+            purchaseDateError = null
+        )
+    }
+    
     fun addPhoto(photoPath: String) {
         val currentPaths = _state.value.photosPaths.toMutableList()
         currentPaths.add(photoPath)
@@ -231,13 +262,17 @@ class AddCarViewModel @Inject constructor(
         val modelError = if (currentState.model.isBlank()) "Обязательное поле" else null
         val fuelTypeError = if (currentState.fuelType.isBlank()) "Обязательное поле" else null
         val mileageError = if (currentState.currentMileage.isBlank()) "Обязательное поле" else null
+        val purchaseDateError = if (currentState.purchaseDateMillis == null) "Обязательное поле" else null
+        val purchaseMileageError = if (currentState.purchaseMileage.isBlank()) "Обязательное поле" else null
         
-        if (brandError != null || modelError != null || fuelTypeError != null || mileageError != null) {
+        if (brandError != null || modelError != null || fuelTypeError != null || mileageError != null || purchaseDateError != null || purchaseMileageError != null) {
             _state.value = currentState.copy(
                 brandError = brandError,
                 modelError = modelError,
                 fuelTypeError = fuelTypeError,
-                mileageError = mileageError
+                mileageError = mileageError,
+                purchaseDateError = purchaseDateError,
+                purchaseMileageError = purchaseMileageError
             )
             return
         }
@@ -268,7 +303,7 @@ class AddCarViewModel @Inject constructor(
                         gasType = currentState.gasType,
                         currentMileage = currentState.currentMileage.toInt(),
                         purchaseMileage = currentState.purchaseMileage.toIntOrNull(),
-                        purchaseDate = null,
+                        purchaseDate = currentState.purchaseDateMillis,
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },
                         notes = currentState.notes.ifBlank { null },
@@ -295,7 +330,7 @@ class AddCarViewModel @Inject constructor(
                         gasType = currentState.gasType,
                         currentMileage = currentState.currentMileage.toInt(),
                         purchaseMileage = currentState.purchaseMileage.toIntOrNull(),
-                        purchaseDate = null,
+                        purchaseDate = currentState.purchaseDateMillis,
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },
                         notes = currentState.notes.ifBlank { null },

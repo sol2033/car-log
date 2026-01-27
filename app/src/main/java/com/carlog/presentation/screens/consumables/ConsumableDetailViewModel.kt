@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.consumables
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
 import com.carlog.domain.model.Consumable
@@ -26,6 +27,7 @@ sealed class ConsumableDetailUiState {
 class ConsumableDetailViewModel @Inject constructor(
     private val consumableRepository: ConsumableRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -111,6 +113,8 @@ class ConsumableDetailViewModel @Inject constructor(
                         state.consumable.replacementMileage ?: 0
                     )
                     carRepository.updateCarMileageAfterDelete(state.consumable.carId, maxMileage)
+                    // Уведомляем о изменении данных
+                    dataChangeNotifier.notifyDataChanged()
                     onDeleted()
                 }
             } catch (e: Exception) {
@@ -124,6 +128,7 @@ class ConsumableDetailViewModel @Inject constructor(
         newCost: Double?,
         isInstalledAtService: Boolean,
         serviceCost: Double?,
+        replacementDate: Long = System.currentTimeMillis(),
         onReplaced: () -> Unit
     ) {
         viewModelScope.launch {
@@ -146,7 +151,7 @@ class ConsumableDetailViewModel @Inject constructor(
                     val newConsumable = oldConsumable.copy(
                         id = 0,
                         installationMileage = state.currentMileage,
-                        installationDate = currentTime,
+                        installationDate = replacementDate,
                         cost = newCost,
                         isInstalledAtService = isInstalledAtService,
                         serviceCost = serviceCost,
@@ -160,6 +165,9 @@ class ConsumableDetailViewModel @Inject constructor(
                     
                     // Обновляем пробег автомобиля до максимального
                     carRepository.updateCarMileageIfNeeded(oldConsumable.carId, state.currentMileage)
+                    
+                    // Уведомляем о изменении данных
+                    dataChangeNotifier.notifyDataChanged()
                     
                     onReplaced()
                 }
@@ -185,6 +193,8 @@ class ConsumableDetailViewModel @Inject constructor(
                     consumableRepository.updateConsumable(updatedConsumable)
                     // Обновляем пробег автомобиля до максимального
                     carRepository.updateCarMileageIfNeeded(state.consumable.carId, state.currentMileage)
+                    // Уведомляем о изменении данных
+                    dataChangeNotifier.notifyDataChanged()
                     onReplaced()
                 }
             } catch (e: Exception) {

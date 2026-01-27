@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ fun CarListScreen(
     onCarClick: (Long) -> Unit,
     onAddCarClick: () -> Unit,
     onStatisticsClick: () -> Unit,
+    onBackupClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onInfoClick: () -> Unit,
     viewModel: CarListViewModel = hiltViewModel()
@@ -39,6 +41,12 @@ fun CarListScreen(
             TopAppBar(
                 title = { Text("Car Log") },
                 actions = {
+                    IconButton(onClick = onBackupClick) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = "Backup"
+                        )
+                    }
                     IconButton(onClick = onInfoClick) {
                         Icon(
                             imageVector = Icons.Default.Info,

@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.parts
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
@@ -17,6 +18,8 @@ sealed class PartFilter {
     object Broken : PartFilter()
     object OnlyAccident : PartFilter()
     object WithoutAccident : PartFilter()
+    object Repair : PartFilter()
+    object Tuning : PartFilter()
 }
 
 sealed class PartSortOrder {
@@ -44,6 +47,7 @@ data class PartsUiState(
 class PartsViewModel @Inject constructor(
     private val partRepository: PartRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -84,6 +88,12 @@ class PartsViewModel @Inject constructor(
                         }
                         PartFilter.WithoutAccident -> partRepository.getPartsByCarId(carId).map { parts ->
                             parts.filter { it.installationType != "ДТП" }
+                        }
+                        PartFilter.Repair -> partRepository.getPartsByCarId(carId).map { parts ->
+                            parts.filter { it.maintenanceType == "REPAIR" }
+                        }
+                        PartFilter.Tuning -> partRepository.getPartsByCarId(carId).map { parts ->
+                            parts.filter { it.maintenanceType == "MODIFICATION" }
                         }
                     }.map { parts ->
                         val sortedParts = when (sort) {
@@ -158,6 +168,8 @@ class PartsViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 partRepository.updatePart(updatedPart)
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
@@ -168,6 +180,8 @@ class PartsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 partRepository.deletePart(part)
+                // Уведомляем о изменении данных
+                dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
