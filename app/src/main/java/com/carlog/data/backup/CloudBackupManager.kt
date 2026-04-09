@@ -1,8 +1,6 @@
 package com.carlog.data.backup
 
 import android.content.Context
-import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,87 +17,127 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Менеджер резервного копирования в облачное хранилище через SAF (Storage Access Framework)
- * Создаёт ZIP архивы с базой данных и фотографиями
+ * Менеджер резервного копирования через Яндекс.Диск API.
+ * Создаёт ZIP-архивы с базой данных и фотографиями, загружает на Яндекс.Диск.
  */
 @Singleton
 class CloudBackupManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val yandexAuthManager: YandexAuthManager
 ) {
     companion object {
-        private const val BACKUP_PREFIX = "CarLog_Backup_"
         private const val DATABASE_NAME = "car_log_database"
         private const val DATABASE_FILE_IN_ZIP = "car_log_database.db"
         private const val PHOTOS_FOLDER = "photos"
-        private const val MAX_BACKUPS = 3 // Актуальная, прошлая, позапрошлая
+        private const val MAX_BACKUPS = 3
     }
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
 
+    private fun getApi(): YandexDiskApi {
+        val token = yandexAuthManager.getToken()
+            ?: throw Exception("Яндекс.Диск не подключён")
+        return YandexDiskApi(token)
+    }
+
     /**
-     * Создать резервную копию в выбранную папку облака
-     * @param cloudFolderUri URI папки, выбранной пользователем через SAF
-     * @return Result с информацией о созданном файле или ошибкой
+     * Создаёт резервную копию и загружает её на Яндекс.Диск.
      */
-    suspend fun createBackup(cloudFolderUri: Uri): Result<BackupInfo> = withContext(Dispatchers.IO) {
+    suspend fun createBackup(): Result<BackupInfo> = withContext(Dispatchers.IO) {
         try {
+            val api = getApi()
             val timestamp = dateFormat.format(Date())
-            val backupFileName = "$BACKUP_PREFIX$timestamp.zip"
-            
-            // Создаём временный ZIP файл
+            val backupFileName = "${YandexDiskApi.BACKUP_PREFIX}$timestamp.zip"
+
+            // Создаём временный ZIP-архив
             val tempZipFile = File(context.cacheDir, backupFileName)
             createZipArchive(tempZipFile)
-            
-            // Копируем в облачную папку через SAF
-            val cloudFolder = DocumentFile.fromTreeUri(context, cloudFolderUri)
-                ?: return@withContext Result.failure(Exception("Не удалось получить доступ к папке"))
-            
-            // Создаём файл в облачной папке
-            val cloudFile = cloudFolder.createFile("application/zip", backupFileName)
-                ?: return@withContext Result.failure(Exception("Не удалось создать файл в облаке"))
-            
-            // Копируем содержимое
-            context.contentResolver.openOutputStream(cloudFile.uri)?.use { outputStream ->
-                tempZipFile.inputStream().use { inputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            } ?: return@withContext Result.failure(Exception("Не удалось записать файл"))
-            
-            // Удаляем временный файл
+            val backupSize = tempZipFile.length()
+
+            // Создаём папку на Яндекс.Диске (игнорирует 409 если уже есть)
+            api.ensureFolderExists()
+
+            // Загружаем ZIP на Яндекс.Диск
+            val success = api.uploadFile(backupFileName, tempZipFile.readBytes())
             tempZipFile.delete()
-            
-            // Очищаем старые бэкапы, если включено автоудаление
-            val prefs = context.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
-            val autoDeleteEnabled = prefs.getBoolean("auto_delete_old_backups", true)
-            if (autoDeleteEnabled) {
-                cleanOldBackups(cloudFolder)
+
+            if (!success) {
+                return@withContext Result.failure(Exception("Ошибка загрузки на Яндекс.Диск"))
             }
-            
-            val backupInfo = BackupInfo(
-                fileName = backupFileName,
-                uri = cloudFile.uri,
-                timestamp = System.currentTimeMillis(),
-                size = tempZipFile.length()
+
+            // Удаляем старые копии, если включено
+            val prefs = context.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("auto_delete_old_backups", true)) {
+                cleanOldBackups(api)
+            }
+
+            Result.success(
+                BackupInfo(
+                    fileName = backupFileName,
+                    remotePath = "${YandexDiskApi.BACKUP_FOLDER_PATH}/$backupFileName",
+                    timestamp = System.currentTimeMillis(),
+                    size = backupSize
+                )
             )
-            
-            Result.success(backupInfo)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     /**
-     * Создать ZIP архив с базой данных и всеми фотографиями
+     * Восстанавливает данные из резервной копии на Яндекс.Диске.
+     * @param remotePath путь на Яндекс.Диске, например "disk:/CarLog/CarLog_Backup_xxx.zip"
      */
+    suspend fun restoreBackup(remotePath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val tempZipFile = File(context.cacheDir, "restore_temp.zip")
+        try {
+            val api = getApi()
+            val data = api.downloadFile(remotePath)
+            tempZipFile.writeBytes(data)
+            extractZipArchive(tempZipFile)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            tempZipFile.delete()
+        }
+    }
+
+    /**
+     * Возвращает список доступных резервных копий на Яндекс.Диске.
+     */
+    suspend fun getAvailableBackups(): Result<List<BackupInfo>> = withContext(Dispatchers.IO) {
+        try {
+            val api = getApi()
+            val backups = api.listBackups().map { file ->
+                BackupInfo(
+                    fileName = file.name,
+                    remotePath = file.path,
+                    timestamp = file.timestamp,
+                    size = file.size
+                )
+            }
+            Result.success(backups)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun cleanOldBackups(api: YandexDiskApi) {
+        api.listBackups()
+            .drop(MAX_BACKUPS)
+            .forEach { api.deleteFile(it.path) }
+    }
+
     private fun createZipArchive(zipFile: File) {
         ZipOutputStream(FileOutputStream(zipFile)).use { zos ->
-            // 1. Добавляем базу данных
+            // База данных
             val dbFile = context.getDatabasePath(DATABASE_NAME)
             if (dbFile.exists()) {
                 addFileToZip(zos, dbFile, DATABASE_FILE_IN_ZIP)
             }
-            
-            // 2. Добавляем все фотографии
+
+            // Фотографии
             val photosDir = File(context.filesDir, "photos")
             if (photosDir.exists() && photosDir.isDirectory) {
                 photosDir.listFiles()?.forEach { photoFile ->
@@ -111,126 +149,41 @@ class CloudBackupManager @Inject constructor(
         }
     }
 
-    /**
-     * Добавить файл в ZIP архив
-     */
     private fun addFileToZip(zos: ZipOutputStream, file: File, entryName: String) {
         FileInputStream(file).use { fis ->
-            val entry = ZipEntry(entryName)
-            zos.putNextEntry(entry)
+            zos.putNextEntry(ZipEntry(entryName))
             fis.copyTo(zos)
             zos.closeEntry()
         }
     }
 
-    /**
-     * Восстановить данные из резервной копии
-     * @param backupUri URI файла резервной копии
-     * @return Result с информацией об успехе/ошибке
-     */
-    suspend fun restoreBackup(backupUri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
-        val tempZipFile = File(context.cacheDir, "restore_temp.zip")
-        try {
-            // Копируем ZIP из облака во временный файл
-            context.contentResolver.openInputStream(backupUri)?.use { inputStream ->
-                tempZipFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            } ?: return@withContext Result.failure(Exception("Не удалось прочитать файл"))
-            
-            // Закрываем базу данных перед восстановлением
-            // (это будет сделано в ViewModel перед вызовом)
-            
-            // Распаковываем ZIP
-            extractZipArchive(tempZipFile)
-            
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        } finally {
-            // Удаляем временный файл в любом случае
-            tempZipFile.delete()
-        }
-    }
-
-    /**
-     * Распаковать ZIP архив
-     */
     private fun extractZipArchive(zipFile: File) {
         ZipInputStream(FileInputStream(zipFile)).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 val outputFile = when {
-                    entry.name == DATABASE_FILE_IN_ZIP -> {
+                    entry.name == DATABASE_FILE_IN_ZIP ->
                         context.getDatabasePath(DATABASE_NAME)
-                    }
                     entry.name.startsWith(PHOTOS_FOLDER) && !entry.isDirectory -> {
                         val photoName = entry.name.removePrefix("$PHOTOS_FOLDER/")
                         File(context.filesDir, "photos/$photoName")
                     }
                     else -> null
                 }
-                
                 outputFile?.let { file ->
                     file.parentFile?.mkdirs()
-                    FileOutputStream(file).use { fos ->
-                        zis.copyTo(fos)
-                    }
+                    FileOutputStream(file).use { fos -> zis.copyTo(fos) }
                 }
-                
                 zis.closeEntry()
                 entry = zis.nextEntry
             }
         }
     }
-
-    /**
-     * Удалить старые бэкапы, оставив только MAX_BACKUPS последних
-     */
-    private fun cleanOldBackups(cloudFolder: DocumentFile) {
-        val backupFiles = cloudFolder.listFiles()
-            .filter { it.name?.startsWith(BACKUP_PREFIX) == true }
-            .sortedByDescending { it.lastModified() }
-        
-        // Удаляем все кроме MAX_BACKUPS последних
-        backupFiles.drop(MAX_BACKUPS).forEach { file ->
-            file.delete()
-        }
-    }
-
-    /**
-     * Получить список доступных резервных копий в папке
-     */
-    suspend fun getAvailableBackups(cloudFolderUri: Uri): Result<List<BackupInfo>> = withContext(Dispatchers.IO) {
-        try {
-            val cloudFolder = DocumentFile.fromTreeUri(context, cloudFolderUri)
-                ?: return@withContext Result.failure(Exception("Не удалось получить доступ к папке"))
-            
-            val backups = cloudFolder.listFiles()
-                .filter { it.name?.startsWith(BACKUP_PREFIX) == true }
-                .sortedByDescending { it.lastModified() }
-                .map { file ->
-                    BackupInfo(
-                        fileName = file.name ?: "Unknown",
-                        uri = file.uri,
-                        timestamp = file.lastModified(),
-                        size = file.length()
-                    )
-                }
-            
-            Result.success(backups)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 }
 
-/**
- * Информация о резервной копии
- */
 data class BackupInfo(
     val fileName: String,
-    val uri: Uri,
+    val remotePath: String,   // Путь на Яндекс.Диске: disk:/CarLog/CarLog_Backup_xxx.zip
     val timestamp: Long,
     val size: Long
 )

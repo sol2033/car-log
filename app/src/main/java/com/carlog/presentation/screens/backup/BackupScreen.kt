@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.backup
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -118,11 +120,12 @@ fun BackupScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            // === Облачное резервное копирование ===
+            // === Облачное резервное копирование (Яндекс.Диск) ===
             CloudBackupSection(
                 cloudBackupState = cloudBackupState,
-                onSelectFolder = { uri, displayName ->
-                    viewModel.saveCloudFolder(uri, displayName)
+                onConnectYandex = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(viewModel.getYandexAuthUrl()))
+                    context.startActivity(intent)
                 },
                 onAutoBackupToggle = { enabled ->
                     viewModel.setAutoBackupEnabled(enabled)

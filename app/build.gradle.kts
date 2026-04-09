@@ -23,8 +23,8 @@ android {
         applicationId = "com.carlog"
         minSdk = 29
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.1.0"
+        versionCode = 5
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -115,8 +115,8 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
     
-    // DocumentFile для SAF
-    implementation("androidx.documentfile:documentfile:1.0.1")
+    // OkHttp для Яндекс.Диск API
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     
     // Coil (Images)
     implementation("io.coil-kt:coil-compose:2.5.0")

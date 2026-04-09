@@ -196,7 +196,7 @@ fun RestoreBackupScreen(
                         showConfirmDialog = false
                         isRestoring = true
                         scope.launch {
-                            val result = viewModel.restoreFromBackup(selectedBackup!!.uri)
+                            val result = viewModel.restoreFromBackup(selectedBackup!!.remotePath)
                             result.fold(
                                 onSuccess = {
                                     Toast.makeText(

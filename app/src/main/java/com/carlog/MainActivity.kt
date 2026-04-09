@@ -1,6 +1,7 @@
 package com.carlog
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.carlog.data.backup.YandexAuthManager
 import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ThemeMode
 import com.carlog.data.repository.CarRepository
@@ -31,49 +33,51 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+
     @Inject
     lateinit var carRepository: CarRepository
-    
+
     @Inject
     lateinit var appPreferences: AppPreferences
-    
+
+    @Inject
+    lateinit var yandexAuthManager: YandexAuthManager
+
     override fun attachBaseContext(newBase: Context) {
-        // Читаем выбранный язык из SharedPreferences
         val sharedPrefs = newBase.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         val languageCode = sharedPrefs.getString("language", "ru") ?: "ru"
-        
+
         val locale = Locale(languageCode)
         Locale.setDefault(locale)
         val config = Configuration(newBase.resources.configuration)
         config.setLocale(locale)
         super.attachBaseContext(newBase.createConfigurationContext(config))
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
-        // Синхронизируем пробег всех автомобилей при запуске
+
         lifecycleScope.launch {
             carRepository.syncAllCarsMileage()
         }
-        
+
+        // Обрабатываем OAuth-редирект при первом запуске через deep link
+        handleOAuthIntent(intent)
+
         setContent {
             val themeMode by appPreferences.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val currency by appPreferences.currency.collectAsState(initial = com.carlog.data.preferences.Currency.RUB)
             val isFirstLaunch by appPreferences.isFirstLaunch.collectAsState(initial = null)
             val systemDarkTheme = isSystemInDarkTheme()
-            
+
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
                 ThemeMode.SYSTEM -> systemDarkTheme
             }
-            
-            // Ждем загрузки isFirstLaunch из DataStore
+
             if (isFirstLaunch == null) {
-                // Показываем загрузочный экран
                 CarLogTheme(darkTheme = darkTheme) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
@@ -93,7 +97,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     com.carlog.presentation.navigation.Screen.CarList.route
                 }
-                
+
                 CarLogTheme(darkTheme = darkTheme) {
                     CompositionLocalProvider(LocalCurrency provides currency) {
                         Surface(
@@ -106,5 +110,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Вызывается когда приложение уже запущено и пришёл новый Intent
+     * (например, OAuth-редирект из браузера при launchMode=singleTop).
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthIntent(intent)
+    }
+
+    /**
+     * Извлекает OAuth-токен из deep link и сохраняет его.
+     * Яндекс редиректит на: carlog://oauth#access_token=TOKEN&...
+     */
+    private fun handleOAuthIntent(intent: Intent) {
+        val data = intent.data ?: return
+        if (data.scheme != "carlog" || data.host != "oauth") return
+
+        val token = yandexAuthManager.parseTokenFromUri(data) ?: return
+        yandexAuthManager.saveToken(token)
     }
 }
