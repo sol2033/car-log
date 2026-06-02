@@ -48,11 +48,12 @@ fun ConsumablesStatisticsTab(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    VicoBarChart(
-                        data = statistics.categorySpending.take(8).map { item ->
-                            BarChartData(
+                    CategoryBarChart(
+                        data = statistics.categorySpending.take(8).mapIndexed { index, item ->
+                            CategoryBarData(
                                 label = item.month, // Using month field for category name
-                                value = item.amount.toFloat()
+                                value = item.amount.toFloat(),
+                                color = getConsumableColor(index)
                             )
                         },
                         modifier = Modifier.fillMaxWidth()

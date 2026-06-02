@@ -34,6 +34,7 @@ class ExpensesViewModel @Inject constructor(
     private val _sortType = MutableStateFlow(SortType.DATE_DESC)
     val sortType: StateFlow<SortType> = _sortType.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val expenses: StateFlow<List<Expense>> = _sortType.flatMapLatest { sort ->
         when (sort) {
             SortType.DATE_DESC -> expenseRepository.getExpensesSortedByDateDesc(carId)

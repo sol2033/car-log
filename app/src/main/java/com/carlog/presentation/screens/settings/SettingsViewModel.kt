@@ -14,7 +14,6 @@ import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.Currency
 import com.carlog.data.preferences.ThemeMode
 import com.carlog.util.DatabaseBackup
-import com.carlog.util.ImportStats
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -130,7 +129,7 @@ class SettingsViewModel @Inject constructor(
         return databaseBackup.exportToJson(outputStream)
     }
 
-    suspend fun importDatabase(inputStream: InputStream): Result<ImportStats> {
+    suspend fun importDatabase(inputStream: InputStream): Result<Int> {
         return databaseBackup.importFromJson(inputStream)
     }
 

@@ -23,7 +23,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryHistoryScreen(
-    carId: Long,
     category: String,
     onNavigateBack: () -> Unit,
     onConsumableClick: (Long) -> Unit,

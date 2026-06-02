@@ -28,7 +28,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddAccidentScreen(
-    carId: Long,
     accidentId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: AddAccidentViewModel = hiltViewModel()

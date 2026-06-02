@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +35,6 @@ fun ExpensesScreen(
     onNavigateToExpenseDetail: (Long) -> Unit,
     viewModel: ExpensesViewModel = hiltViewModel()
 ) {
-    val car by viewModel.car.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val expensesCount by viewModel.expensesCount.collectAsState()
@@ -55,7 +55,7 @@ fun ExpensesScreen(
                 actions = {
                     // Кнопка сортировки
                     IconButton(onClick = { showSortMenu = true }) {
-                        Icon(Icons.Default.Sort, "Сортировка")
+                        Icon(Icons.AutoMirrored.Filled.Sort, "Сортировка")
                     }
                     DropdownMenu(
                         expanded = showSortMenu,

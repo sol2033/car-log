@@ -180,10 +180,71 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         // которые были добавлены, когда все поломки были по умолчанию ремонтами
         // (запчасти, добавленные напрямую через форму, останутся с NULL - это правильно)
         db.execSQL("""
-            UPDATE parts 
-            SET maintenanceType = 'REPAIR' 
+            UPDATE parts
+            SET maintenanceType = 'REPAIR'
             WHERE installationType = 'Сервис'
         """)
+    }
+}
+
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Добавляем в таблицу consumables ForeignKey(carId -> cars.id, ON DELETE CASCADE) и индекс по carId.
+        // SQLite не умеет добавлять внешний ключ через ALTER TABLE, поэтому пересоздаём таблицу:
+        // создаём новую с нужной схемой, копируем данные, удаляем старую, переименовываем.
+        // Схема new-таблицы дословно совпадает с тем, что генерирует Room для @Entity Consumable (v18),
+        // иначе Room упадёт при старте на проверке схемы.
+
+        // Откладываем проверку внешних ключей до конца транзакции (как делают авто-миграции Room).
+        db.execSQL("PRAGMA defer_foreign_keys = TRUE")
+
+        // 1. Новая таблица с FK
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `consumables_new` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`carId` INTEGER NOT NULL, " +
+                "`category` TEXT NOT NULL, " +
+                "`manufacturer` TEXT, " +
+                "`articleNumber` TEXT, " +
+                "`installationMileage` INTEGER NOT NULL, " +
+                "`installationDate` INTEGER NOT NULL, " +
+                "`linkedMaintenanceId` INTEGER, " +
+                "`replacementMileage` INTEGER, " +
+                "`replacementDate` INTEGER, " +
+                "`cost` REAL, " +
+                "`isInstalledAtService` INTEGER NOT NULL, " +
+                "`serviceCost` REAL, " +
+                "`volume` REAL, " +
+                "`replacementIntervalMileage` INTEGER, " +
+                "`replacementIntervalDays` INTEGER, " +
+                "`isActive` INTEGER NOT NULL, " +
+                "`notes` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+
+        // 2. Копируем только расходники, у которых машина ещё существует
+        //    (заодно чистим возможных "сирот" от удалённых ранее машин и не нарушаем новый FK).
+        db.execSQL(
+            "INSERT INTO `consumables_new` (" +
+                "id, carId, category, manufacturer, articleNumber, installationMileage, installationDate, " +
+                "linkedMaintenanceId, replacementMileage, replacementDate, cost, isInstalledAtService, " +
+                "serviceCost, volume, replacementIntervalMileage, replacementIntervalDays, isActive, notes, " +
+                "createdAt, updatedAt) " +
+                "SELECT id, carId, category, manufacturer, articleNumber, installationMileage, installationDate, " +
+                "linkedMaintenanceId, replacementMileage, replacementDate, cost, isInstalledAtService, " +
+                "serviceCost, volume, replacementIntervalMileage, replacementIntervalDays, isActive, notes, " +
+                "createdAt, updatedAt " +
+                "FROM `consumables` WHERE carId IN (SELECT id FROM cars)"
+        )
+
+        // 3. Удаляем старую таблицу и переименовываем новую
+        db.execSQL("DROP TABLE `consumables`")
+        db.execSQL("ALTER TABLE `consumables_new` RENAME TO `consumables`")
+
+        // 4. Индекс по carId (имя должно совпадать с ожидаемым Room)
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_consumables_carId` ON `consumables` (`carId`)")
     }
 }
 

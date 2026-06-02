@@ -23,13 +23,9 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseScreen(
-    carId: Long,
-    expenseId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: AddExpenseViewModel = hiltViewModel()
 ) {
-    val car by viewModel.car.collectAsState()
-    val expense by viewModel.expense.collectAsState()
     val date by viewModel.date.collectAsState()
     val mileage by viewModel.mileage.collectAsState()
     val mileageError by viewModel.mileageError.collectAsState()

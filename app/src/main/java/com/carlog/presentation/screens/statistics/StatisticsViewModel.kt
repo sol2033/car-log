@@ -130,7 +130,7 @@ class StatisticsViewModel @Inject constructor(
                 
                 // Pre-calculate all periods once for reuse (optimization)
                 val groupingType = getGroupingType(period, specificMonth)
-                val allPeriods = generateAllPeriods(startDate, endDate, groupingType, specificMonth)
+                val allPeriods = generateAllPeriods(startDate, endDate, groupingType)
                 
                 // Calculate statistics
                 val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
@@ -271,7 +271,7 @@ class StatisticsViewModel @Inject constructor(
     }
     
     // Генерация всех периодов в диапазоне (включая пустые)
-    private fun generateAllPeriods(startDate: Long, endDate: Long, groupingType: GroupingType, specificMonth: YearMonth?): List<LocalDate> {
+    private fun generateAllPeriods(startDate: Long, endDate: Long, groupingType: GroupingType): List<LocalDate> {
         val start = LocalDate.ofEpochDay(startDate / (24 * 60 * 60 * 1000))
         val end = LocalDate.ofEpochDay(endDate / (24 * 60 * 60 * 1000))
         val now = LocalDate.now()

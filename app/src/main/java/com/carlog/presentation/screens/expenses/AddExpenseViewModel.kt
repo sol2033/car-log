@@ -229,7 +229,7 @@ class AddExpenseViewModel @Inject constructor(
             }
 
             // Обновляем пробег автомобиля
-            carRepository.updateCarMileageIfNeeded(carId, mileageValue!!)
+            carRepository.updateCarMileageIfNeeded(carId, mileageValue)
             
             // Уведомляем о изменении данных для резервного копирования
             dataChangeNotifier.notifyDataChanged()

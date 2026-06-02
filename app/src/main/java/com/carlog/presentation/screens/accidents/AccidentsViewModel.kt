@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.repository.AccidentRepository
+import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Accident
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ data class AccidentsUiState(
 @HiltViewModel
 class AccidentsViewModel @Inject constructor(
     private val accidentRepository: AccidentRepository,
+    private val carRepository: CarRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -55,6 +57,8 @@ class AccidentsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 accidentRepository.deleteAccident(accident)
+                // Обновляем пробег автомобиля до максимального
+                carRepository.updateCarMileageAfterDelete(accident.carId, accident.mileage)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Ошибка при удалении"

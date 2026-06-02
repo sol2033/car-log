@@ -109,9 +109,6 @@ fun NavGraph(
                 onAddCarClick = {
                     navController.navigate(Screen.AddCar.route)
                 },
-                onStatisticsClick = {
-                    navController.navigate(Screen.Statistics.route)
-                },
                 onBackupClick = {
                     navController.navigate(Screen.Backup.route)
                 },
@@ -179,19 +176,12 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("carId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+        ) { _ ->
             AddCarScreen(
-                carId = carId,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
             )
-        }
-        
-        // Statistics Screen (будет реализован позже)
-        composable(route = Screen.Statistics.route) {
-            // TODO: Implement StatisticsScreen
         }
         
         // Settings Screen
@@ -265,10 +255,8 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("carId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+        ) { _ ->
             AddPartScreen(
-                carId = carId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -280,12 +268,8 @@ fun NavGraph(
                 navArgument("carId") { type = NavType.LongType },
                 navArgument("partId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
-            val partId = backStackEntry.arguments?.getLong("partId") ?: return@composable
+        ) { _ ->
             AddPartScreen(
-                carId = carId,
-                partId = partId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -336,17 +320,12 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("carId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+        ) { _ ->
             AddBreakdownScreen(
-                carId = carId,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddConsumable = { id ->
-                    navController.navigate("${Screen.AddConsumable.route.replace("/{carId}", "")}/$id?forMaintenance=true")
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
-        
+
         // Edit Breakdown Screen
         composable(
             route = Screen.EditBreakdown.route,
@@ -354,16 +333,9 @@ fun NavGraph(
                 navArgument("carId") { type = NavType.LongType },
                 navArgument("breakdownId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
-            val breakdownId = backStackEntry.arguments?.getLong("breakdownId") ?: return@composable
+        ) { _ ->
             AddBreakdownScreen(
-                carId = carId,
-                breakdownId = breakdownId,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddConsumable = { id ->
-                    navController.navigate("${Screen.AddConsumable.route.replace("/{carId}", "")}/$id?forMaintenance=true")
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         
@@ -412,10 +384,8 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("carId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+        ) { _ ->
             AddAccidentScreen(
-                carId = carId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -428,10 +398,8 @@ fun NavGraph(
                 navArgument("accidentId") { type = NavType.LongType }
             )
         ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
             val accidentId = backStackEntry.arguments?.getLong("accidentId") ?: return@composable
             AddAccidentScreen(
-                carId = carId,
                 accidentId = accidentId,
                 onNavigateBack = { navController.popBackStack() }
             )
@@ -497,12 +465,8 @@ fun NavGraph(
                     defaultValue = null
                 }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
-            val category = backStackEntry.arguments?.getString("category") ?: return@composable
+        ) { _ ->
             AddConsumableScreen(
-                carId = carId,
-                category = category,
                 consumableId = null,
                 onNavigateBack = { navController.popBackStack() }
             )
@@ -516,11 +480,8 @@ fun NavGraph(
                 navArgument("consumableId") { type = NavType.LongType }
             )
         ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
             val consumableId = backStackEntry.arguments?.getLong("consumableId") ?: return@composable
             AddConsumableScreen(
-                carId = carId,
-                category = "",
                 consumableId = consumableId,
                 onNavigateBack = { navController.popBackStack() }
             )
@@ -555,7 +516,6 @@ fun NavGraph(
             val encodedCategory = backStackEntry.arguments?.getString("category") ?: return@composable
             val category = java.net.URLDecoder.decode(encodedCategory, "UTF-8")
             CategoryHistoryScreen(
-                carId = carId,
                 category = category,
                 onNavigateBack = { navController.popBackStack() },
                 onConsumableClick = { consumableId ->
@@ -570,10 +530,8 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("carId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+        ) { _ ->
             ConsumablesSettingsScreen(
-                carId = carId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -667,13 +625,8 @@ fun NavGraph(
                     defaultValue = null
                 }
             )
-        ) { backStackEntry ->
-            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
-            val expenseIdString = backStackEntry.arguments?.getString("expenseId")
-            val expenseId = expenseIdString?.toLongOrNull()
+        ) { _ ->
             com.carlog.presentation.screens.expenses.AddExpenseScreen(
-                carId = carId,
-                expenseId = expenseId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -684,10 +637,8 @@ fun NavGraph(
             arguments = listOf(
                 navArgument("expenseId") { type = NavType.LongType }
             )
-        ) { backStackEntry ->
-            val expenseId = backStackEntry.arguments?.getLong("expenseId") ?: return@composable
+        ) { _ ->
             com.carlog.presentation.screens.expenses.ExpenseDetailScreen(
-                expenseId = expenseId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEdit = { cId, eId ->
                     navController.navigate(Screen.AddExpense.createRoute(cId, eId))

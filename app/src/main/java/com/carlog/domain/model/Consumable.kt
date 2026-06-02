@@ -1,9 +1,22 @@
 package com.carlog.domain.model
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "consumables")
+@Entity(
+    tableName = "consumables",
+    foreignKeys = [
+        ForeignKey(
+            entity = Car::class,
+            parentColumns = ["id"],
+            childColumns = ["carId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["carId"])]
+)
 data class Consumable(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

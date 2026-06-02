@@ -28,7 +28,6 @@ import com.carlog.domain.model.Car
 fun CarListScreen(
     onCarClick: (Long) -> Unit,
     onAddCarClick: () -> Unit,
-    onStatisticsClick: () -> Unit,
     onBackupClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onInfoClick: () -> Unit,

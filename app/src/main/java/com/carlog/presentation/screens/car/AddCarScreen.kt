@@ -40,7 +40,6 @@ import com.carlog.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCarScreen(
-    carId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: AddCarViewModel = hiltViewModel()
 ) {

@@ -78,9 +78,9 @@ fun BackupScreen(
                     if (inputStream != null) {
                         val result = viewModel.importDatabase(inputStream)
                         if (result.isSuccess) {
-                            val stats = result.getOrNull()
-                            val message = if (stats?.photosRestored ?: 0 > 0) {
-                                "Данные успешно импортированы! Восстановлено фотографий: ${stats?.photosRestored}. Перезапустите приложение."
+                            val photosRestored = result.getOrNull() ?: 0
+                            val message = if (photosRestored > 0) {
+                                "Данные успешно импортированы! Восстановлено фотографий: $photosRestored. Перезапустите приложение."
                             } else {
                                 "Данные успешно импортированы! Перезапустите приложение."
                             }

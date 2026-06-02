@@ -24,7 +24,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseDetailScreen(
-    expenseId: Long,
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (Long, Long) -> Unit,
     viewModel: ExpenseDetailViewModel = hiltViewModel()

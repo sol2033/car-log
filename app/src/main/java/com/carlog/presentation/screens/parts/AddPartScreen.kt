@@ -36,8 +36,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPartScreen(
-    carId: Long,
-    partId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: AddPartViewModel = hiltViewModel()
 ) {

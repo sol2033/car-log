@@ -86,3 +86,6 @@ app/debug/
 # Documentation (keep only README.md)
 *.md
 !README.md
+
+# Internal docs (technical documentation for developers/AI)
+docs/

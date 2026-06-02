@@ -26,10 +26,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBreakdownScreen(
-    carId: Long,
-    breakdownId: Long? = null,
     onNavigateBack: () -> Unit,
-    onNavigateToAddConsumable: (Long) -> Unit = {},
     viewModel: AddBreakdownViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()

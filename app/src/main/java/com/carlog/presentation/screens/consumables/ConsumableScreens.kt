@@ -34,8 +34,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddConsumableScreen(
-    carId: Long,
-    category: String,
     consumableId: Long?,
     onNavigateBack: () -> Unit,
     viewModel: AddConsumableViewModel = hiltViewModel()
@@ -800,7 +798,6 @@ fun ConsumablesHistoryScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsumablesSettingsScreen(
-    carId: Long,
     onNavigateBack: () -> Unit,
     viewModel: ConsumableSettingsViewModel = hiltViewModel()
 ) {

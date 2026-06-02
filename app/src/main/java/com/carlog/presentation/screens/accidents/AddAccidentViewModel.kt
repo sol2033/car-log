@@ -52,7 +52,10 @@ data class AddAccidentState(
     val documentPath: String? = null,
     
     val notes: String = "",
-    
+
+    // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
+    val createdAt: Long = 0L,
+
     // Validation errors
     val mileageError: String? = null,
     val damageDescriptionError: String? = null,
@@ -121,6 +124,7 @@ class AddAccidentViewModel @Inject constructor(
                         photosPaths = accident.photosPaths ?: emptyList(),
                         documentPath = accident.documentPath,
                         notes = accident.notes ?: "",
+                        createdAt = accident.createdAt,
                         isLoading = false
                     )
                 } else {
@@ -325,7 +329,7 @@ class AddAccidentViewModel @Inject constructor(
                     photosPaths = currentState.photosPaths.ifEmpty { null },
                     documentPath = currentState.documentPath,
                     notes = currentState.notes.ifBlank { null },
-                    createdAt = if (currentState.accidentId != null) currentState.accidentId else currentTime,
+                    createdAt = if (currentState.accidentId != null) currentState.createdAt else currentTime,
                     updatedAt = currentTime
                 )
                 

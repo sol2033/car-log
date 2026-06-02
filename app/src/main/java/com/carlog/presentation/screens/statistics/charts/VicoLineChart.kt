@@ -12,13 +12,20 @@ import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
+import com.patrykandpatrick.vico.compose.chart.line.lineSpec
 import com.patrykandpatrick.vico.compose.component.lineComponent
 import com.patrykandpatrick.vico.compose.component.textComponent
 import com.patrykandpatrick.vico.compose.style.ProvideChartStyle
+import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
 import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.entryModelOf
 import com.patrykandpatrick.vico.core.entry.entryOf
+
+data class LineChartData(
+    val label: String,
+    val value: Float
+)
 
 @Composable
 fun VicoLineChart(
@@ -48,17 +55,27 @@ fun VicoLineChart(
     }
     
     val startAxisValueFormatter = AxisValueFormatter<AxisPosition.Vertical.Start> { value, _ ->
-        // Округляем до целого числа для читаемости
-        value.toInt().toString()
+        // Компактный формат (1.2k, 3.4M) — длинные числа не наезжают на график
+        formatChartValue(value)
     }
-    
+
+    // Прореживаем подписи и поворачиваем их, когда точек много, чтобы не накладывались
+    val labelStep = labelSpacingStep(data.size)
+    val labelRotation = if (data.size > 6) 45f else 0f
+
     val textColor = MaterialTheme.colorScheme.onSurface
     val axisLineColor = MaterialTheme.colorScheme.onSurfaceVariant
-    
+
+    val lineChartConfig = if (lineColor != Color.Unspecified) {
+        lineChart(lines = listOf(lineSpec(lineColor = lineColor)))
+    } else {
+        lineChart()
+    }
+
     Box(modifier = modifier) {
         ProvideChartStyle {
             Chart(
-                chart = lineChart(),
+                chart = lineChartConfig,
                 model = chartEntryModel,
                 startAxis = if (showYAxis) rememberStartAxis(
                     valueFormatter = startAxisValueFormatter,
@@ -77,6 +94,8 @@ fun VicoLineChart(
                 bottomAxis = rememberBottomAxis(
                     valueFormatter = bottomAxisValueFormatter,
                     guideline = null,
+                    labelRotationDegrees = labelRotation,
+                    itemPlacer = AxisItemPlacer.Horizontal.default(spacing = labelStep),
                     label = textComponent(
                         color = textColor
                     ),

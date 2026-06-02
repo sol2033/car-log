@@ -73,6 +73,7 @@ class PartsViewModel @Inject constructor(
         }
     }
     
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun loadParts() {
         viewModelScope.launch {
             try {
@@ -180,6 +181,8 @@ class PartsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 partRepository.deletePart(part)
+                // Обновляем пробег автомобиля до максимального
+                carRepository.updateCarMileageAfterDelete(part.carId, part.installMileage)
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {

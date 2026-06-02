@@ -27,6 +27,7 @@ class ExpenseDetailViewModel @Inject constructor(
     val expense: StateFlow<Expense?> = expenseRepository.getExpenseById(expenseId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val car: StateFlow<Car?> = expense.filterNotNull().flatMapLatest { expense ->
         carRepository.getCarById(expense.carId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

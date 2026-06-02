@@ -80,7 +80,7 @@ class DatabaseBackup(
     /**
      * Импорт данных из ZIP архива или старого .db файла (обратная совместимость)
      */
-    suspend fun importFromJson(inputStream: InputStream): Result<ImportStats> = withContext(Dispatchers.IO) {
+    suspend fun importFromJson(inputStream: InputStream): Result<Int> = withContext(Dispatchers.IO) {
         // Закрываем базу
         try {
             database.close()
@@ -123,7 +123,7 @@ class DatabaseBackup(
     /**
      * Импорт из ZIP архива (новый формат)
      */
-    private suspend fun importFromZip(zipFile: File): Result<ImportStats> = withContext(Dispatchers.IO) {
+    private suspend fun importFromZip(zipFile: File): Result<Int> = withContext(Dispatchers.IO) {
         try {
             var dbRestored = false
             var photosRestored = 0
@@ -160,26 +160,17 @@ class DatabaseBackup(
                 return@withContext Result.failure(Exception("Database not found in backup file"))
             }
             
-            // Статистика импорта
-            Result.success(ImportStats(
-                carsImported = 1,
-                partsImported = 1,
-                breakdownsImported = 1,
-                accidentsImported = 1,
-                consumablesImported = 1,
-                refuelingsImported = 1,
-                expensesImported = 1,
-                photosRestored = photosRestored
-            ))
+            // Возвращаем количество восстановленных фотографий
+            Result.success(photosRestored)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     /**
      * Импорт из старого .db файла (обратная совместимость)
      */
-    private suspend fun importFromLegacyDb(dbFile: File): Result<ImportStats> = withContext(Dispatchers.IO) {
+    private suspend fun importFromLegacyDb(dbFile: File): Result<Int> = withContext(Dispatchers.IO) {
         try {
             // Просто копируем файл базы данных
             val targetDbFile = context.getDatabasePath(DATABASE_NAME)
@@ -189,17 +180,8 @@ class DatabaseBackup(
                 }
             }
             
-            // Статистика импорта (без фотографий)
-            Result.success(ImportStats(
-                carsImported = 1,
-                partsImported = 1,
-                breakdownsImported = 1,
-                accidentsImported = 1,
-                consumablesImported = 1,
-                refuelingsImported = 1,
-                expensesImported = 1,
-                photosRestored = 0
-            ))
+            // Старый формат без фотографий
+            Result.success(0)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -213,22 +195,4 @@ class DatabaseBackup(
         val timestamp = dateFormat.format(Date())
         return "CarLog_backup_$timestamp.zip"
     }
-}
-
-/**
- * Статистика импорта
- */
-data class ImportStats(
-    var carsImported: Int = 0,
-    var partsImported: Int = 0,
-    var breakdownsImported: Int = 0,
-    var accidentsImported: Int = 0,
-    var consumablesImported: Int = 0,
-    var refuelingsImported: Int = 0,
-    var expensesImported: Int = 0,
-    var photosRestored: Int = 0
-) {
-    val totalImported: Int
-        get() = carsImported + partsImported + breakdownsImported + 
-                accidentsImported + consumablesImported + refuelingsImported + expensesImported
 }

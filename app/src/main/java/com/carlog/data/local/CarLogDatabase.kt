@@ -28,8 +28,8 @@ import com.carlog.domain.model.Refueling
         Refueling::class,
         Expense::class
     ],
-    version = 17,
-    exportSchema = false
+    version = 18,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class CarLogDatabase : RoomDatabase() {
