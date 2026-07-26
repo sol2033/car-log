@@ -3,6 +3,7 @@ package com.carlog.data.repository
 import com.carlog.data.local.dao.BreakdownDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.domain.model.Breakdown
+import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
@@ -26,25 +27,23 @@ class BreakdownRepository @Inject constructor(
         breakdownDao.updateBreakdown(breakdown)
     
     suspend fun deleteBreakdown(breakdown: Breakdown) {
-        // CASCADE delete: удаляем все связанные расходники
-        breakdown.linkedConsumableIds?.forEach { consumableId ->
-            consumableDao.getConsumableById(consumableId).firstOrNull()?.let { consumable ->
-                consumableDao.deleteConsumable(consumable)
-            }
+        // CASCADE delete: удаляем все связанные расходники (одним запросом)
+        breakdown.linkedConsumableIds?.takeIf { it.isNotEmpty() }?.let {
+            consumableDao.deleteConsumablesByIds(it)
         }
+        // Фото принадлежат только этой записи — иначе файлы остаются в хранилище навсегда
+        FileHelper.deleteFiles(breakdown.photosPaths)
         breakdownDao.deleteBreakdown(breakdown)
     }
-    
+
     suspend fun deleteBreakdownsByCarId(carId: Long) {
-        // Получаем все breakdowns для удаления связанных расходников
+        // Получаем все breakdowns для удаления связанных расходников и фото
         val breakdowns = breakdownDao.getBreakdownsByCarId(carId).firstOrNull() ?: emptyList()
-        breakdowns.forEach { breakdown ->
-            breakdown.linkedConsumableIds?.forEach { consumableId ->
-                consumableDao.getConsumableById(consumableId).firstOrNull()?.let { consumable ->
-                    consumableDao.deleteConsumable(consumable)
-                }
-            }
+        val consumableIds = breakdowns.flatMap { it.linkedConsumableIds ?: emptyList() }
+        if (consumableIds.isNotEmpty()) {
+            consumableDao.deleteConsumablesByIds(consumableIds)
         }
+        breakdowns.forEach { FileHelper.deleteFiles(it.photosPaths) }
         breakdownDao.deleteBreakdownsByCarId(carId)
     }
     

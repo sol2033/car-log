@@ -8,13 +8,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,12 +38,14 @@ fun CarDetailScreen(
     onNavigateToStatistics: ((Long) -> Unit)? = null,
     onNavigateToRefuelings: ((Long) -> Unit)? = null,
     onNavigateToExpenses: ((Long) -> Unit)? = null,
+    onNavigateToDocuments: ((Long) -> Unit)? = null,
     viewModel: CarDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
     val showUpdateMileageDialog by viewModel.showUpdateMileageDialog.collectAsState()
     val showMileageInputDialog by viewModel.showMileageInputDialog.collectAsState()
+    val lowerMileageConfirmation by viewModel.lowerMileageConfirmation.collectAsState()
 
     LaunchedEffect(carId) {
         viewModel.loadCar(carId)
@@ -97,6 +99,7 @@ fun CarDetailScreen(
                     onNavigateToStatistics = onNavigateToStatistics,
                     onNavigateToRefuelings = onNavigateToRefuelings,
                     onNavigateToExpenses = onNavigateToExpenses,
+                    onNavigateToDocuments = onNavigateToDocuments,
                     onUpdateMileageClick = { viewModel.showUpdateMileageDialog() },
                     modifier = Modifier
                         .fillMaxSize()
@@ -199,15 +202,12 @@ fun CarDetailScreen(
                     onClick = {
                         val mileageValue = newMileage.toIntOrNull()
                         when {
-                            mileageValue == null -> {
+                            mileageValue == null || mileageValue < 0 -> {
                                 errorMessage = "Введите корректное число"
                             }
-                            mileageValue < car.currentMileage -> {
-                                errorMessage = "Пробег не может быть меньше текущего"
-                            }
                             else -> {
-                                viewModel.updateMileage(car.id, mileageValue)
-                                viewModel.dismissMileageInputDialog()
+                                // Меньше текущего — не ошибка: покажется предупреждение с подтверждением
+                                viewModel.submitMileage(car, mileageValue)
                             }
                         }
                     }
@@ -217,6 +217,43 @@ fun CarDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissMileageInputDialog() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Warning dialog: entered mileage is lower than the current one
+    lowerMileageConfirmation?.let { confirmation ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissLowerMileageConfirmation() },
+            title = { Text(stringResource(R.string.lower_mileage_dialog_title)) },
+            text = {
+                Text(
+                    if (confirmation.affectedRecordsCount > 0) {
+                        stringResource(
+                            R.string.lower_mileage_dialog_message_records,
+                            confirmation.newMileage,
+                            confirmation.currentMileage,
+                            confirmation.maxRecordedMileage,
+                            confirmation.affectedRecordsCount
+                        )
+                    } else {
+                        stringResource(
+                            R.string.lower_mileage_dialog_message,
+                            confirmation.newMileage,
+                            confirmation.currentMileage
+                        )
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmLowerMileage() }) {
+                    Text(stringResource(R.string.lower_mileage_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissLowerMileageConfirmation() }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -234,6 +271,7 @@ fun CarDetailContent(
     onNavigateToStatistics: ((Long) -> Unit)? = null,
     onNavigateToRefuelings: ((Long) -> Unit)? = null,
     onNavigateToExpenses: ((Long) -> Unit)? = null,
+    onNavigateToDocuments: ((Long) -> Unit)? = null,
     onUpdateMileageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -410,9 +448,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -444,9 +481,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -477,9 +513,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -510,9 +545,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -543,9 +577,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -576,9 +609,8 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }
@@ -610,9 +642,41 @@ fun CarDetailContent(
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.then(Modifier.graphicsLayer(rotationZ = 180f))
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
+
+            // Документы (страховки, техосмотр, налог)
+            if (onNavigateToDocuments != null) {
+                OutlinedCard(
+                    onClick = { onNavigateToDocuments(car.id) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = stringResource(R.string.documents_section_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.documents_section_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
                         )
                     }
                 }

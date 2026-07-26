@@ -2,7 +2,9 @@ package com.carlog.data.repository
 
 import com.carlog.data.local.dao.AccidentDao
 import com.carlog.domain.model.Accident
+import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,9 +41,19 @@ class AccidentRepository @Inject constructor(
     suspend fun updateAccident(accident: Accident) =
         accidentDao.updateAccident(accident)
     
-    suspend fun deleteAccident(accident: Accident) =
+    suspend fun deleteAccident(accident: Accident) {
+        // Локальный PDF и фото принадлежат только этой записи — чистим вместе с ней
+        // (старые записи хранят content:// URI, такие файлы нам не принадлежат)
+        FileHelper.deleteFiles(accident.photosPaths)
+        FileHelper.deleteFiles(accident.documentPath?.let { listOf(it) })
         accidentDao.deleteAccident(accident)
-    
-    suspend fun deleteAccidentsByCarId(carId: Long) =
+    }
+
+    suspend fun deleteAccidentsByCarId(carId: Long) {
+        accidentDao.getAccidentsByCarId(carId).firstOrNull()?.forEach { accident ->
+            FileHelper.deleteFiles(accident.photosPaths)
+            FileHelper.deleteFiles(accident.documentPath?.let { listOf(it) })
+        }
         accidentDao.deleteAccidentsByCarId(carId)
+    }
 }

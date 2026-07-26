@@ -52,6 +52,13 @@ interface AccidentDao {
     
     @Query("SELECT MAX(mileage) FROM accidents WHERE carId = :carId")
     suspend fun getMaxMileage(carId: Long): Int?
+
+    @Query("SELECT COUNT(*) FROM accidents WHERE carId = :carId AND mileage > :mileage")
+    suspend fun getCountAboveMileage(carId: Long, mileage: Int): Int
+
+    // Прижимает пробег записей к новому (уменьшенному) пробегу автомобиля
+    @Query("UPDATE accidents SET mileage = :mileage, updatedAt = :updatedAt WHERE carId = :carId AND mileage > :mileage")
+    suspend fun clampMileageTo(carId: Long, mileage: Int, updatedAt: Long)
     
     @Update
     suspend fun updateAccident(accident: Accident)

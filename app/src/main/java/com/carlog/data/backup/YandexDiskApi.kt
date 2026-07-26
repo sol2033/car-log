@@ -3,8 +3,11 @@ package com.carlog.data.backup
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -50,7 +53,7 @@ class YandexDiskApi(private val token: String) {
      * Шаг 1: получаем URL для загрузки.
      * Шаг 2: PUT файла по этому URL.
      */
-    fun uploadFile(fileName: String, data: ByteArray): Boolean {
+    fun uploadFile(fileName: String, file: File): Boolean {
         val path = "$BACKUP_FOLDER_PATH/$fileName"
 
         val urlRequest = Request.Builder()
@@ -64,9 +67,10 @@ class YandexDiskApi(private val token: String) {
             JSONObject(response.body!!.string()).getString("href")
         }
 
+        // Потоковая загрузка файла — архив не читается в память целиком
         val uploadRequest = Request.Builder()
             .url(uploadUrl)
-            .put(data.toRequestBody("application/zip".toMediaType()))
+            .put(file.asRequestBody("application/zip".toMediaType()))
             .build()
 
         return client.newCall(uploadRequest).execute().use { it.isSuccessful }
@@ -117,7 +121,7 @@ class YandexDiskApi(private val token: String) {
      * Шаг 1: получаем URL для скачивания.
      * Шаг 2: GET по этому URL.
      */
-    fun downloadFile(path: String): ByteArray {
+    fun downloadFile(path: String, target: File) {
         val urlRequest = Request.Builder()
             .url("$BASE_URL/resources/download?path=${encode(path)}")
             .header("Authorization", authHeader())
@@ -134,9 +138,12 @@ class YandexDiskApi(private val token: String) {
             .get()
             .build()
 
-        return client.newCall(downloadRequest).execute().use { response ->
+        // Потоковое сохранение в файл — архив не читается в память целиком
+        client.newCall(downloadRequest).execute().use { response ->
             if (!response.isSuccessful) throw Exception("Ошибка скачивания файла")
-            response.body!!.bytes()
+            response.body!!.byteStream().use { input ->
+                FileOutputStream(target).use { output -> input.copyTo(output) }
+            }
         }
     }
 

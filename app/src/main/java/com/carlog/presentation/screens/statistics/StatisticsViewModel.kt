@@ -5,18 +5,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.local.dao.AccidentDao
 import com.carlog.data.local.dao.BreakdownDao
+import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.ExpenseDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
 import com.carlog.domain.model.*
+import com.carlog.di.DefaultDispatcher
+import com.carlog.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
@@ -42,6 +46,8 @@ class StatisticsViewModel @Inject constructor(
     private val partDao: PartDao,
     private val refuelingDao: RefuelingDao,
     private val expenseDao: ExpenseDao,
+    private val carDocumentDao: CarDocumentDao,
+    @DefaultDispatcher private val computationDispatcher: CoroutineDispatcher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -97,58 +103,87 @@ class StatisticsViewModel @Inject constructor(
                 val parts = partDao.getPartsByCarId(carId).firstOrNull() ?: emptyList()
                 val refuelings = refuelingDao.getRefuelingsByCarId(carId).firstOrNull() ?: emptyList()
                 val expenses = expenseDao.getExpensesByCarId(carId).firstOrNull() ?: emptyList()
+                val documents = carDocumentDao.getDocumentsByCarId(carId).firstOrNull() ?: emptyList()
                 
-                // Filter by period (time)
-                val filteredByPeriod = FilteredData(
-                    breakdowns = filterByPeriod(breakdowns, startDate, endDate),
-                    consumables = filterByPeriod(consumables, startDate, endDate),
-                    parts = filterByPeriod(parts, startDate, endDate),
-                    refuelings = filterByPeriod(refuelings, startDate, endDate),
-                    expenses = filterByPeriod(expenses, startDate, endDate)
-                )
-                
-                // Filter by mileage (AND logic with period filter)
-                val filteredByMileage = if (mileageFilter != MileageFilter.AllMileage) {
-                    filterByMileage(filteredByPeriod, mileageFilter, car)
-                } else {
-                    filteredByPeriod
+                // Фильтрация и агрегация — вне главного потока: списки могут быть большими,
+                // а раньше всё считалось прямо в UI-потоке (индикатор загрузки не успевал отрисоваться)
+                val statistics = withContext(computationDispatcher) {
+                    // Filter by period (time)
+                    val filteredByPeriod = FilteredData(
+                        breakdowns = filterByPeriod(breakdowns, startDate, endDate),
+                        consumables = filterByPeriod(consumables, startDate, endDate),
+                        parts = filterByPeriod(parts, startDate, endDate),
+                        refuelings = filterByPeriod(refuelings, startDate, endDate),
+                        expenses = filterByPeriod(expenses, startDate, endDate),
+                        accidents = accidents
+                    )
+
+                    // Filter by mileage (AND logic with period filter)
+                    val filteredByMileage = if (mileageFilter != MileageFilter.AllMileage) {
+                        filterByMileage(filteredByPeriod, mileageFilter, car)
+                    } else {
+                        filteredByPeriod
+                    }
+
+                    val filteredAccidents =
+                        if (excludeAccidents) emptyList() else filteredByMileage.accidents
+
+                    // Запчасти, чья стоимость уже учтена в стоимости события, из «отдельных» исключаются:
+                    // иначе одни и те же деньги считались бы дважды (обслуживание — и раньше,
+                    // ДТП — источник двойного учёта: repairCost аварии уже включает свои запчасти)
+                    val partIdsInBreakdowns =
+                        filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }
+                    val partIdsInAccidents =
+                        filteredAccidents.flatMap { it.installedPartIds ?: emptyList() }
+                    val countedPartIds = (partIdsInBreakdowns + partIdsInAccidents).toSet()
+
+                    // Filter parts: only those not already counted in breakdowns/accidents
+                    val filteredParts = filteredByMileage.parts.filter { !countedPartIds.contains(it.id) }
+
+                    // Use filtered data
+                    val filteredBreakdowns = filteredByMileage.breakdowns
+                    val filteredConsumables = filteredByMileage.consumables
+                    val filteredRefuelings = filteredByMileage.refuelings
+                    val filteredExpenses = filteredByMileage.expenses
+
+                    // Документы не имеют пробега: фильтруем только по времени,
+                    // а при активном фильтре по пробегу исключаем целиком (логика И)
+                    val filteredDocuments = if (mileageFilter != MileageFilter.AllMileage) {
+                        emptyList()
+                    } else {
+                        filterByPeriod(documents, startDate, endDate)
+                    }
+
+                    // Pre-calculate all periods once for reuse (optimization)
+                    val groupingType = getGroupingType(period, specificMonth)
+                    val allPeriods = generateAllPeriods(
+                        startDate,
+                        endDate,
+                        groupingType,
+                        earliestDataDate(
+                            filteredBreakdowns, filteredConsumables, filteredParts,
+                            filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments
+                        )
+                    )
+
+                    // Calculate statistics
+                    val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
+                    val generalStats = calculateGeneralStatistics(
+                        car, filteredBreakdowns, filteredConsumables, filteredParts, filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments, period, allPeriods, groupingType, mileageFilter
+                    )
+                    val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
+                    val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
+                    val expensesStats = calculateExpensesStatistics(filteredExpenses, allPeriods, groupingType)
+
+                    CarStatistics(
+                        general = generalStats,
+                        fuel = fuelStats,
+                        repairs = repairsStats,
+                        expenses = expensesStats,
+                        consumables = consumablesStats
+                    )
                 }
-                
-                // Get part IDs that are already counted in filtered breakdowns to avoid double counting
-                val partIdsInBreakdowns = filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }.toSet()
-                
-                // Filter parts: only those not already counted in breakdowns
-                val filteredParts = filteredByMileage.parts.filter { !partIdsInBreakdowns.contains(it.id) }
-                
-                val filteredAccidents = if (excludeAccidents) emptyList() else accidents
-                
-                // Use filtered data
-                val filteredBreakdowns = filteredByMileage.breakdowns
-                val filteredConsumables = filteredByMileage.consumables
-                val filteredRefuelings = filteredByMileage.refuelings
-                val filteredExpenses = filteredByMileage.expenses
-                
-                // Pre-calculate all periods once for reuse (optimization)
-                val groupingType = getGroupingType(period, specificMonth)
-                val allPeriods = generateAllPeriods(startDate, endDate, groupingType)
-                
-                // Calculate statistics
-                val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
-                val generalStats = calculateGeneralStatistics(
-                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredAccidents, filteredRefuelings, filteredExpenses, period, allPeriods, groupingType, mileageFilter
-                )
-                val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
-                val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
-                val expensesStats = calculateExpensesStatistics(filteredExpenses, allPeriods, groupingType)
-                
-                val statistics = CarStatistics(
-                    general = generalStats,
-                    fuel = fuelStats,
-                    repairs = repairsStats,
-                    expenses = expensesStats,
-                    consumables = consumablesStats
-                )
-                
+
                 _uiState.value = _uiState.value.copy(
                     statistics = statistics,
                     isLoading = false,
@@ -200,18 +235,18 @@ class StatisticsViewModel @Inject constructor(
         }
         
         return Pair(
-            startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            DateUtils.startOfDayMillis(startDate),
+            DateUtils.endOfDayMillis(endDate)
         )
     }
-    
+
     private fun getSpecificMonthDates(yearMonth: YearMonth): Pair<Long, Long> {
         val startDate = yearMonth.atDay(1)
         val endDate = yearMonth.atEndOfMonth()
-        
+
         return Pair(
-            startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            DateUtils.startOfDayMillis(startDate),
+            DateUtils.endOfDayMillis(endDate)
         )
     }
     
@@ -270,12 +305,23 @@ class StatisticsViewModel @Inject constructor(
         }
     }
     
-    // Генерация всех периодов в диапазоне (включая пустые)
-    private fun generateAllPeriods(startDate: Long, endDate: Long, groupingType: GroupingType): List<LocalDate> {
-        val start = LocalDate.ofEpochDay(startDate / (24 * 60 * 60 * 1000))
-        val end = LocalDate.ofEpochDay(endDate / (24 * 60 * 60 * 1000))
+    /**
+     * Генерация всех периодов в диапазоне (включая пустые).
+     *
+     * @param earliestData дата самого раннего события — нужна для «Всего времени», где
+     * формальное начало диапазона (2000 год) дало бы сотни пустых точек.
+     */
+    private fun generateAllPeriods(
+        startDate: Long,
+        endDate: Long,
+        groupingType: GroupingType,
+        earliestData: LocalDate? = null
+    ): List<LocalDate> {
+        val rangeStart = DateUtils.toLocalDate(startDate)
+        val end = DateUtils.toLocalDate(endDate)
+        val start = if (earliestData != null && earliestData.isAfter(rangeStart)) earliestData else rangeStart
         val now = LocalDate.now()
-        
+
         val periods = mutableListOf<LocalDate>()
         
         when (groupingType) {
@@ -302,12 +348,16 @@ class StatisticsViewModel @Inject constructor(
                 }
             }
             GroupingType.BY_MONTH -> {
-                // 3 месяца: 3 точки (по 1 месяцу)
-                // Последний месяц - текущий
-                val currentMonth = now.withDayOfMonth(1)
-                periods.add(currentMonth.minusMonths(2))
-                periods.add(currentMonth.minusMonths(1))
-                periods.add(currentMonth)
+                // Все месяцы диапазона: ключ группировки — первое число месяца записи,
+                // поэтому точки должны покрывать весь диапазон. Раньше здесь жёстко брались
+                // 3 последних месяца от «сегодня», и записи из неполного первого месяца
+                // (диапазон начинается с now.minusMonths(3)) молча пропадали с графика.
+                var current = start.withDayOfMonth(1)
+                val lastMonth = end.withDayOfMonth(1)
+                while (!current.isAfter(lastMonth)) {
+                    periods.add(current)
+                    current = current.plusMonths(1)
+                }
             }
             GroupingType.BY_TWO_MONTHS -> {
                 // 6 месяцев: 3 точки (по 2 месяца)
@@ -348,8 +398,33 @@ class StatisticsViewModel @Inject constructor(
         val consumables: List<Consumable>,
         val parts: List<Part>,
         val refuelings: List<Refueling>,
-        val expenses: List<Expense>
+        val expenses: List<Expense>,
+        // ДТП приходят уже отфильтрованными по времени (запрос в DAO), но фильтр по пробегу
+        // к ним раньше не применялся — при активном фильтре в расчёт лезли все аварии периода
+        val accidents: List<Accident>
     )
+
+    /** Дата самого раннего события в отфильтрованных данных (для границ графиков) */
+    private fun earliestDataDate(
+        breakdowns: List<Breakdown>,
+        consumables: List<Consumable>,
+        parts: List<Part>,
+        accidents: List<Accident>,
+        refuelings: List<Refueling>,
+        expenses: List<Expense>,
+        documents: List<CarDocument>
+    ): LocalDate? {
+        val timestamps = buildList {
+            addAll(breakdowns.map { it.breakdownDate })
+            addAll(consumables.map { it.installationDate })
+            addAll(parts.map { it.installDate })
+            addAll(accidents.map { it.date })
+            addAll(refuelings.map { it.date })
+            addAll(expenses.map { it.date })
+            addAll(documents.map { it.startDate ?: it.createdAt })
+        }
+        return timestamps.minOrNull()?.let { DateUtils.toLocalDate(it) }
+    }
     
     private fun <T> filterByPeriod(items: List<T>, startDate: Long, endDate: Long): List<T> where T : Any {
         return items.filter {
@@ -359,6 +434,7 @@ class StatisticsViewModel @Inject constructor(
                 is Part -> it.installDate
                 is Refueling -> it.date
                 is Expense -> it.date
+                is CarDocument -> it.startDate ?: it.createdAt
                 else -> return@filter false
             }
             date in startDate..endDate
@@ -383,7 +459,8 @@ class StatisticsViewModel @Inject constructor(
             consumables = data.consumables.filter { it.installationMileage in fromMileage..toMileage },
             parts = data.parts.filter { it.installMileage in fromMileage..toMileage },
             refuelings = data.refuelings.filter { it.mileage in fromMileage..toMileage },
-            expenses = data.expenses.filter { it.mileage in fromMileage..toMileage }
+            expenses = data.expenses.filter { it.mileage in fromMileage..toMileage },
+            accidents = data.accidents.filter { it.mileage in fromMileage..toMileage }
         )
     }
     
@@ -395,6 +472,7 @@ class StatisticsViewModel @Inject constructor(
         accidents: List<Accident>,
         refuelings: List<Refueling>,
         expenses: List<Expense>,
+        documents: List<CarDocument>,
         period: StatisticsPeriod,
         allPeriods: List<LocalDate>,
         groupingType: GroupingType,
@@ -444,14 +522,15 @@ class StatisticsViewModel @Inject constructor(
         val accidentsCost = accidents.sumOf { it.repairCost ?: 0.0 }
         val fuelCost = refuelings.sumOf { it.totalCost ?: 0.0 }
         val expensesCost = expenses.sumOf { it.cost }
-        val totalCost = toCost + repairsCost + modificationsCost + servicesCost + accidentsCost + fuelCost + expensesCost
-        
-        if (totalCost == 0.0 && breakdowns.isEmpty() && consumables.isEmpty() && parts.isEmpty() && accidents.isEmpty() && refuelings.isEmpty() && expenses.isEmpty()) {
+        val documentsCost = documents.sumOf { it.cost ?: 0.0 }
+        val totalCost = toCost + repairsCost + modificationsCost + servicesCost + accidentsCost + fuelCost + expensesCost + documentsCost
+
+        if (totalCost == 0.0 && breakdowns.isEmpty() && consumables.isEmpty() && parts.isEmpty() && accidents.isEmpty() && refuelings.isEmpty() && expenses.isEmpty() && documents.isEmpty()) {
             return null
         }
-        
+
         // Calculate cost per km (always excluding accidents)
-        val costForKmCalculation = toCost + repairsCost + modificationsCost + servicesCost + fuelCost + expensesCost
+        val costForKmCalculation = toCost + repairsCost + modificationsCost + servicesCost + fuelCost + expensesCost + documentsCost
         
         // Calculate actual mileage range from filtered data
         val allMileages = buildList {
@@ -478,13 +557,13 @@ class StatisticsViewModel @Inject constructor(
         val carAgeInDays = if (car.purchaseDate != null) {
             // Use purchase date if available
             ChronoUnit.DAYS.between(
-                LocalDate.ofEpochDay(car.purchaseDate / (24 * 60 * 60 * 1000)),
+                DateUtils.toLocalDate(car.purchaseDate),
                 LocalDate.now()
             ).toDouble()
         } else {
             // Otherwise use car creation date in the app
             ChronoUnit.DAYS.between(
-                LocalDate.ofEpochDay(car.createdAt / (24 * 60 * 60 * 1000)),
+                DateUtils.toLocalDate(car.createdAt),
                 LocalDate.now()
             ).toDouble()
         }
@@ -500,7 +579,7 @@ class StatisticsViewModel @Inject constructor(
         val averageKmPerMonth = averageKmPerDay * 30.0
         
         // Find most expensive month
-        val mostExpensiveMonth = findMostExpensiveMonth(breakdowns, consumables, parts, accidents, refuelings, expenses)
+        val mostExpensiveMonth = findMostExpensiveMonth(breakdowns, consumables, parts, accidents, refuelings, expenses, documents)
         
         // Cost distribution
         val costDistribution = buildList {
@@ -546,6 +625,13 @@ class StatisticsViewModel @Inject constructor(
                     percentage = (expensesCost / totalCost * 100).toFloat()
                 ))
             }
+            if (documentsCost > 0) {
+                add(CostDistributionItem(
+                    category = "Страховка и налоги",
+                    amount = documentsCost,
+                    percentage = (documentsCost / totalCost * 100).toFloat()
+                ))
+            }
             if (accidentsCost > 0) {
                 add(CostDistributionItem(
                     category = "ДТП",
@@ -556,7 +642,7 @@ class StatisticsViewModel @Inject constructor(
         }
         
         // Cost trend (по месяцам)
-        val costTrend = calculateCostTrend(breakdowns, consumables, parts, accidents, refuelings, expenses, period, allPeriods, groupingType)
+        val costTrend = calculateCostTrend(breakdowns, consumables, parts, accidents, refuelings, expenses, documents, period, allPeriods, groupingType)
         
         // Определяем, нужно ли скрыть метрику км/день
         val shouldHideKmPerDay = when (mileageFilter) {
@@ -615,49 +701,56 @@ class StatisticsViewModel @Inject constructor(
         parts: List<Part>,
         accidents: List<Accident>,
         refuelings: List<Refueling>,
-        expenses: List<Expense>
+        expenses: List<Expense>,
+        documents: List<CarDocument>
     ): String? {
         // Group all costs by month
         val monthlyCosts = mutableMapOf<String, Double>()
         
         breakdowns.forEach { breakdown ->
-            val date = LocalDate.ofEpochDay(breakdown.breakdownDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(breakdown.breakdownDate)
             val monthKey = "${date.year}-${date.monthValue}"
             // Use totalCost which includes both parts and service
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + breakdown.totalCost
         }
         
         consumables.forEach { consumable ->
-            val date = LocalDate.ofEpochDay(consumable.installationDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(consumable.installationDate)
             val monthKey = "${date.year}-${date.monthValue}"
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (consumable.cost ?: 0.0)
         }
         
         parts.forEach { part ->
-            val date = LocalDate.ofEpochDay(part.installDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(part.installDate)
             val monthKey = "${date.year}-${date.monthValue}"
             // Count standalone parts (part price + service price for installation)
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + part.price + (part.servicePrice ?: 0.0)
         }
         
         accidents.forEach { accident ->
-            val date = LocalDate.ofEpochDay(accident.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(accident.date)
             val monthKey = "${date.year}-${date.monthValue}"
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (accident.repairCost ?: 0.0)
         }
         
         refuelings.forEach { refueling ->
-            val date = LocalDate.ofEpochDay(refueling.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(refueling.date)
             val monthKey = "${date.year}-${date.monthValue}"
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (refueling.totalCost ?: 0.0)
         }
         
         expenses.forEach { expense ->
-            val date = LocalDate.ofEpochDay(expense.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(expense.date)
             val monthKey = "${date.year}-${date.monthValue}"
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + expense.cost
         }
-        
+
+        documents.forEach { document ->
+            val date = DateUtils.toLocalDate(document.startDate ?: document.createdAt)
+            val monthKey = "${date.year}-${date.monthValue}"
+            monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (document.cost ?: 0.0)
+        }
+
         val maxEntry = monthlyCosts.maxByOrNull { it.value } ?: return null
         val dateParts = maxEntry.key.split("-")
         val year = dateParts[0].toInt()
@@ -673,7 +766,7 @@ class StatisticsViewModel @Inject constructor(
         consumables: List<Consumable>,
         parts: List<Part>,
         accidents: List<Accident>,
-        refuelings: List<Refueling>,        expenses: List<Expense>,        @Suppress("UNUSED_PARAMETER") period: StatisticsPeriod,
+        refuelings: List<Refueling>,        expenses: List<Expense>,        documents: List<CarDocument>,        @Suppress("UNUSED_PARAMETER") period: StatisticsPeriod,
         allPeriods: List<LocalDate>,
         groupingType: GroupingType
     ): List<CostTrendItem> {
@@ -681,41 +774,47 @@ class StatisticsViewModel @Inject constructor(
         
         // Aggregate costs by period
         breakdowns.forEach { breakdown ->
-            val date = LocalDate.ofEpochDay(breakdown.breakdownDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(breakdown.breakdownDate)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + breakdown.totalCost
         }
         
         consumables.forEach { consumable ->
-            val date = LocalDate.ofEpochDay(consumable.installationDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(consumable.installationDate)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (consumable.cost ?: 0.0)
         }
         
         parts.forEach { part ->
-            val date = LocalDate.ofEpochDay(part.installDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(part.installDate)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + part.price + (part.servicePrice ?: 0.0)
         }
         
         accidents.forEach { accident ->
-            val date = LocalDate.ofEpochDay(accident.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(accident.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (accident.repairCost ?: 0.0)
         }
         
         refuelings.forEach { refueling ->
-            val date = LocalDate.ofEpochDay(refueling.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(refueling.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (refueling.totalCost ?: 0.0)
         }
         
         expenses.forEach { expense ->
-            val date = LocalDate.ofEpochDay(expense.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(expense.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + expense.cost
         }
-        
+
+        documents.forEach { document ->
+            val date = DateUtils.toLocalDate(document.startDate ?: document.createdAt)
+            val groupKey = getGroupKey(date, groupingType, allPeriods)
+            periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (document.cost ?: 0.0)
+        }
+
         // Заполняем пустые периоды
         val filledData = fillEmptyPeriods(periodCosts, allPeriods, groupingType)
         
@@ -750,19 +849,19 @@ class StatisticsViewModel @Inject constructor(
         val periodRepairCosts = mutableMapOf<LocalDate, Double>()
         
         breakdowns.forEach { breakdown ->
-            val date = LocalDate.ofEpochDay(breakdown.breakdownDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(breakdown.breakdownDate)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodRepairCosts[groupKey] = (periodRepairCosts[groupKey] ?: 0.0) + breakdown.totalCost
         }
         
         parts.forEach { part ->
-            val date = LocalDate.ofEpochDay(part.installDate / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(part.installDate)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodRepairCosts[groupKey] = (periodRepairCosts[groupKey] ?: 0.0) + part.price + (part.servicePrice ?: 0.0)
         }
         
         accidents.forEach { accident ->
-            val date = LocalDate.ofEpochDay(accident.date / (24 * 60 * 60 * 1000))
+            val date = DateUtils.toLocalDate(accident.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodRepairCosts[groupKey] = (periodRepairCosts[groupKey] ?: 0.0) + (accident.repairCost ?: 0.0)
         }
@@ -892,7 +991,9 @@ class StatisticsViewModel @Inject constructor(
                 CostDistributionItem(
                     category = category,
                     amount = amount,
-                    percentage = (amount / totalCost * 100).toFloat()
+                    // Стоимость расходника необязательна: если она нигде не указана,
+                    // без проверки получалось 0/0 = NaN и в UI выводилось «NaN%»
+                    percentage = if (totalCost > 0) (amount / totalCost * 100).toFloat() else 0f
                 )
             }
             .sortedByDescending { it.amount }
@@ -964,7 +1065,7 @@ class StatisticsViewModel @Inject constructor(
                 .sortedBy { it.date }
                 .map { refueling ->
                     ConsumptionTrendItem(
-                        date = LocalDate.ofEpochDay(refueling.date / (24 * 60 * 60 * 1000)),
+                        date = DateUtils.toLocalDate(refueling.date),
                         consumption = refueling.fuelConsumption ?: 0.0
                     )
                 }
@@ -972,7 +1073,7 @@ class StatisticsViewModel @Inject constructor(
             // Period-based liters consumption for this fuel type
             val periodLiters = typeRefuelings
                 .groupBy { refueling ->
-                    val date = LocalDate.ofEpochDay(refueling.date / (24 * 60 * 60 * 1000))
+                    val date = DateUtils.toLocalDate(refueling.date)
                     getGroupKey(date, groupingType, allPeriods)
                 }
                 .mapValues { (_, refuelingsInGroup) ->
@@ -997,7 +1098,7 @@ class StatisticsViewModel @Inject constructor(
         // Period-based fuel costs (all types combined)
         val periodFuelCosts = refuelings
             .groupBy { refueling ->
-                val date = LocalDate.ofEpochDay(refueling.date / (24 * 60 * 60 * 1000))
+                val date = DateUtils.toLocalDate(refueling.date)
                 getGroupKey(date, groupingType, allPeriods)
             }
             .mapValues { (_, refuelingsInGroup) ->
@@ -1025,8 +1126,9 @@ class StatisticsViewModel @Inject constructor(
                 val amount = items.sumOf { it.cost }
                 CostDistributionItem(
                     category = category,
-                    amount = amount,
-                    percentage = (amount / totalCost * 100).toFloat()
+                    // Все расходы могут быть с нулевой стоимостью — не делим 0 на 0
+                    percentage = if (totalCost > 0) (amount / totalCost * 100).toFloat() else 0f,
+                    amount = amount
                 )
             }
             .sortedByDescending { it.amount }
@@ -1034,7 +1136,7 @@ class StatisticsViewModel @Inject constructor(
         // Monthly expenses
         val periodExpenses = expenses
             .groupBy { expense ->
-                val date = LocalDate.ofEpochDay(expense.date / (24 * 60 * 60 * 1000))
+                val date = DateUtils.toLocalDate(expense.date)
                 getGroupKey(date, groupingType, allPeriods)
             }
             .mapValues { (_, expensesInGroup) ->

@@ -31,8 +31,9 @@ object ConsumableStatus {
         var remainingMileage: Int? = null
         var remainingDays: Int? = null
         
-        // Проверка по пробегу
-        if (consumable.replacementIntervalMileage != null) {
+        // Проверка по пробегу (нулевой интервал не задаёт ресурс: делить на него нельзя —
+        // получалось Infinity, и расходник всегда числился «просроченным»)
+        if (consumable.replacementIntervalMileage != null && consumable.replacementIntervalMileage > 0) {
             val mileagePassed = currentMileage - consumable.installationMileage
             val mileageProgress = mileagePassed.toFloat() / consumable.replacementIntervalMileage
             maxProgress = maxOf(maxProgress, mileageProgress)
@@ -48,7 +49,7 @@ object ConsumableStatus {
         }
         
         // Проверка по дате
-        if (consumable.replacementIntervalDays != null) {
+        if (consumable.replacementIntervalDays != null && consumable.replacementIntervalDays > 0) {
             val currentTime = System.currentTimeMillis()
             val daysPassed = TimeUnit.MILLISECONDS.toDays(
                 currentTime - consumable.installationDate

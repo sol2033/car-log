@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.breakdowns
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.BreakdownRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Breakdown
@@ -23,6 +24,7 @@ sealed class BreakdownDetailUiState {
 class BreakdownDetailViewModel @Inject constructor(
     private val breakdownRepository: BreakdownRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -67,6 +69,8 @@ class BreakdownDetailViewModel @Inject constructor(
                 breakdownRepository.deleteBreakdown(breakdown)
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageAfterDelete(breakdown.carId, breakdown.breakdownMileage)
+                // Уведомляем об изменении данных для авто-бэкапа
+                dataChangeNotifier.notifyDataChanged()
                 dismissDeleteDialog()
                 onDeleted()
             } catch (e: Exception) {

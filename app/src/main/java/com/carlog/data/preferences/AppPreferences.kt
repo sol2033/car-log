@@ -35,6 +35,24 @@ class AppPreferences @Inject constructor(
         private val CURRENCY_KEY = stringPreferencesKey("currency")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val IS_FIRST_LAUNCH_KEY = booleanPreferencesKey("is_first_launch")
+        private val WHATS_NEW_SHOWN_FOR_KEY = stringPreferencesKey("whats_new_shown_for")
+    }
+
+    // === Окно «Что нового» ===
+
+    /**
+     * Версия, для которой окно с изменениями уже показывали. Пустая строка — не показывали
+     * ни разу. Сравнение именно с версией, а не булев флаг: так окно появится один раз
+     * и на свежей установке, и после каждого обновления.
+     */
+    val whatsNewShownFor: Flow<String> = dataStore.data.map { preferences ->
+        preferences[WHATS_NEW_SHOWN_FOR_KEY] ?: ""
+    }
+
+    suspend fun setWhatsNewShownFor(versionName: String) {
+        dataStore.edit { preferences ->
+            preferences[WHATS_NEW_SHOWN_FOR_KEY] = versionName
+        }
     }
 
     // === Тема ===

@@ -11,7 +11,7 @@
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-29-green.svg)](https://developer.android.com/about/versions/10)
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](LICENSE)
 
-> Актуальная версия: **1.1.2** (versionCode 6) · minSdk 29 (Android 10) · targetSdk 34 (Android 14)
+> Актуальная версия: **1.2.1** (versionCode 8) · minSdk 29 (Android 10) · targetSdk 34 (Android 14)
 
 ---
 
@@ -29,12 +29,15 @@
   цветовая индикация состояния (норма / предупреждение / критично), история и статистика замен.
 - **⛽ Заправки** — бензин/дизель/газ (пропан-метан)/электро, автоматический расчёт среднего
   расхода и стоимости километра.
-- **💸 Прочие расходы** — мойка, парковка, штрафы, аксессуары и т.п. с категориями и заметками.
+- **💸 Прочие расходы** — мойка, аксессуары, автозвук, детейлинг, диски/шины и др. с категориями и заметками.
+- **📑 Документы** — ОСАГО, КАСКО, транспортный налог (напоминание о следующем начислении) и
+  свои типы: «светофор» по сроку действия, продление с историей цен, учёт в статистике
+  («Страховка и налоги»).
 - **📊 Статистика** — 5 вкладок (Общая / Топливо / Ремонты / Расходы / Расходники): графики по
   периодам, круговые диаграммы распределения, тренды расхода, фильтры по периоду и пробегу,
   исключение ДТП. Графики на **Vico** с компактными осями и легендами.
 - **💾 Резервное копирование** — облачный бэкап на **Яндекс.Диск** (в т.ч. авто-бэкап через
-  WorkManager) и локальный экспорт/импорт базы (`.db`).
+  WorkManager) и локальный экспорт/импорт ZIP-архива (БД + фото + документы).
 - **🎨 Интерфейс** — Material 3, тёмная/светлая/системная тема, локализация **ru/en**, валюты
   ₽ RUB · $ USD · € EUR · ₸ KZT · Br BYN, плавные анимации навигации.
 
@@ -49,17 +52,20 @@
 | Архитектура | MVVM + лёгкий Clean Architecture (`data` / `domain` / `presentation`) |
 | Навигация | navigation-compose 2.7.6 |
 | DI | Hilt (Dagger) 2.50, hilt-navigation-compose, hilt-work |
-| БД | Room 2.6.1 (через KSP), SQLite, DB version 18 |
+| БД | Room 2.6.1 (через KSP), SQLite, DB version 20 |
 | Асинхронность | kotlinx-coroutines 1.7.3 + Flow |
 | Фоновые задачи | WorkManager 2.9.0 (авто-бэкап) |
 | Сеть | OkHttp 4.12.0 (Яндекс.Диск REST API) |
 | Изображения | Coil 2.5.0 |
 | Графики | Vico 1.15.0 |
+| Тесты | JUnit 4, kotlinx-coroutines-test, MockK 1.13.9, room-testing |
 | Настройки | DataStore Preferences 1.0.0 |
 | Сериализация | Gson 2.10.1 (Room TypeConverters) |
 | Сборка | Gradle 8.5 (Kotlin DSL), AGP 8.3.1, KSP 1.9.23-1.0.20 |
 
 Кодогенерация (Hilt, Room) — через **KSP**, не kapt.
+Release-сборка минифицируется **R8** (`isMinifyEnabled` + `isShrinkResources`, правила в
+`app/proguard-rules.pro`) — итоговый APK ≈ 4,5 МБ.
 
 ---
 
@@ -185,6 +191,18 @@ keytool -genkeypair -v -keystore car-log.jks -keyalg RSA -keysize 2048 \
 ./gradlew bundleRelease
 # → app/build/outputs/bundle/release/app-release.aab
 ```
+
+### Тесты
+
+```bash
+./gradlew testDebugUnitTest        # JVM-тесты: логика статусов, дат, расхода топлива, статистики
+./gradlew connectedDebugAndroidTest # миграции БД, нужен подключённый телефон или эмулятор
+```
+
+Отчёт: `app/build/reports/tests/testDebugUnitTest/index.html`.
+
+**Новая логика добавляется вместе с тестами** — требование и таблица «что чем покрывать»
+в [docs/TECHNICAL_DOCUMENTATION.md](docs/TECHNICAL_DOCUMENTATION.md), §15.1.
 
 ---
 

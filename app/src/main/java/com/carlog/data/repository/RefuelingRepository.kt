@@ -58,4 +58,56 @@ class RefuelingRepository @Inject constructor(
     suspend fun deleteRefuelingsByCarId(carId: Long) {
         refuelingDao.deleteRefuelingsByCarId(carId)
     }
+
+    /**
+     * Пересчитывает расход топлива (л/100км) всех заправок машины по алгоритму
+     * «между двумя полными баками»:
+     * расход полного бака = (его литры + Σ литров частичных заправок после предыдущего
+     * полного бака) / (пробег текущего − пробег предыдущего полного) × 100.
+     *
+     * У частичных заправок и у первого полного бака (нет точки отсчёта) расход = null.
+     * Вызывается после каждой мутации заправок: это чинит и соседние записи
+     * (например, при добавлении заправки задним числом или удалении промежуточной).
+     */
+    suspend fun recalculateFuelConsumption(carId: Long) {
+        val refuelings = refuelingDao.getRefuelingsByCarIdSortedByMileageOnce(carId)
+        val updated = mutableListOf<Refueling>()
+
+        var previousFullTank: Refueling? = null
+        var partialLitersSinceFullTank = 0.0
+
+        for (refueling in refuelings) {
+            if (refueling.isFullTank) {
+                var newConsumption: Double? = null
+                val previous = previousFullTank
+                if (previous != null) {
+                    val distance = refueling.mileage - previous.mileage
+                    if (distance > 0) {
+                        newConsumption =
+                            (refueling.liters + partialLitersSinceFullTank) / distance * 100
+                    }
+                }
+                if (newConsumption != refueling.fuelConsumption) {
+                    updated.add(refueling.copy(fuelConsumption = newConsumption))
+                }
+                previousFullTank = refueling
+                partialLitersSinceFullTank = 0.0
+            } else {
+                // Частичная заправка: собственного расхода нет, литры уйдут в следующий полный бак
+                if (refueling.fuelConsumption != null) {
+                    updated.add(refueling.copy(fuelConsumption = null))
+                }
+                partialLitersSinceFullTank += refueling.liters
+            }
+        }
+
+        if (updated.isNotEmpty()) {
+            refuelingDao.updateRefuelings(updated)
+        }
+    }
+
+    /** Разовый пересчёт по всем машинам (миграция данных на новую формулу) */
+    suspend fun recalculateFuelConsumptionForAllCars() {
+        refuelingDao.getCarIdsWithRefuelings().forEach { recalculateFuelConsumption(it) }
+    }
 }

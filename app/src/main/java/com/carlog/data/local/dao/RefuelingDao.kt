@@ -40,11 +40,22 @@ interface RefuelingDao {
     @Query("SELECT AVG(fuelConsumption) FROM refuelings WHERE carId = :carId AND fuelConsumption IS NOT NULL")
     fun getAverageConsumptionByCarId(carId: Long): Flow<Double?>
     
+    // Для пересчёта расхода: порядок по пробегу — это ось дистанции,
+    // date/id разруливают записи с одинаковым пробегом
+    @Query("SELECT * FROM refuelings WHERE carId = :carId ORDER BY mileage ASC, date ASC, id ASC")
+    suspend fun getRefuelingsByCarIdSortedByMileageOnce(carId: Long): List<Refueling>
+
+    @Query("SELECT DISTINCT carId FROM refuelings")
+    suspend fun getCarIdsWithRefuelings(): List<Long>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRefueling(refueling: Refueling): Long
-    
+
     @Update
     suspend fun updateRefueling(refueling: Refueling)
+
+    @Update
+    suspend fun updateRefuelings(refuelings: List<Refueling>)
     
     @Delete
     suspend fun deleteRefueling(refueling: Refueling)
@@ -54,4 +65,11 @@ interface RefuelingDao {
     
     @Query("SELECT MAX(mileage) FROM refuelings WHERE carId = :carId")
     suspend fun getMaxMileage(carId: Long): Int?
+
+    @Query("SELECT COUNT(*) FROM refuelings WHERE carId = :carId AND mileage > :mileage")
+    suspend fun getCountAboveMileage(carId: Long, mileage: Int): Int
+
+    // Прижимает пробег записей к новому (уменьшенному) пробегу автомобиля
+    @Query("UPDATE refuelings SET mileage = :mileage, updatedAt = :updatedAt WHERE carId = :carId AND mileage > :mileage")
+    suspend fun clampMileageTo(carId: Long, mileage: Int, updatedAt: Long)
 }

@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToDataCheck: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -90,10 +91,24 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // === Данные ===
+            SettingsSection(title = stringResource(R.string.settings_data_section))
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.data_check_title)) },
+                supportingContent = { Text(stringResource(R.string.data_check_subtitle)) },
+                modifier = Modifier.clickable { onNavigateToDataCheck() }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             // === О приложении ===
             SettingsSection(title = "О приложении")
 
-            InfoItem(label = stringResource(R.string.settings_version), value = "1.1.2")
+            InfoItem(
+                label = stringResource(R.string.settings_version),
+                value = com.carlog.BuildConfig.VERSION_NAME
+            )
             InfoItem(label = stringResource(R.string.settings_developer), value = stringResource(R.string.developer_name))
             
             LinkItem(

@@ -117,8 +117,35 @@ sealed class Screen(val route: String) {
             else "add_expense/$carId"
     }
     
+    // Documents
+    object Documents : Screen("documents/{carId}") {
+        fun createRoute(carId: Long) = "documents/$carId"
+    }
+    object DocumentDetail : Screen("document_detail/{carId}/{documentId}") {
+        fun createRoute(carId: Long, documentId: Long) = "document_detail/$carId/$documentId"
+    }
+    object AddDocument : Screen("add_document/{carId}?documentId={documentId}&renewFromId={renewFromId}&type={type}") {
+        fun createRoute(
+            carId: Long,
+            documentId: Long? = null,
+            renewFromId: Long? = null,
+            type: String? = null
+        ): String {
+            val params = mutableListOf<String>()
+            documentId?.let { params.add("documentId=$it") }
+            renewFromId?.let { params.add("renewFromId=$it") }
+            // Тип передаётся сырой строкой, как категория в AddConsumable: URLEncoder здесь
+            // превращал пробел в «+», Navigation его обратно не декодирует, и форма получала
+            // «Транспортный+налог» — запись сохранялась под битым типом мимо плитки
+            type?.let { params.add("type=$it") }
+            return if (params.isEmpty()) "add_document/$carId"
+            else "add_document/$carId?${params.joinToString("&")}"
+        }
+    }
+
     // Settings & Backup
     object Settings : Screen("settings")
     object Backup : Screen("backup")
+    object DataCheck : Screen("data_check")
     object RestoreBackup : Screen("restore_backup")
 }

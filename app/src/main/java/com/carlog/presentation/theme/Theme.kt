@@ -76,8 +76,9 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun CarLogTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Material You (цвета из обоев, Android 12+) выключен: приложение везде использует
+    // собственную палитру из Color.kt, одинаковую на всех устройствах
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

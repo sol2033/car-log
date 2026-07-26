@@ -2,7 +2,9 @@ package com.carlog.data.repository
 
 import com.carlog.data.local.dao.PartDao
 import com.carlog.domain.model.Part
+import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,11 +30,19 @@ class PartRepository @Inject constructor(
     suspend fun updatePart(part: Part) =
         partDao.updatePart(part)
     
-    suspend fun deletePart(part: Part) =
+    suspend fun deletePart(part: Part) {
+        // Фото принадлежат только этой записи — удаляем вместе с ней,
+        // иначе файлы остаются в хранилище навсегда и раздувают бэкапы
+        FileHelper.deleteFiles(part.photosPaths)
         partDao.deletePart(part)
-    
-    suspend fun deletePartsByCarId(carId: Long) =
+    }
+
+    suspend fun deletePartsByCarId(carId: Long) {
+        partDao.getPartsByCarId(carId).firstOrNull()?.forEach {
+            FileHelper.deleteFiles(it.photosPaths)
+        }
         partDao.deletePartsByCarId(carId)
+    }
     
     suspend fun getPartsCountByCarId(carId: Long): Int =
         partDao.getPartsCountByCarId(carId)

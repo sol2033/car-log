@@ -1,21 +1,18 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# ProGuard/R8-правила приложения.
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Room, Hilt, OkHttp, Coil, Vico и WorkManager несут собственные consumer-rules
+# внутри своих артефактов — для них ничего добавлять не нужно.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Читаемые стектрейсы в release-сборке ---
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Gson (Room TypeConverters в Converters.kt) ---
+# Gson восстанавливает List<String>/List<Long> через рефлексию по generic-сигнатуре
+# TypeToken. Без этих правил R8 срезает Signature, и чтение photosPaths /
+# installedPartIds / linkedConsumableIds падает в рантайме.
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-dontwarn sun.misc.Unsafe

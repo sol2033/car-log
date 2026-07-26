@@ -29,6 +29,10 @@ interface CarDao {
     
     @Query("UPDATE cars SET currentMileage = :mileage, updatedAt = :updatedAt WHERE id = :carId")
     suspend fun updateMileage(carId: Long, mileage: Int, updatedAt: Long)
+
+    // Пробег при покупке не может оказаться больше текущего (при уменьшении пробега вручную)
+    @Query("UPDATE cars SET purchaseMileage = :mileage, updatedAt = :updatedAt WHERE id = :carId AND purchaseMileage > :mileage")
+    suspend fun clampPurchaseMileage(carId: Long, mileage: Int, updatedAt: Long)
     
     @Query("SELECT COUNT(*) FROM cars")
     suspend fun getCarsCount(): Int

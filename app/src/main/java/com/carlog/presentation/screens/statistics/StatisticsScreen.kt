@@ -77,62 +77,31 @@ fun StatisticsScreen(
             }
             
             // Tabs
+            val tabTitles = listOf(
+                R.string.tab_general,
+                R.string.tab_fuel,
+                R.string.tab_repairs_stats,
+                R.string.tab_other_expenses,
+                R.string.tab_consumables
+            )
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Tab(
-                    selected = selectedTabIndex == 0,
-                    onClick = { selectedTabIndex = 0 },
-                    text = { 
-                        Text(
-                            text = stringResource(R.string.tab_general),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTabIndex == 1,
-                    onClick = { selectedTabIndex = 1 },
-                    text = { 
-                        Text(
-                            text = stringResource(R.string.tab_fuel),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTabIndex == 2,
-                    onClick = { selectedTabIndex = 2 },
-                    text = { 
-                        Text(
-                            text = stringResource(R.string.tab_repairs_stats),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTabIndex == 3,
-                    onClick = { selectedTabIndex = 3 },
-                    text = { 
-                        Text(
-                            text = stringResource(R.string.tab_other_expenses),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTabIndex == 4,
-                    onClick = { selectedTabIndex = 4 },
-                    text = { 
-                        Text(
-                            text = stringResource(R.string.tab_consumables),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
+                tabTitles.forEachIndexed { index, titleRes ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = {
+                            Text(
+                                text = stringResource(titleRes),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    )
+                }
             }
-            
+
             // Content
             Box(
                 modifier = Modifier

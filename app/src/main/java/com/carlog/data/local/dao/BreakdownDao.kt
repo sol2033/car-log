@@ -47,4 +47,11 @@ interface BreakdownDao {
     
     @Query("SELECT MAX(breakdownMileage) FROM breakdowns WHERE carId = :carId")
     suspend fun getMaxMileage(carId: Long): Int?
+
+    @Query("SELECT COUNT(*) FROM breakdowns WHERE carId = :carId AND breakdownMileage > :mileage")
+    suspend fun getCountAboveMileage(carId: Long, mileage: Int): Int
+
+    // Прижимает пробег записей к новому (уменьшенному) пробегу автомобиля
+    @Query("UPDATE breakdowns SET breakdownMileage = :mileage, updatedAt = :updatedAt WHERE carId = :carId AND breakdownMileage > :mileage")
+    suspend fun clampMileageTo(carId: Long, mileage: Int, updatedAt: Long)
 }

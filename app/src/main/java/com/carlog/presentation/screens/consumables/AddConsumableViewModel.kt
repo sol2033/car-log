@@ -28,7 +28,10 @@ data class AddConsumableState(
     val replacementIntervalMileage: String = "",
     val replacementIntervalDays: String = "",
     val notes: String = "",
-    
+    // Исходная запись при редактировании: поля, которых нет в форме
+    // (привязка к ТО, активность, пробег/дата замены, createdAt), берутся из неё
+    val originalConsumable: Consumable? = null,
+
     val categoryError: String? = null,
     val installationMileageError: String? = null,
     val costError: String? = null,
@@ -80,10 +83,17 @@ class AddConsumableViewModel @Inject constructor(
     private fun loadCarMileage() {
         viewModelScope.launch {
             carRepository.getCarById(carId).firstOrNull()?.let { car ->
-                _state.value = _state.value.copy(
-                    currentCarMileage = car.currentMileage,
-                    installationMileage = car.currentMileage.toString()
-                )
+                // Текущий пробег нужен всегда (для статуса), а вот подставлять его в поле
+                // пробега установки можно только у новой записи: иначе эта асинхронная
+                // подстановка может выиграть гонку у загрузки и затереть пробег существующей
+                _state.value = if (consumableId == null) {
+                    _state.value.copy(
+                        currentCarMileage = car.currentMileage,
+                        installationMileage = car.currentMileage.toString()
+                    )
+                } else {
+                    _state.value.copy(currentCarMileage = car.currentMileage)
+                }
             }
         }
     }
@@ -107,6 +117,7 @@ class AddConsumableViewModel @Inject constructor(
                         replacementIntervalMileage = consumable.replacementIntervalMileage?.toString() ?: "",
                         replacementIntervalDays = consumable.replacementIntervalDays?.toString() ?: "",
                         notes = consumable.notes ?: "",
+                        originalConsumable = consumable,
                         isLoading = false,
                         currentCarMileage = _state.value.currentCarMileage
                     )
@@ -206,7 +217,11 @@ class AddConsumableViewModel @Inject constructor(
     
     fun saveConsumable() {
         val currentState = _state.value
-        
+
+        // Запись ещё не догрузилась — сохранять нельзя: обновлять нечего,
+        // а вставка создала бы дубликат
+        if (currentState.consumableId != null && currentState.originalConsumable == null) return
+
         val categoryError = if (currentState.category.isBlank()) "Обязательное поле" else null
         val mileageError = if (currentState.installationMileage.isBlank()) "Обязательное поле" else null
         val costError = if (currentState.cost.isBlank() || currentState.cost.toDoubleOrNull() == null) "Обязательное поле" else null
@@ -225,32 +240,67 @@ class AddConsumableViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
-                
-                val consumable = Consumable(
-                    id = currentState.consumableId ?: 0,
-                    carId = carId,
-                    category = currentState.category,
-                    manufacturer = currentState.manufacturer.ifBlank { null },
-                    articleNumber = currentState.articleNumber.ifBlank { null },
-                    installationMileage = currentState.installationMileage.toInt(),
-                    installationDate = currentState.installationDate,
-                    replacementMileage = null,
-                    replacementDate = null,
-                    cost = currentState.cost.toDoubleOrNull(),
-                    isInstalledAtService = currentState.isInstalledAtService,
-                    serviceCost = currentState.serviceCost.toDoubleOrNull(),
-                    volume = currentState.volume.toDoubleOrNull(),
-                    replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
-                    replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
-                    isActive = true,
-                    notes = currentState.notes.ifBlank { null },
-                    createdAt = currentTime,
-                    updatedAt = currentTime
-                )
-                
-                if (currentState.consumableId != null) {
+
+                val original = currentState.originalConsumable
+                if (original != null) {
+                    // Обновляем через copy: привязка к ТО, признак активности, пробег/дата
+                    // замены и createdAt в форме не редактируются и должны сохраниться —
+                    // раньше запись собиралась заново, из-за чего редактирование заменённого
+                    // расходника делало его снова активным, а расходник из ТО — «отдельным»
+                    val consumable = original.copy(
+                        category = currentState.category,
+                        manufacturer = currentState.manufacturer.ifBlank { null },
+                        articleNumber = currentState.articleNumber.ifBlank { null },
+                        installationMileage = currentState.installationMileage.toInt(),
+                        installationDate = currentState.installationDate,
+                        cost = currentState.cost.toDoubleOrNull(),
+                        isInstalledAtService = currentState.isInstalledAtService,
+                        serviceCost = currentState.serviceCost.toDoubleOrNull(),
+                        volume = currentState.volume.toDoubleOrNull(),
+                        replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
+                        replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
+                        notes = currentState.notes.ifBlank { null },
+                        updatedAt = currentTime
+                    )
                     consumableRepository.updateConsumable(consumable)
                 } else {
+                    val consumable = Consumable(
+                        id = 0,
+                        carId = carId,
+                        category = currentState.category,
+                        manufacturer = currentState.manufacturer.ifBlank { null },
+                        articleNumber = currentState.articleNumber.ifBlank { null },
+                        installationMileage = currentState.installationMileage.toInt(),
+                        installationDate = currentState.installationDate,
+                        replacementMileage = null,
+                        replacementDate = null,
+                        cost = currentState.cost.toDoubleOrNull(),
+                        isInstalledAtService = currentState.isInstalledAtService,
+                        serviceCost = currentState.serviceCost.toDoubleOrNull(),
+                        volume = currentState.volume.toDoubleOrNull(),
+                        replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
+                        replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
+                        isActive = true,
+                        notes = currentState.notes.ifBlank { null },
+                        createdAt = currentTime,
+                        updatedAt = currentTime
+                    )
+                    // В категории должен остаться один активный расходник: прежние активные
+                    // деактивируем как заменённые этой установкой (та же логика, что в потоке ТО
+                    // и на экране деталей; раньше прямое добавление давало два активных)
+                    val consumablesInCategory = consumableRepository
+                        .getConsumablesByCategory(carId, currentState.category)
+                        .firstOrNull() ?: emptyList()
+                    consumablesInCategory.filter { it.isActive }.forEach { existing ->
+                        consumableRepository.updateConsumable(
+                            existing.copy(
+                                isActive = false,
+                                replacementDate = currentState.installationDate,
+                                replacementMileage = currentState.installationMileage.toInt(),
+                                updatedAt = currentTime
+                            )
+                        )
+                    }
                     consumableRepository.insertConsumable(consumable)
                 }
                 

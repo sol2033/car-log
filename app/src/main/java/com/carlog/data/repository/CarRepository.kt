@@ -6,10 +6,12 @@ import com.carlog.data.local.dao.RefuelingDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.AccidentDao
+import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ExpenseDao
 import com.carlog.domain.model.Car
+import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +23,8 @@ class CarRepository @Inject constructor(
     private val consumableDao: ConsumableDao,
     private val partDao: PartDao,
     private val accidentDao: AccidentDao,
-    private val expenseDao: ExpenseDao
+    private val expenseDao: ExpenseDao,
+    private val carDocumentDao: CarDocumentDao
 ) {
     fun getAllCars(): Flow<List<Car>> {
         return carDao.getAllCars()
@@ -44,6 +47,26 @@ class CarRepository @Inject constructor(
     }
     
     suspend fun deleteCar(car: Car) {
+        // Записи машины удалит каскад на уровне БД, но файлы в хранилище так не исчезнут —
+        // собираем и чистим их до удаления, иначе фото и PDF остаются навсегда
+        // и продолжают попадать в каждый бэкап
+        FileHelper.deleteFiles(car.photosPaths)
+        FileHelper.deleteFiles(car.mainPhotoPath?.let { listOf(it) })
+
+        partDao.getPartsByCarId(car.id).firstOrNull()?.forEach {
+            FileHelper.deleteFiles(it.photosPaths)
+        }
+        breakdownDao.getBreakdownsByCarId(car.id).firstOrNull()?.forEach {
+            FileHelper.deleteFiles(it.photosPaths)
+        }
+        accidentDao.getAccidentsByCarId(car.id).firstOrNull()?.forEach { accident ->
+            FileHelper.deleteFiles(accident.photosPaths)
+            FileHelper.deleteFiles(accident.documentPath?.let { listOf(it) })
+        }
+        carDocumentDao.getDocumentsByCarId(car.id).firstOrNull()?.forEach { document ->
+            FileHelper.deleteFiles(document.photoPath?.let { listOf(it) })
+        }
+
         carDao.deleteCar(car)
     }
     
@@ -57,7 +80,7 @@ class CarRepository @Inject constructor(
     
     // Оптимизированное обновление пробега при добавлении/редактировании записи
     suspend fun updateCarMileageIfNeeded(carId: Long, newMileage: Int) {
-        val currentCar = carDao.getCarById(carId).first() ?: return
+        val currentCar = carDao.getCarByIdOnce(carId) ?: return
         
         // Если новый пробег не больше текущего - ничего не делаем
         if (newMileage <= currentCar.currentMileage) {
@@ -68,9 +91,58 @@ class CarRepository @Inject constructor(
         updateMileage(carId, newMileage)
     }
     
+    // Максимальный пробег, зафиксированный в записях машины (0 — если записей нет)
+    suspend fun getMaxRecordedMileage(carId: Long): Int {
+        val maxMileages = listOfNotNull(
+            breakdownDao.getMaxMileage(carId),
+            refuelingDao.getMaxMileage(carId),
+            consumableDao.getMaxInstallationMileage(carId),
+            consumableDao.getMaxReplacementMileage(carId),
+            partDao.getMaxMileage(carId),
+            partDao.getMaxBreakdownMileage(carId),
+            accidentDao.getMaxMileage(carId),
+            expenseDao.getMaxMileage(carId)
+        )
+        return maxMileages.maxOrNull() ?: 0
+    }
+
+    // Сколько записей машины содержат пробег больше указанного
+    suspend fun getRecordsCountAboveMileage(carId: Long, mileage: Int): Int {
+        return breakdownDao.getCountAboveMileage(carId, mileage) +
+            refuelingDao.getCountAboveMileage(carId, mileage) +
+            consumableDao.getCountAboveMileage(carId, mileage) +
+            partDao.getCountAboveMileage(carId, mileage) +
+            accidentDao.getCountAboveMileage(carId, mileage) +
+            expenseDao.getCountAboveMileage(carId, mileage)
+    }
+
+    /**
+     * Уменьшение пробега вручную (с экрана деталей машины, после подтверждения пользователем).
+     * Пробег — производная величина (максимум по всем записям), поэтому одного обновления
+     * `cars.currentMileage` недостаточно: записи с большим пробегом «прижимаются» к новому
+     * значению, иначе `syncAllCarsMileage()` вернёт прежний максимум при следующем запуске.
+     * После вызова нужно пересчитать расход топлива (`RefuelingRepository.recalculateFuelConsumption`).
+     */
+    suspend fun lowerMileageWithRecords(carId: Long, newMileage: Int) {
+        val now = System.currentTimeMillis()
+
+        breakdownDao.clampMileageTo(carId, newMileage, now)
+        refuelingDao.clampMileageTo(carId, newMileage, now)
+        consumableDao.clampInstallationMileageTo(carId, newMileage, now)
+        consumableDao.clampReplacementMileageTo(carId, newMileage, now)
+        partDao.clampInstallMileageTo(carId, newMileage, now)
+        partDao.clampBreakdownMileageTo(carId, newMileage, now)
+        partDao.refreshMileageDriven(carId, now)
+        accidentDao.clampMileageTo(carId, newMileage, now)
+        expenseDao.clampMileageTo(carId, newMileage, now)
+        carDao.clampPurchaseMileage(carId, newMileage, now)
+
+        updateMileage(carId, newMileage)
+    }
+
     // Оптимизированное обновление пробега после удаления записи
     suspend fun updateCarMileageAfterDelete(carId: Long, deletedMileage: Int) {
-        val currentCar = carDao.getCarById(carId).first() ?: return
+        val currentCar = carDao.getCarByIdOnce(carId) ?: return
         
         // Если удаленный пробег меньше текущего - ничего не делаем
         // Если равен или больше - пересчитываем максимум
@@ -95,7 +167,7 @@ class CarRepository @Inject constructor(
     
     // Синхронизация пробега для всех автомобилей (для миграции существующих данных)
     suspend fun syncAllCarsMileage() {
-        val cars = getAllCars().first()
+        val cars = carDao.getAllCarsOnce()
         cars.forEach { car ->
             val maxMileages = listOfNotNull(
                 breakdownDao.getMaxMileage(car.id),

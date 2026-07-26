@@ -1,6 +1,7 @@
 package com.carlog.data.backup
 
 import android.content.Context
+import com.carlog.data.local.CarLogDatabase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,12 +24,14 @@ import javax.inject.Singleton
 @Singleton
 class CloudBackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val yandexAuthManager: YandexAuthManager
+    private val yandexAuthManager: YandexAuthManager,
+    private val database: CarLogDatabase
 ) {
     companion object {
         private const val DATABASE_NAME = "car_log_database"
         private const val DATABASE_FILE_IN_ZIP = "car_log_database.db"
         private const val PHOTOS_FOLDER = "photos"
+        private const val DOCUMENTS_FOLDER = "documents"
         private const val MAX_BACKUPS = 3
     }
 
@@ -49,6 +52,10 @@ class CloudBackupManager @Inject constructor(
             val timestamp = dateFormat.format(Date())
             val backupFileName = "${YandexDiskApi.BACKUP_PREFIX}$timestamp.zip"
 
+            // Сбрасываем WAL в основной файл БД: Room работает в режиме WAL, и без
+            // checkpoint последние транзакции лежат в car_log_database-wal и не попали бы в архив
+            checkpointDatabase()
+
             // Создаём временный ZIP-архив
             val tempZipFile = File(context.cacheDir, backupFileName)
             createZipArchive(tempZipFile)
@@ -58,7 +65,7 @@ class CloudBackupManager @Inject constructor(
             api.ensureFolderExists()
 
             // Загружаем ZIP на Яндекс.Диск
-            val success = api.uploadFile(backupFileName, tempZipFile.readBytes())
+            val success = api.uploadFile(backupFileName, tempZipFile)
             tempZipFile.delete()
 
             if (!success) {
@@ -92,8 +99,7 @@ class CloudBackupManager @Inject constructor(
         val tempZipFile = File(context.cacheDir, "restore_temp.zip")
         try {
             val api = getApi()
-            val data = api.downloadFile(remotePath)
-            tempZipFile.writeBytes(data)
+            api.downloadFile(remotePath, tempZipFile)
             extractZipArchive(tempZipFile)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -123,6 +129,19 @@ class CloudBackupManager @Inject constructor(
         }
     }
 
+    /**
+     * PRAGMA wal_checkpoint(TRUNCATE) переносит содержимое -wal в основной файл БД.
+     * Без этого архив, снятый с «живой» базы, не содержал бы последних изменений.
+     * Ошибка checkpoint не должна срывать бэкап — в худшем случае копия будет без
+     * самых свежих данных, как и раньше.
+     */
+    private fun checkpointDatabase() {
+        try {
+            database.query("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
+        } catch (_: Exception) {
+        }
+    }
+
     private fun cleanOldBackups(api: YandexDiskApi) {
         api.listBackups()
             .drop(MAX_BACKUPS)
@@ -138,11 +157,21 @@ class CloudBackupManager @Inject constructor(
             }
 
             // Фотографии
-            val photosDir = File(context.filesDir, "photos")
+            val photosDir = File(context.filesDir, PHOTOS_FOLDER)
             if (photosDir.exists() && photosDir.isDirectory) {
                 photosDir.listFiles()?.forEach { photoFile ->
                     if (photoFile.isFile) {
                         addFileToZip(zos, photoFile, "$PHOTOS_FOLDER/${photoFile.name}")
+                    }
+                }
+            }
+
+            // PDF-документы ДТП
+            val documentsDir = File(context.filesDir, DOCUMENTS_FOLDER)
+            if (documentsDir.exists() && documentsDir.isDirectory) {
+                documentsDir.listFiles()?.forEach { documentFile ->
+                    if (documentFile.isFile) {
+                        addFileToZip(zos, documentFile, "$DOCUMENTS_FOLDER/${documentFile.name}")
                     }
                 }
             }
@@ -158,6 +187,8 @@ class CloudBackupManager @Inject constructor(
     }
 
     private fun extractZipArchive(zipFile: File) {
+        val photosDir = File(context.filesDir, PHOTOS_FOLDER)
+        val documentsDir = File(context.filesDir, DOCUMENTS_FOLDER)
         ZipInputStream(FileInputStream(zipFile)).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
@@ -166,13 +197,27 @@ class CloudBackupManager @Inject constructor(
                         context.getDatabasePath(DATABASE_NAME)
                     entry.name.startsWith(PHOTOS_FOLDER) && !entry.isDirectory -> {
                         val photoName = entry.name.removePrefix("$PHOTOS_FOLDER/")
-                        File(context.filesDir, "photos/$photoName")
+                        // Защита от zip-slip: имя из архива не должно выводить за пределы папки фото
+                        File(photosDir, photoName).takeIf {
+                            it.canonicalPath.startsWith(photosDir.canonicalPath + File.separator)
+                        }
+                    }
+                    entry.name.startsWith(DOCUMENTS_FOLDER) && !entry.isDirectory -> {
+                        val documentName = entry.name.removePrefix("$DOCUMENTS_FOLDER/")
+                        File(documentsDir, documentName).takeIf {
+                            it.canonicalPath.startsWith(documentsDir.canonicalPath + File.separator)
+                        }
                     }
                     else -> null
                 }
                 outputFile?.let { file ->
                     file.parentFile?.mkdirs()
                     FileOutputStream(file).use { fos -> zis.copyTo(fos) }
+                    if (entry?.name == DATABASE_FILE_IN_ZIP) {
+                        // Устаревшие журналы старой БД не должны «доиграться» поверх восстановленной
+                        File(file.path + "-wal").delete()
+                        File(file.path + "-shm").delete()
+                    }
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry

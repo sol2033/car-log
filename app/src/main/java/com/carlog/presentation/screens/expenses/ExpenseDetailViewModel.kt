@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.expenses
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ExpenseRepository
 import com.carlog.domain.model.Car
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class ExpenseDetailViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -41,6 +43,8 @@ class ExpenseDetailViewModel @Inject constructor(
             expenseRepository.deleteExpense(currentExpense)
             // Обновляем пробег автомобиля после удаления
             carRepository.updateCarMileageAfterDelete(currentExpense.carId, currentExpense.mileage)
+            // Уведомляем об изменении данных для авто-бэкапа
+            dataChangeNotifier.notifyDataChanged()
             _deleteSuccess.value = true
         }
     }

@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.car
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Car
 import com.carlog.util.FileHelper
@@ -36,7 +37,9 @@ data class AddCarState(
     val photosPaths: List<String> = emptyList(),
     val mainPhotoPath: String? = null,
     val notes: String = "",
-    
+    // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
+    val createdAt: Long = 0L,
+
     val brandError: String? = null,
     val modelError: String? = null,
     val fuelTypeError: String? = null,
@@ -53,6 +56,7 @@ data class AddCarState(
 @HiltViewModel
 class AddCarViewModel @Inject constructor(
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -104,6 +108,7 @@ class AddCarViewModel @Inject constructor(
                             photosPaths = car.photosPaths ?: emptyList(),
                             mainPhotoPath = car.mainPhotoPath,
                             notes = car.notes ?: "",
+                            createdAt = car.createdAt,
                             isLoading = false
                         )
                     } else {
@@ -307,7 +312,10 @@ class AddCarViewModel @Inject constructor(
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },
                         notes = currentState.notes.ifBlank { null },
-                        createdAt = currentTime, // Will be ignored by update
+                        // @Update перезаписывает строку целиком, поэтому исходное время
+                        // создания нужно передать явно: по нему считается возраст авто
+                        // в статистике, если не указана дата покупки
+                        createdAt = currentState.createdAt,
                         updatedAt = currentTime
                     )
                     carRepository.updateCar(car)
@@ -339,7 +347,10 @@ class AddCarViewModel @Inject constructor(
                     )
                     carRepository.insertCar(car)
                 }
-                
+
+                // Уведомляем об изменении данных для авто-бэкапа
+                dataChangeNotifier.notifyDataChanged()
+
                 _state.value = currentState.copy(
                     isSaving = false,
                     isSaved = true

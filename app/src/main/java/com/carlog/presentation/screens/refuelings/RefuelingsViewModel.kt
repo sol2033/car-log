@@ -78,6 +78,8 @@ class RefuelingsViewModel @Inject constructor(
     fun deleteRefueling(refueling: Refueling) {
         viewModelScope.launch {
             refuelingRepository.deleteRefueling(refueling)
+            // Удаление промежуточной заправки меняет расход соседних — пересчитываем
+            refuelingRepository.recalculateFuelConsumption(refueling.carId)
             // Обновляем пробег автомобиля до максимального
             carRepository.updateCarMileageAfterDelete(refueling.carId, refueling.mileage)
             // Уведомляем о изменении данных

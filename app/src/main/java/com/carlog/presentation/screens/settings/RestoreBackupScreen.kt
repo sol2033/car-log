@@ -1,6 +1,5 @@
 package com.carlog.presentation.screens.settings
 
-import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.data.backup.BackupInfo
+import com.carlog.util.AppRestart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -204,9 +204,10 @@ fun RestoreBackupScreen(
                                         "Данные восстановлены! Перезапуск...",
                                         Toast.LENGTH_SHORT
                                     ).show()
-                                    
-                                    // Перезапуск приложения
-                                    (context as? Activity)?.recreate()
+
+                                    // Полный перезапуск процесса: recreate() сохранил бы
+                                    // ViewModel'ы и закрытую БД — экраны показывали бы старые данные
+                                    AppRestart.restart(context)
                                 },
                                 onFailure = { e ->
                                     isRestoring = false

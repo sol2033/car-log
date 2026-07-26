@@ -138,11 +138,12 @@ class ConsumableDetailViewModel @Inject constructor(
                     val currentTime = System.currentTimeMillis()
                     val oldConsumable = state.consumable
                     
-                    // Обновляем старый расходник
+                    // Обновляем старый расходник: дата замены — выбранная пользователем,
+                    // а не «сейчас» (при замене задним числом история врала)
                     val updatedOld = oldConsumable.copy(
                         isActive = false,
                         replacementMileage = state.currentMileage,
-                        replacementDate = currentTime,
+                        replacementDate = replacementDate,
                         updatedAt = currentTime
                     )
                     consumableRepository.updateConsumable(updatedOld)

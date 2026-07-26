@@ -61,7 +61,22 @@ fun AddRefuelingScreen(
     val stationName by viewModel.stationName
     val notes by viewModel.notes
     val availableFuelTypes by viewModel.availableFuelTypes.collectAsState()
-    
+    val saveError by viewModel.saveError
+
+    // Раньше ошибка сохранения уходила только в лог: экран просто не закрывался
+    saveError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSaveError() },
+            title = { Text(stringResource(R.string.save_error_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissSaveError() }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+
     val isElectric = car?.fuelType == "Электро"
     val title = if (refuelingId == null) {
         if (isElectric) "Добавить зарядку" else "Добавить заправку"

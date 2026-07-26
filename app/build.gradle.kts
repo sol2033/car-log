@@ -23,13 +23,17 @@ android {
         applicationId = "com.carlog"
         minSdk = 29
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.1.2"
+        versionCode = 8
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Приложение локализовано только на ru/en — выкидываем переводы
+        // системных библиотек (appcompat/material) на остальные ~80 языков
+        resourceConfigurations += listOf("ru", "en")
     }
 
     signingConfigs {
@@ -46,7 +50,11 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            // R8: минификация кода и вырезание неиспользуемых ресурсов.
+            // Главный эффект — material-icons-extended перестаёт попадать в APK целиком.
+            // Обязательные keep-правила (Gson/TypeToken) — в proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -65,6 +73,8 @@ android {
     
     buildFeatures {
         compose = true
+        // Версия на экране настроек берётся из BuildConfig, а не хардкодится
+        buildConfig = true
     }
     
     composeOptions {
@@ -75,6 +85,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    // MigrationTestHelper читает JSON-схемы из ассетов инструментальных тестов
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 }
 
@@ -125,6 +140,9 @@ dependencies {
     
     // Coil (Images)
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // ExifInterface (поворот фото при пережатии в FileHelper)
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
     
     // Gson (for Room converters)
     implementation("com.google.code.gson:gson:2.10.1")
@@ -142,7 +160,14 @@ dependencies {
     
     // Testing
     testImplementation("junit:junit:4.13.2")
+    // Тестовые диспетчеры и runTest для корутин во ViewModel/репозиториях
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    // Заглушки DAO (у них десятки методов — писать руками неоправданно)
+    testImplementation("io.mockk:mockk:1.13.9")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    // MigrationTestHelper: прогон миграций БД на реальном SQLite устройства
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

@@ -24,7 +24,7 @@ class YandexAuthManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        // TODO: замените на свой ClientID с https://oauth.yandex.ru
+        // ClientID OAuth-приложения, зарегистрированного на oauth.yandex.ru (аккаунт владельца)
         const val CLIENT_ID = "af843fb71d374176ad39447461ff8c2f"
 
         private const val PREFS_NAME = "backup_prefs"

@@ -24,6 +24,7 @@ class DatabaseBackup(
         private const val DATABASE_NAME = "car_log_database"
         private const val DATABASE_FILE_IN_ZIP = "car_log_database.db"
         private const val PHOTOS_FOLDER = "photos"
+        private const val DOCUMENTS_FOLDER = "documents"
     }
     
     /**
@@ -49,11 +50,21 @@ class DatabaseBackup(
                 }
                 
                 // 2. Добавляем все фотографии
-                val photosDir = File(context.filesDir, "photos")
+                val photosDir = File(context.filesDir, PHOTOS_FOLDER)
                 if (photosDir.exists() && photosDir.isDirectory) {
                     photosDir.listFiles()?.forEach { photoFile ->
                         if (photoFile.isFile) {
                             addFileToZip(zos, photoFile, "$PHOTOS_FOLDER/${photoFile.name}")
+                        }
+                    }
+                }
+
+                // 3. Добавляем PDF-документы ДТП
+                val documentsDir = File(context.filesDir, DOCUMENTS_FOLDER)
+                if (documentsDir.exists() && documentsDir.isDirectory) {
+                    documentsDir.listFiles()?.forEach { documentFile ->
+                        if (documentFile.isFile) {
+                            addFileToZip(zos, documentFile, "$DOCUMENTS_FOLDER/${documentFile.name}")
                         }
                     }
                 }
@@ -127,7 +138,9 @@ class DatabaseBackup(
         try {
             var dbRestored = false
             var photosRestored = 0
-            
+            val photosDir = File(context.filesDir, PHOTOS_FOLDER)
+            val documentsDir = File(context.filesDir, DOCUMENTS_FOLDER)
+
             ZipInputStream(FileInputStream(zipFile)).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
@@ -138,17 +151,34 @@ class DatabaseBackup(
                             FileOutputStream(dbFile).use { fos ->
                                 zis.copyTo(fos)
                             }
+                            // Устаревшие журналы старой БД не должны «доиграться» поверх восстановленной
+                            File(dbFile.path + "-wal").delete()
+                            File(dbFile.path + "-shm").delete()
                             dbRestored = true
                         }
                         entry.name.startsWith(PHOTOS_FOLDER) && !entry.isDirectory -> {
                             // Восстанавливаем фотографию
                             val photoName = entry.name.removePrefix("$PHOTOS_FOLDER/")
-                            val photoFile = File(context.filesDir, "photos/$photoName")
-                            photoFile.parentFile?.mkdirs()
-                            FileOutputStream(photoFile).use { fos ->
-                                zis.copyTo(fos)
+                            val photoFile = File(photosDir, photoName)
+                            // Защита от zip-slip: имя из архива не должно выводить за пределы папки фото
+                            if (photoFile.canonicalPath.startsWith(photosDir.canonicalPath + File.separator)) {
+                                photoFile.parentFile?.mkdirs()
+                                FileOutputStream(photoFile).use { fos ->
+                                    zis.copyTo(fos)
+                                }
+                                photosRestored++
                             }
-                            photosRestored++
+                        }
+                        entry.name.startsWith(DOCUMENTS_FOLDER) && !entry.isDirectory -> {
+                            // Восстанавливаем PDF-документ ДТП
+                            val documentName = entry.name.removePrefix("$DOCUMENTS_FOLDER/")
+                            val documentFile = File(documentsDir, documentName)
+                            if (documentFile.canonicalPath.startsWith(documentsDir.canonicalPath + File.separator)) {
+                                documentFile.parentFile?.mkdirs()
+                                FileOutputStream(documentFile).use { fos ->
+                                    zis.copyTo(fos)
+                                }
+                            }
                         }
                     }
                     zis.closeEntry()
@@ -179,7 +209,10 @@ class DatabaseBackup(
                     input.copyTo(output)
                 }
             }
-            
+            // Устаревшие журналы старой БД не должны «доиграться» поверх восстановленной
+            File(targetDbFile.path + "-wal").delete()
+            File(targetDbFile.path + "-shm").delete()
+
             // Старый формат без фотографий
             Result.success(0)
         } catch (e: Exception) {

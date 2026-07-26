@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.accidents
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.AccidentRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Accident
@@ -23,6 +24,7 @@ data class AccidentsUiState(
 class AccidentsViewModel @Inject constructor(
     private val accidentRepository: AccidentRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -59,6 +61,8 @@ class AccidentsViewModel @Inject constructor(
                 accidentRepository.deleteAccident(accident)
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageAfterDelete(accident.carId, accident.mileage)
+                // Уведомляем об изменении данных для авто-бэкапа
+                dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Ошибка при удалении"

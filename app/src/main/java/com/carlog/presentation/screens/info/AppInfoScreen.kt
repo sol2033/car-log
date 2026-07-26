@@ -134,7 +134,17 @@ fun AppInfoScreen(
             )
             
             HorizontalDivider()
-            
+
+            // Документы
+            InfoSection(
+                title = stringResource(R.string.info_documents_title),
+                content = stringResource(R.string.info_documents_content),
+                isExpanded = expandedSection == "documents",
+                onToggle = { expandedSection = if (expandedSection == "documents") null else "documents" }
+            )
+
+            HorizontalDivider()
+
             // Статистика
             InfoSection(
                 title = stringResource(R.string.info_statistics_title),

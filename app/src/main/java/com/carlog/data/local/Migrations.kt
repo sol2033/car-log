@@ -1,6 +1,9 @@
 package com.carlog.data.local
 
 import androidx.room.migration.Migration
+import com.carlog.data.local.repair.EventPartLinkRepair
+import com.carlog.data.local.repair.RepairEvent
+import com.carlog.data.local.repair.RepairPart
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 val MIGRATION_7_8 = object : Migration(7, 8) {
@@ -248,3 +251,197 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
     }
 }
 
+
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Создаём таблицу документов автомобиля (страховки, налог и т.п.).
+        // Схема дословно совпадает с тем, что генерирует Room для @Entity CarDocument.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `documents` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`carId` INTEGER NOT NULL, " +
+                "`type` TEXT NOT NULL, " +
+                "`customName` TEXT, " +
+                "`number` TEXT, " +
+                "`organization` TEXT, " +
+                "`startDate` INTEGER, " +
+                "`expiryDate` INTEGER NOT NULL, " +
+                "`cost` REAL, " +
+                "`photoPath` TEXT, " +
+                "`notes` TEXT, " +
+                "`isActive` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_documents_carId` ON `documents` (`carId`)")
+    }
+}
+
+/**
+ * Ремонт связей «ТО ↔ расходники», порванных прежним багом: формы редактирования собирали
+ * запись заново и обнуляли поля, которых нет в форме. Из-за этого:
+ * - редактирование ТО стирало `breakdowns.linkedConsumableIds` — удаление ТО переставало
+ *   удалять его расходники;
+ * - редактирование расходника стирало `consumables.linkedMaintenanceId` — его стоимость
+ *   начинала считаться в статистике и внутри ТО, и как «отдельная».
+ *
+ * Обе стороны связи дублируют друг друга, поэтому уцелевшая половина позволяет восстановить
+ * потерянную **точно**, без догадок. Что восстановить нельзя (статус поломки запчасти,
+ * стоимость работ по ДТП, createdAt) — здесь не трогаем.
+ *
+ * Списки id хранятся как JSON-массив Gson (`[1,2,3]`), отсюда сборка строки вручную.
+ */
+/** Разбор JSON-массива id (`[1,2,3]`), как его пишет Gson-конвертер */
+private fun parseIdList(json: String?): List<Long> =
+    json?.trim()
+        ?.removePrefix("[")?.removeSuffix("]")
+        ?.split(",")
+        ?.mapNotNull { it.trim().toLongOrNull() }
+        ?: emptyList()
+
+/**
+ * Восстановление связи «событие → его запчасти», потерянной при редактировании
+ * (`installedPartIds` обнулялся). Чиним **только однозначные** случаи, иначе не трогаем:
+ *
+ * - запчасть создавалась событием, поэтому её `installationType` = «Сервис» (обслуживание)
+ *   или «ДТП», а `installDate`/`installMileage` скопированы из события **точно**;
+ * - на один такой набор признаков должно приходиться ровно одно событие — иначе непонятно,
+ *   к какому из них привязывать;
+ * - запчасти, уже привязанные к другому событию, кандидатами не считаются;
+ * - для обслуживания дополнительно требуется **точное совпадение суммы**: `partsCost`
+ *   считался как сумма цен своих запчастей и при поломке связи уцелел. Если в набор попадёт
+ *   посторонняя запчасть — сумма не сойдётся, и случай будет пропущен.
+ *
+ * У ДТП проверки суммы нет: `repairCost` тем же багом обнулялся. Зато `installationType`
+ * = «ДТП» ставится только запчастям, созданным аварией, — принадлежность событию известна,
+ * неоднозначным может быть лишь выбор между двумя авариями в один день и пробег, а такие
+ * пропускаются.
+ *
+ * Остальное разбирает экран «Проверка данных» — с показом кандидатов и решением пользователя.
+ */
+private fun repairEventPartLinks(db: SupportSQLiteDatabase) {
+    // Запчасти, уже закреплённые за каким-либо событием
+    val claimed = HashSet<Long>()
+    db.query("SELECT installedPartIds FROM breakdowns WHERE installedPartIds IS NOT NULL").use { c ->
+        while (c.moveToNext()) claimed.addAll(parseIdList(c.getString(0)))
+    }
+    db.query("SELECT installedPartIds FROM accidents WHERE installedPartIds IS NOT NULL").use { c ->
+        while (c.moveToNext()) claimed.addAll(parseIdList(c.getString(0)))
+    }
+
+    val parts = mutableListOf<RepairPart>()
+    db.query(
+        "SELECT id, carId, installDate, installMileage, installationType, price, maintenanceType FROM parts"
+    ).use { c ->
+        while (c.moveToNext()) {
+            val id = c.getLong(0)
+            parts.add(
+                RepairPart(
+                    id = id,
+                    carId = c.getLong(1),
+                    installDate = c.getLong(2),
+                    installMileage = c.getInt(3),
+                    installationType = c.getString(4),
+                    maintenanceType = if (c.isNull(6)) null else c.getString(6),
+                    price = c.getDouble(5),
+                    claimed = claimed.contains(id)
+                )
+            )
+        }
+    }
+
+    val breakdowns = mutableListOf<RepairEvent>()
+    db.query(
+        "SELECT id, carId, breakdownDate, breakdownMileage, partsCost, installedPartIds, maintenanceType FROM breakdowns"
+    ).use { c ->
+        while (c.moveToNext()) {
+            breakdowns.add(
+                RepairEvent(
+                    id = c.getLong(0),
+                    carId = c.getLong(1),
+                    date = c.getLong(2),
+                    mileage = c.getInt(3),
+                    maintenanceType = if (c.isNull(6)) null else c.getString(6),
+                    partsCost = c.getDouble(4),
+                    alreadyLinked = !c.isNull(5)
+                )
+            )
+        }
+    }
+
+    val accidents = mutableListOf<RepairEvent>()
+    db.query("SELECT id, carId, date, mileage, installedPartIds FROM accidents").use { c ->
+        while (c.moveToNext()) {
+            accidents.add(
+                RepairEvent(
+                    id = c.getLong(0),
+                    carId = c.getLong(1),
+                    date = c.getLong(2),
+                    mileage = c.getInt(3),
+                    alreadyLinked = !c.isNull(4)
+                )
+            )
+        }
+    }
+
+    // Правила сопоставления и их тесты — в EventPartLinkRepair
+    val breakdownLinks = EventPartLinkRepair.resolveBreakdownLinks(breakdowns, parts)
+    breakdownLinks.forEach { (breakdownId, partIds) ->
+        db.execSQL(
+            "UPDATE breakdowns SET installedPartIds = '${partIds.joinToString(",", "[", "]")}' " +
+                "WHERE id = $breakdownId"
+        )
+    }
+
+    // Запчасти, только что привязанные к обслуживаниям, для ДТП уже заняты
+    val linkedToBreakdowns = breakdownLinks.values.flatten().toSet()
+    val partsAfterBreakdowns = parts.map {
+        if (linkedToBreakdowns.contains(it.id)) it.copy(claimed = true) else it
+    }
+
+    EventPartLinkRepair.resolveAccidentLinks(accidents, partsAfterBreakdowns).forEach { (accidentId, partIds) ->
+        db.execSQL(
+            "UPDATE accidents SET installedPartIds = '${partIds.joinToString(",", "[", "]")}' " +
+                "WHERE id = $accidentId"
+        )
+    }
+}
+
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        repairEventPartLinks(db)
+
+        // 1. Расходник знает своё ТО, а ТО его потеряло — восстанавливаем список у ТО
+        db.execSQL(
+            "UPDATE breakdowns SET linkedConsumableIds = (" +
+                "SELECT '[' || group_concat(c.id) || ']' FROM consumables c " +
+                "WHERE c.linkedMaintenanceId = breakdowns.id" +
+                ") WHERE linkedConsumableIds IS NULL AND EXISTS (" +
+                "SELECT 1 FROM consumables c WHERE c.linkedMaintenanceId = breakdowns.id)"
+        )
+
+        // 2. Расходник ссылается на несуществующее ТО: так бывало, если ТО сначала
+        // отредактировали (связь у него обнулялась), а потом удалили — каскад не сработал,
+        // расходник остался «привязанным» к пропавшей записи и выпадал из статистики
+        // (не отдельный и ни в одном ТО). Ссылку снимаем — расходник становится отдельным
+        db.execSQL(
+            "UPDATE consumables SET linkedMaintenanceId = NULL " +
+                "WHERE linkedMaintenanceId IS NOT NULL " +
+                "AND linkedMaintenanceId NOT IN (SELECT id FROM breakdowns)"
+        )
+
+        // 3. Обратный случай: ТО помнит расходник, а расходник потерял ссылку на ТО.
+        // Сравниваем по подстроке ,id, — id уникальны, поэтому совпадение однозначно
+        db.execSQL(
+            "UPDATE consumables SET linkedMaintenanceId = (" +
+                "SELECT b.id FROM breakdowns b WHERE b.linkedConsumableIds IS NOT NULL " +
+                "AND (',' || replace(replace(b.linkedConsumableIds, '[', ''), ']', '') || ',') " +
+                "LIKE ('%,' || consumables.id || ',%') LIMIT 1" +
+                ") WHERE linkedMaintenanceId IS NULL AND EXISTS (" +
+                "SELECT 1 FROM breakdowns b WHERE b.linkedConsumableIds IS NOT NULL " +
+                "AND (',' || replace(replace(b.linkedConsumableIds, '[', ''), ']', '') || ',') " +
+                "LIKE ('%,' || consumables.id || ',%'))"
+        )
+    }
+}

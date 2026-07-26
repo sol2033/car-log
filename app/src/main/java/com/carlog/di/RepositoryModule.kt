@@ -21,8 +21,12 @@ object RepositoryModule {
         consumableDao: ConsumableDao,
         partDao: PartDao,
         accidentDao: AccidentDao,
-        expenseDao: ExpenseDao
+        expenseDao: ExpenseDao,
+        carDocumentDao: CarDocumentDao
     ): CarRepository {
-        return CarRepository(carDao, breakdownDao, refuelingDao, consumableDao, partDao, accidentDao, expenseDao)
+        return CarRepository(
+            carDao, breakdownDao, refuelingDao, consumableDao,
+            partDao, accidentDao, expenseDao, carDocumentDao
+        )
     }
 }

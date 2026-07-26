@@ -14,34 +14,98 @@
     <string name="info_collapse">Collapse</string>
     
     <string name="info_important_title">IMPORTANT</string>
-    <string name="info_important_content">Welcome once again to my application.\n\nThis is a completely free product that I, a student and car enthusiast, initially created only for personal use, but decided to share with you as well. I have no goal to make money from this, gain popularity, I just wanted to try to create a convenient application by personal standards for keeping car statistics.\n\nMobile development is not my area of interest and I admit I don\'t understand much about it, so this project was completely written with the help of vibe coding, therefore, some minor shortcomings and errors are likely, which I am ready to try to fix in further updates (contact me through the contacts specified in the application settings)\n\nSince the project is free and I\'ll be honest: I don\'t want to spend money on a database to store your records, so all records are stored LOCALLY. This means that if you delete the application and reinstall it, you will LOSE all data.\n\nBut what to do if you changed your phone/broke the old one/reinstalled the application for another reason? For this, I implemented export and import of your data (see Phone Settings). This is not the most convenient way, but the only free one. Accordingly, I recommend sometimes performing an \"export\" of your data in case of their loss.</string>
+    <string name="info_important_content">Welcome once again to my application.\n\nThis is a completely free product that I, a student and car enthusiast, initially created only for personal use, but decided to share with you as well. I have no goal to make money from this or gain popularity — I just wanted to build a car logbook that is convenient by my own standards.\n\nAll data is stored only on your device — the app has no server of its own. To avoid losing your records when reinstalling the app or switching phones, there are two backup options (the section with the floppy-disk icon in the main menu):\n\n1) Local export/import. \"Export data\" saves a single archive file (database + all photos and documents) to a location of your choice. Later you can \"import\" this file and your data will be fully restored.\n\n2) Cloud backup to Yandex.Disk. Connect your Yandex account with the button in the same section (a browser opens; the app only gets access to its own CarLog folder on the Disk). After that you can create backups manually, and with auto-backup enabled a copy is created automatically a few minutes after your data changes (when online). The three most recent copies are kept, and you can restore from any of them.\n\nYou can contact me through the contacts listed in the app settings — please report any bugs you find and I will try to fix them in updates.</string>
     
     <string name="info_cars_title">Cars</string>
-    <string name="info_cars_content">Here you manage your cars. You can:\n\n• Add new cars with photos and detailed information (make, model, VIN, license plate, etc.)\n• View car cards with basic statistics\n• Edit car information\n• Delete cars (all related records will also be deleted)\n\nThe car card displays general statistics: total mileage, number of refuelings, average fuel consumption and other useful information.</string>
+    <string name="info_cars_content">Here you manage your cars. You can:\n\n• Add new cars with photos and detailed information (make, model, VIN, license plate, fuel type, gas equipment, etc.)\n• Edit car information\n• Delete cars (all related records will also be deleted)\n\nThe car card is the entry point to every section: parts, maintenance, accidents, consumables, refuelings, other expenses, documents and statistics.\n\nThe current mileage is maintained automatically — it always equals the maximum mileage across all records. You can update it manually with the update-mileage button on the card. If you enter a value below the current one, the app warns you and asks for confirmation: once confirmed, records with a higher mileage are lowered to the new value as well — otherwise the previous maximum would come back automatically.</string>
     
     <string name="info_consumables_title">Consumables</string>
-    <string name="info_consumables_content">Section for tracking consumable materials:\n\n• Various categories: engine oil, transmission oil, brake fluid, antifreeze, air/cabin/fuel filters, spark plugs, brake pads, tires\n• For each consumable, specify installation date, mileage, manufacturer, part number\n• Setting replacement intervals (by mileage, time, or both parameters)\n• Automatic reminders about the need for replacement\n• Replacement history for each category\n• Ability to add work cost and photos\n\nThe application automatically tracks the condition of consumables and warns about the need for replacement.</string>
+    <string name="info_consumables_content">Section for tracking consumable materials:\n\n• 11 standard categories are always visible: engine oil, transmission oil/fluid, brake and coolant fluids, filters (oil, air, fuel, cabin), front and rear brake pads, battery\n• About 30 more optional categories (spark plugs, belts, discs, tires, wiper blades, bulbs, etc.) can be enabled in the section settings\n• For each consumable you specify installation date, mileage, manufacturer, part number, cost (volume for fluids)\n• Replacement intervals by mileage and/or time; custom values can be set in the section settings\n• Traffic-light status on the card: green — all good, yellow — more than half of the resource used, red — replacement is due very soon or overdue\n• Replacement history for each category\n\nThe best way to replace a consumable is via its details screen (the \"Replace\" button) or via scheduled maintenance — the old consumable is archived automatically.\n\nDirect adding also works: if the category already has an active consumable, it is archived as replaced.</string>
     
     <string name="info_parts_title">Parts</string>
     <string name="info_parts_content">Accounting for all parts and assemblies of the car:\n\n• Adding parts with indication of name, manufacturer, part number\n• Installation date and current mileage\n• Cost of the part and installation work\n• Mark about breakdown with indication of date and mileage\n• Ability to replace the part (creates a new record, the old one is marked as broken)\n• Part photos\n• Notes and comments\n\nThis allows you to keep a complete history of all installed parts and track their reliability.</string>
     
     <string name="info_breakdowns_title">Breakdowns</string>
-    <string name="info_breakdowns_content">Log of all breakdowns and repairs:\n\n• Recording breakdowns with indication of name, date and mileage\n• Description of the problem and work performed\n• Repair cost\n• Service information (name, address)\n• Repair status (in progress / completed)\n• Photos before and after repair\n• Notes\n\nHelps track all problems with the car and plan the repair budget.</string>
+    <string name="info_breakdowns_content">A single log of all work done on the car. Each record has one of three types:\n\n• Repair — fixing a breakdown (can be marked as warranty repair)\n• Scheduled maintenance — requires at least one replaced consumable; old consumables of the same categories are archived automatically\n• Modification — upgrades and improvements\n\nA record includes name, description, date and mileage, parts cost (as a total amount or as a list of specific parts — they will appear in the Parts section), service work cost, service name and address, photos and notes.\n\nHelps track all work on the car and plan the maintenance budget.</string>
     
     <string name="info_accidents_title">Accidents</string>
-    <string name="info_accidents_content">Accounting for road traffic accidents:\n\n• Date and place of the accident\n• Description of circumstances\n• Information about the culprit\n• Insurance company and case number\n• Status (in progress / closed)\n• Amount of damage and compensation\n• Photos from the accident scene and damage\n\nImportant information for insurance cases and legal issues.</string>
+    <string name="info_accidents_content">Accounting for road traffic accidents:\n\n• Date, mileage and place of the accident\n• Damage description and severity (minor / medium / serious / total)\n• Your role: at fault or victim (the at-fault party can only receive a KASKO payout)\n• Insurance payouts: OSAGO, KASKO, from the culprit\n• Repair cost — as a total amount or as a list of parts (they will appear in the Parts section marked \"Accident\")\n• Photos from the scene and one PDF document (e.g. the accident report) — it can be opened from the details screen\n\nAccident expenses appear in statistics as a separate category that can be excluded from calculations.</string>
     
     <string name="info_refueling_title">Refueling</string>
-    <string name="info_refueling_content">Accounting for all car refuelings:\n\n• Date, mileage and refueling location\n• Fuel volume and type (gasoline/diesel/gas)\n• Cost per liter and total cost\n• Full/partial tank\n• Automatic fuel consumption calculation\n• Gas equipment support\n\nThe application automatically calculates the average consumption per 100 km and displays fuel consumption statistics.</string>
+    <string name="info_refueling_content">Accounting for all car refuelings:\n\n• Date, mileage and refueling location\n• Fuel volume and type (gasoline grades, diesel, gas with LPG/CNG equipment; charges in kWh for electric cars)\n• Cost per liter or total cost (the other one is calculated automatically)\n• \"Full tank\" mark\n\nFuel consumption is calculated automatically between two full-tank refuelings: the full tank\'s liters plus all partial refuelings between them are divided by the distance driven. Partial refuelings therefore have no consumption of their own — mark full tanks to see your consumption.\n\nThe refueling list shows a summary: count, volume, total cost and average consumption.</string>
     
     <string name="info_expenses_title">Other Expenses</string>
-    <string name="info_expenses_content">Accounting for all other car expenses:\n\n• Various categories: parking, car wash, fines, insurance, technical inspection, taxes, other\n• Date, mileage and amount of expense\n• Service information\n• Notes\n\nAllows you to keep a complete record of all car expenses and analyze the structure of expenses.</string>
+    <string name="info_expenses_content">Accounting for all other car expenses:\n\n• Categories: self car wash, accessories, car audio, interior detailing, wheels, tires, other\n• Date, mileage, name and amount of the expense\n• Service information (name, address)\n• Notes\n\nInsurance, technical inspection and vehicle tax are tracked separately — in the Documents section.\n\nAllows you to keep a complete record of all car expenses and analyze their structure.</string>
     
+    <string name="info_documents_title">Documents</string>
+    <string name="info_documents_content">Keep track of your car documents\' validity:\n\n• Standard types: OSAGO, KASKO, vehicle tax — their tiles are always visible; plus any custom documents via the \"Other\" type\n• For policies the type and expiry date are required; optional: number, insurer, start date, cost, photo, notes\n• For the tax you enter the last assessment date (usually the car registration date) — the app will remind you of the next assessment a year later; the tax has no number or organization fields\n• Traffic-light status: green — more than 30 days left, yellow — 30 days or less, red — 7 days or less or expired\n• The \"Renew\" button archives the old document and creates a new one — the History tab shows how the policy price changes year over year\n• There is always exactly one active document of each standard type\n\nDocument costs appear in statistics as a separate \"Insurance and taxes\" category.</string>
+
     <string name="info_statistics_title">Statistics</string>
-    <string name="info_statistics_content">Detailed car statistics:\n\n• General statistics: total mileage, number of refuelings, average fuel consumption\n• Fuel consumption graphs over time\n• Expense analysis by categories\n• Statistics on consumables and parts\n• Information about breakdowns and repairs\n• Data export in various formats\n\nAll data is presented in a convenient visual format with graphs and charts.</string>
+    <string name="info_statistics_content">Detailed car statistics — five tabs:\n\n• General: expense distribution by category, spending trend, cost per km, average km per day and month, the most expensive month\n• Fuel: average consumption, volumes and costs by fuel type, charts\n• Repairs: amounts and counts, parts vs labor breakdown, distribution by work type\n• Other expenses: structure by category, top 5\n• Consumables: average maintenance cost, expenses by category\n\nFilters apply to every tab: period (or a specific month), mileage range, exclude accidents. All data is presented with graphs and charts.</string>
     
     <!-- Common -->
     <string name="ok">OK</string>
+    <string name="save_error_title">Could not save</string>
+
+    <!-- Part inside an event (maintenance, accident) -->
+    <string name="event_part_add_title">Add part</string>
+    <string name="event_part_edit_title">Edit part</string>
+    <string name="event_part_name">Name *</string>
+    <string name="event_part_manufacturer">Manufacturer</string>
+    <string name="event_part_number">Part number</string>
+    <string name="event_part_price">Price *</string>
+    <string name="event_part_notes">Notes</string>
+    <string name="event_part_photos">Photos</string>
+    <string name="event_part_add_photo">Add photo</string>
+    <string name="event_part_hint">Date, mileage and service are taken from the record itself</string>
+    <string name="event_part_photos_count">Photos: %1$d</string>
+
+    <!-- What's new -->
+    <string name="whats_new_title">What\'s new in %1$s</string>
+    <string name="whats_new_confirm">Got it</string>
+    <string name="whats_new_mileage_title">Mileage can be decreased</string>
+    <string name="whats_new_mileage_body">manual update no longer rejects a value below the current one.</string>
+    <string name="whats_new_data_check_title">Data check</string>
+    <string name="whats_new_data_check_body">a new screen in settings: finds inconsistencies in your records and fixes them on the spot.</string>
+    <string name="whats_new_editing_title">Editing no longer loses data</string>
+    <string name="whats_new_editing_body">saving a record could wipe the accident repair cost, the link between maintenance and its parts, and the "broken" mark on a part. Whatever could be restored was fixed automatically, the rest is listed in Data check. Scheduled service can be edited again.</string>
+    <string name="whats_new_event_parts_title">Parts in repairs and accidents</string>
+    <string name="whats_new_event_parts_body">the add dialog now has manufacturer, part number, notes and photos, and an added item can be reopened and edited.</string>
+    <string name="whats_new_statistics_title">More accurate and tidier</string>
+    <string name="whats_new_statistics_body">no double counting of accident parts in statistics; a part\'s installation type now follows the \"at a service\" checkbox; the record mileage is no longer overwritten with the current one when opened.</string>
+    <string name="whats_new_broken_parts_warning">⚠️ Check Parts → Active: the "broken" mark cannot be restored.</string>
+
+    <!-- Data check -->
+    <string name="settings_data_section">Data</string>
+    <string name="data_check_title">Data check</string>
+    <string name="data_check_subtitle">Find and fix inconsistencies in records</string>
+    <string name="data_check_rescan">Scan again</string>
+    <string name="data_check_backup_hint">Make a backup before fixing anything — then every action stays reversible.</string>
+    <string name="data_check_open_backup">Open backup</string>
+    <string name="data_check_empty">Nothing found</string>
+    <string name="data_check_empty_hint">Your records are consistent.</string>
+    <string name="data_check_ignore">Leave as is</string>
+    <string name="data_check_show_ignored">Show hidden (%1$d)</string>
+    <string name="data_check_hide_ignored">Hide dismissed</string>
+    <string name="data_check_restore_ignored">Restore all hidden</string>
+    <string name="data_check_unlinked_part_title">Part is not linked to an event</string>
+    <string name="data_check_unlinked_part_explanation">Its price is counted twice right now: as a standalone part and inside the event cost.</string>
+    <string name="data_check_candidate_breakdown">Maintenance · parts %1$.2f ₽</string>
+    <string name="data_check_candidate_accident">Accident · repair %1$.2f ₽</string>
+    <string name="data_check_link_part">Link</string>
+    <string name="data_check_accident_cost_title">Accident has no repair cost</string>
+    <string name="data_check_accident_cost_body">Linked parts total %1$.2f ₽, but the repair cost is empty.</string>
+    <string name="data_check_service_cost_label">Labor cost</string>
+    <string name="data_check_service_cost_hint">Leave empty if there was no labor</string>
+    <string name="data_check_apply_repair_cost">Set %1$.2f ₽</string>
+    <string name="data_check_cost_mismatch_title">Parts cost does not match</string>
+    <string name="data_check_cost_mismatch_body">"%1$s": the record says %2$.2f ₽, linked parts add up to %3$.2f ₽.</string>
+    <string name="data_check_align_cost">Set to %1$.2f ₽</string>
+    <string name="data_check_purchase_title">Purchase details are missing</string>
+    <string name="data_check_purchase_body">Without the purchase date and mileage the average km per day is counted from the record creation date and may be inaccurate.</string>
+    <string name="data_check_duplicate_title">Several active consumables</string>
+    <string name="data_check_duplicate_body">Category "%1$s" has %2$d active records. The status is calculated from one of them.</string>
+    <string name="data_check_keep_newest">Keep the latest active</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="delete">Delete</string>
@@ -217,7 +281,7 @@
     <string name="tab_general">General</string>
     <string name="tab_fuel">Fuel</string>
     <string name="tab_repairs_stats">Repairs</string>
-    <string name="tab_other_expenses">Other Expenses</string>
+    <string name="tab_other_expenses">Other</string>
     <string name="tab_consumables">Consumables</string>
     <string name="select_month">Select month...</string>
     <string name="select_month_and_year">Select month and year</string>
@@ -236,6 +300,10 @@
     <string name="update_mileage_dialog_message">Do you want to update the car\'s current mileage?</string>
     <string name="new_mileage_dialog_title">New Mileage</string>
     <string name="new_mileage_label">Mileage (km)</string>
+    <string name="lower_mileage_dialog_title">Mileage is below the current one</string>
+    <string name="lower_mileage_dialog_message">You entered %1$d km, which is less than the current mileage (%2$d km).\n\nDecrease the mileage anyway?</string>
+    <string name="lower_mileage_dialog_message_records">You entered %1$d km, which is less than the current mileage (%2$d km).\n\nRecords contain mileage up to %3$d km. For the new value to stick, records with a higher mileage will be lowered to %1$d km. Records affected: %4$d.\n\nDecrease the mileage anyway?</string>
+    <string name="lower_mileage_confirm">Decrease</string>
     <string name="km">km</string>
     <string name="liters">L</string>
     <string name="basic_information">Basic Information</string>
@@ -461,4 +529,35 @@
     <string name="fuel_type_gaz">gas</string>
     <string name="fuel_type_lpg">propane</string>
     <string name="fuel_type_cng">methane</string>
+
+    <!-- Documents -->
+    <string name="documents_section_title">Documents</string>
+    <string name="documents_section_description">Insurance, inspection, tax and their expiry dates</string>
+    <string name="add_document">Add document</string>
+    <string name="edit_document">Edit document</string>
+    <string name="renew_document">Renew</string>
+    <string name="document_not_added">Not added. Tap to add</string>
+    <string name="document_type">Document type</string>
+    <string name="document_custom_name">Document name *</string>
+    <string name="document_number">Document number</string>
+    <string name="document_organization">Insurance company / organization</string>
+    <string name="document_start_date">Valid from</string>
+    <string name="document_expiry_date">Valid until *</string>
+    <string name="document_expiry_date_plain">Valid until</string>
+    <string name="document_tax_accrual_date">Last tax assessment date *</string>
+    <string name="document_tax_accrual_hint">The tax is assessed yearly; the assessment date is usually the car registration date</string>
+    <string name="document_tax_next_accrual">Next assessment</string>
+    <string name="document_tax_next_accrual_until">next assessment — %1$s</string>
+    <string name="document_cost">Cost</string>
+    <string name="document_photo">Document photo</string>
+    <string name="document_valid_until">until %1$s</string>
+    <string name="document_expires_in_days">%1$d days left</string>
+    <string name="document_expires_in_months">%1$d months left</string>
+    <string name="document_expired_days">Expired %1$d days ago</string>
+    <string name="document_tax_accrued_days_ago">Assessed %1$d days ago</string>
+    <string name="document_archived">Archived (renewed or replaced)</string>
+    <string name="documents_history_empty">No archived documents yet</string>
+    <string name="delete_document_title">Delete document?</string>
+    <string name="delete_document_message">The document and its photo will be permanently deleted.</string>
+    <string name="not_specified">Not specified</string>
 </resources>

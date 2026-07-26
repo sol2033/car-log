@@ -30,6 +30,8 @@ data class AddPartState(
     val serviceAddress: String = "",
     val photosPaths: List<String> = emptyList(),
     val notes: String = "",
+    // Исходная запись при редактировании: поля, которых нет в форме, берутся из неё
+    val originalPart: Part? = null,
     
     val nameError: String? = null,
     val installMileageError: String? = null,
@@ -58,19 +60,19 @@ class AddPartViewModel @Inject constructor(
         
         _state.value = _state.value.copy(carId = carId)
         
-        // Load current mileage
-        viewModelScope.launch {
-            val car = carRepository.getCarById(carId).firstOrNull()
-            car?.let {
-                _state.value = _state.value.copy(
-                    installMileage = it.currentMileage.toString()
-                )
-            }
-        }
-        
-        // Load part if editing
+        // Пробег машины подставляем только для новой запчасти: иначе асинхронная подстановка
+        // может выиграть гонку у загрузки и затереть пробег установки существующей записи
         if (partId != null && partId != -1L) {
             loadPart(partId)
+        } else {
+            viewModelScope.launch {
+                val car = carRepository.getCarById(carId).firstOrNull()
+                car?.let {
+                    _state.value = _state.value.copy(
+                        installMileage = it.currentMileage.toString()
+                    )
+                }
+            }
         }
     }
     
@@ -96,6 +98,7 @@ class AddPartViewModel @Inject constructor(
                         serviceAddress = part.serviceAddress ?: "",
                         photosPaths = part.photosPaths ?: emptyList(),
                         notes = part.notes ?: "",
+                        originalPart = part,
                         isLoading = false
                     )
                 } else {
@@ -180,7 +183,11 @@ class AddPartViewModel @Inject constructor(
     
     fun savePart() {
         val currentState = _state.value
-        
+
+        // Запись ещё не догрузилась — сохранять нельзя: обновлять нечего,
+        // а вставка создала бы дубликат
+        if (currentState.partId != null && currentState.originalPart == null) return
+
         // Validation
         val nameError = if (currentState.name.isBlank()) "Обязательное поле" else null
         val installMileageError = if (currentState.installMileage.isBlank()) "Обязательное поле" else null
@@ -202,16 +209,20 @@ class AddPartViewModel @Inject constructor(
                 val currentTime = System.currentTimeMillis()
                 val servicePriceValue = currentState.servicePrice.toDoubleOrNull()
                 
-                if (currentState.partId != null) {
-                    // Update existing part
-                    val part = Part(
-                        id = currentState.partId,
+                val original = currentState.originalPart
+                if (currentState.partId != null && original != null) {
+                    // Обновляем существующую запись через copy: поля, которых нет в форме
+                    // (статус поломки, пройденный ресурс, тип обслуживания, createdAt),
+                    // должны сохраниться — раньше они собирались заново и обнулялись,
+                    // из-за чего редактирование «оживляло» сломанную запчасть
+                    val installMileage = currentState.installMileage.toInt()
+                    val part = original.copy(
                         carId = currentState.carId,
                         name = currentState.name,
                         manufacturer = currentState.manufacturer.ifBlank { null },
                         partNumber = currentState.partNumber.ifBlank { null },
                         installDate = currentState.installDate,
-                        installMileage = currentState.installMileage.toInt(),
+                        installMileage = installMileage,
                         installationType = currentState.installationType,
                         price = currentState.price.toDouble(),
                         servicePrice = servicePriceValue,
@@ -219,6 +230,8 @@ class AddPartViewModel @Inject constructor(
                         serviceAddress = currentState.serviceAddress.ifBlank { null },
                         photosPaths = currentState.photosPaths.ifEmpty { null },
                         notes = currentState.notes.ifBlank { null },
+                        // Пройденный ресурс зависит от пробега установки — пересчитываем
+                        mileageDriven = original.breakdownMileage?.let { it - installMileage },
                         updatedAt = currentTime
                     )
                     partRepository.updatePart(part)
@@ -246,6 +259,9 @@ class AddPartViewModel @Inject constructor(
                 
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageIfNeeded(currentState.carId, currentState.installMileage.toInt())
+
+                // Уведомляем об изменении данных для авто-бэкапа
+                dataChangeNotifier.notifyDataChanged()
                 
                 _state.value = currentState.copy(
                     isSaving = false,

@@ -3,11 +3,15 @@ package com.carlog.presentation.screens.accidents
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.AccidentRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Part
+import com.carlog.presentation.components.EventPart
+import com.carlog.presentation.components.orphanPhotosToDelete
+import com.carlog.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,12 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class AddedPart(
-    val name: String,
-    val manufacturer: String = "",
-    val price: Double
-)
 
 data class AddAccidentState(
     val carId: Long = 0,
@@ -43,18 +41,28 @@ data class AddAccidentState(
     
     // Ремонт
     val usePartsForRepair: Boolean = true, // true = добавлять запчасти, false = общая стоимость
-    val addedParts: List<AddedPart> = emptyList(),
+    val addedParts: List<EventPart> = emptyList(),
     val serviceCost: String = "",
     val totalRepairCost: String = "",
     
     // Медиа
     val photosPaths: List<String> = emptyList(),
     val documentPath: String? = null,
-    
+    // PDF, на который ссылается запись в БД (для чистки заменённых/несохранённых файлов)
+    val originalDocumentPath: String? = null,
+
     val notes: String = "",
 
     // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
     val createdAt: Long = 0L,
+    // Запчасти, привязанные к записи на момент загрузки: удалённые из списка нужно
+    // удалить и из модуля «Запчасти»
+    val originalPartIds: List<Long> = emptyList(),
+    // Фото запчастей: исходные и все прошедшие через экран (для чистки файлов-сирот)
+    val originalPartPhotos: Set<String> = emptySet(),
+    val touchedPartPhotos: Set<String> = emptySet(),
+    // Загружено ли редактируемое ДТП (до загрузки сохранять нельзя — будет дубликат)
+    val isLoaded: Boolean = false,
 
     // Validation errors
     val mileageError: String? = null,
@@ -71,6 +79,7 @@ class AddAccidentViewModel @Inject constructor(
     private val accidentRepository: AccidentRepository,
     private val partRepository: PartRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -83,17 +92,17 @@ class AddAccidentViewModel @Inject constructor(
         
         _state.value = _state.value.copy(carId = carId)
         
-        // Load current mileage
-        viewModelScope.launch {
-            val car = carRepository.getCarById(carId).firstOrNull()
-            car?.let {
-                _state.value = _state.value.copy(mileage = it.currentMileage.toString())
-            }
-        }
-        
-        // Load accident if editing
+        // Пробег машины подставляем только для новой записи: иначе асинхронная подстановка
+        // может выиграть гонку у загрузки и затереть пробег существующего ДТП
         if (accidentId != null && accidentId != -1L) {
             loadAccident(accidentId)
+        } else {
+            viewModelScope.launch {
+                val car = carRepository.getCarById(carId).firstOrNull()
+                car?.let {
+                    _state.value = _state.value.copy(mileage = it.currentMileage.toString())
+                }
+            }
         }
     }
     
@@ -104,6 +113,28 @@ class AddAccidentViewModel @Inject constructor(
                 
                 val accident = accidentRepository.getAccidentById(accidentId).firstOrNull()
                 if (accident != null) {
+                    // Восстанавливаем список запчастей: раньше он не загружался, и сохранение
+                    // отредактированного ДТП обнуляло стоимость ремонта и отвязывало запчасти
+                    val linkedParts = accident.installedPartIds.orEmpty().mapNotNull { partId ->
+                        partRepository.getPartById(partId).firstOrNull()
+                    }
+                    val addedParts = linkedParts.map { part ->
+                        EventPart(
+                            name = part.name,
+                            manufacturer = part.manufacturer ?: "",
+                            partNumber = part.partNumber ?: "",
+                            price = part.price,
+                            notes = part.notes ?: "",
+                            photosPaths = part.photosPaths ?: emptyList(),
+                            partId = part.id
+                        )
+                    }
+                    val linkedPartPhotos = linkedParts.flatMap { it.photosPaths ?: emptyList() }.toSet()
+                    // Стоимость работ отдельно не хранится — она входит в repairCost
+                    // вместе с запчастями, поэтому выделяем её обратно вычитанием
+                    val partsSum = addedParts.sumOf { it.price }
+                    val serviceCost = accident.repairCost?.minus(partsSum)?.takeIf { it > 0.0 }
+
                     _state.value = AddAccidentState(
                         carId = accident.carId,
                         accidentId = accident.id,
@@ -120,11 +151,18 @@ class AddAccidentViewModel @Inject constructor(
                         hasCulpritPayout = accident.culpritPayout != null,
                         culpritPayout = accident.culpritPayout?.toString() ?: "",
                         usePartsForRepair = accident.installedPartIds != null,
+                        addedParts = addedParts,
+                        serviceCost = serviceCost?.toString() ?: "",
+                        originalPartIds = linkedParts.map { it.id },
+                        originalPartPhotos = linkedPartPhotos,
+                        touchedPartPhotos = linkedPartPhotos,
                         totalRepairCost = accident.repairCost?.toString() ?: "",
                         photosPaths = accident.photosPaths ?: emptyList(),
                         documentPath = accident.documentPath,
+                        originalDocumentPath = accident.documentPath,
                         notes = accident.notes ?: "",
                         createdAt = accident.createdAt,
+                        isLoaded = true,
                         isLoading = false
                     )
                 } else {
@@ -217,17 +255,36 @@ class AddAccidentViewModel @Inject constructor(
         _state.value = _state.value.copy(usePartsForRepair = usePartsForRepair)
     }
     
-    fun addPart(name: String, manufacturer: String, price: Double) {
+    fun addPart(part: EventPart) {
         val currentState = _state.value
         _state.value = currentState.copy(
-            addedParts = currentState.addedParts + AddedPart(name, manufacturer, price)
+            addedParts = currentState.addedParts + part,
+            touchedPartPhotos = currentState.touchedPartPhotos + part.photosPaths
         )
     }
-    
-    fun removePart(part: AddedPart) {
-        val currentState = _state.value
-        _state.value = currentState.copy(
-            addedParts = currentState.addedParts - part
+
+    fun updatePart(index: Int, part: EventPart) {
+        val parts = _state.value.addedParts
+        if (index !in parts.indices) return
+        _state.value = _state.value.copy(
+            addedParts = parts.toMutableList().apply { set(index, part) },
+            touchedPartPhotos = _state.value.touchedPartPhotos + part.photosPaths
+        )
+    }
+
+    fun removePart(index: Int) {
+        val parts = _state.value.addedParts
+        if (index !in parts.indices) return
+        // Файлы удалённой позиции подчистятся при сохранении или уходе с экрана
+        _state.value = _state.value.copy(
+            addedParts = parts.toMutableList().apply { removeAt(index) }
+        )
+    }
+
+    /** Фото убрали в диалоге — запоминаем, чтобы удалить файл вместе с остальными сиротами */
+    fun onPartPhotoDiscarded(path: String) {
+        _state.value = _state.value.copy(
+            touchedPartPhotos = _state.value.touchedPartPhotos + path
         )
     }
     
@@ -254,7 +311,38 @@ class AddAccidentViewModel @Inject constructor(
     }
     
     fun updateDocumentPath(path: String?) {
+        // Пользователь выбрал PDF повторно — предыдущий выбранный файл больше никому не нужен
+        // (файл, на который ссылается запись в БД, не трогаем до сохранения)
+        val previous = _state.value.documentPath
+        if (previous != null && previous != path &&
+            previous != _state.value.originalDocumentPath && isLocalFile(previous)
+        ) {
+            FileHelper.deleteFile(previous)
+        }
         _state.value = _state.value.copy(documentPath = path)
+    }
+
+    /** Старые записи хранят сырой content:// URI — такие файлы нам не принадлежат */
+    private fun isLocalFile(path: String) = !path.startsWith("content://")
+
+    override fun onCleared() {
+        // Пользователь выбрал PDF (файл уже скопирован в хранилище), но ушёл без сохранения —
+        // чистим файл-сироту. Файл, на который ссылается запись в БД, не трогаем.
+        val currentState = _state.value
+        if (!currentState.isSaved) {
+            val current = currentState.documentPath
+            if (current != null && current != currentState.originalDocumentPath && isLocalFile(current)) {
+                FileHelper.deleteFile(current)
+            }
+            // Фото запчастей, выбранные в этот заход, тоже никому не принадлежат
+            FileHelper.deleteFiles(
+                orphanPhotosToDelete(
+                    touchedPhotos = currentState.touchedPartPhotos,
+                    referencedPhotos = currentState.originalPartPhotos
+                )
+            )
+        }
+        super.onCleared()
     }
     
     fun updateNotes(notes: String) {
@@ -263,7 +351,10 @@ class AddAccidentViewModel @Inject constructor(
     
     fun saveAccident() {
         val currentState = _state.value
-        
+
+        // Запись ещё не догрузилась — сохранять нельзя: вставка создала бы дубликат
+        if (currentState.accidentId != null && !currentState.isLoaded) return
+
         // Validation
         val mileageError = if (currentState.mileage.isBlank()) "Обязательное поле" else null
         val damageDescriptionError = if (currentState.damageDescription.isBlank()) "Обязательное поле" else null
@@ -291,27 +382,68 @@ class AddAccidentViewModel @Inject constructor(
                     currentState.totalRepairCost.toDoubleOrNull()
                 }
                 
-                // Создаем или обновляем запчасти
+                // Создаем или обновляем запчасти.
+                // Уже сохранённые (с partId) обновляются, а не вставляются заново —
+                // иначе каждое редактирование плодило бы дубликаты в модуле «Запчасти»
                 val installedPartIds = if (currentState.usePartsForRepair && currentState.addedParts.isNotEmpty()) {
                     currentState.addedParts.map { addedPart ->
-                        val part = Part(
-                            carId = currentState.carId,
-                            name = addedPart.name,
-                            manufacturer = addedPart.manufacturer.ifBlank { null },
-                            partNumber = null,
-                            installDate = currentState.date,
-                            installMileage = currentState.mileage.toInt(),
-                            installationType = "ДТП",
-                            price = addedPart.price,
-                            servicePrice = null,
-                            notes = "Установлена после ДТП ${formatDate(currentState.date)}",
-                            createdAt = currentTime,
-                            updatedAt = currentTime
-                        )
-                        partRepository.insertPart(part)
+                        val existing = addedPart.partId?.let { partRepository.getPartById(it).firstOrNull() }
+                        if (existing != null) {
+                            partRepository.updatePart(
+                                existing.copy(
+                                    name = addedPart.name,
+                                    manufacturer = addedPart.manufacturer.ifBlank { null },
+                                    partNumber = addedPart.partNumber.ifBlank { null },
+                                    installDate = currentState.date,
+                                    installMileage = currentState.mileage.toInt(),
+                                    price = addedPart.price,
+                                    photosPaths = addedPart.photosPaths.ifEmpty { null },
+                                    notes = addedPart.notes.ifBlank {
+                                        "Установлена после ДТП ${formatDate(currentState.date)}"
+                                    },
+                                    updatedAt = currentTime
+                                )
+                            )
+                            existing.id
+                        } else {
+                            partRepository.insertPart(
+                                Part(
+                                    carId = currentState.carId,
+                                    name = addedPart.name,
+                                    manufacturer = addedPart.manufacturer.ifBlank { null },
+                                    partNumber = addedPart.partNumber.ifBlank { null },
+                                    installDate = currentState.date,
+                                    installMileage = currentState.mileage.toInt(),
+                                    installationType = "ДТП",
+                                    price = addedPart.price,
+                                    servicePrice = null,
+                                    photosPaths = addedPart.photosPaths.ifEmpty { null },
+                                    notes = addedPart.notes.ifBlank {
+                                        "Установлена после ДТП ${formatDate(currentState.date)}"
+                                    },
+                                    createdAt = currentTime,
+                                    updatedAt = currentTime
+                                )
+                            )
+                        }
                     }
                 } else null
-                
+
+                // Запчасти, убранные из списка (или весь список — при переходе на общую сумму),
+                // больше не относятся к ДТП и удаляются из модуля «Запчасти»
+                val keptPartIds = installedPartIds?.toSet() ?: emptySet()
+                currentState.originalPartIds.filterNot { keptPartIds.contains(it) }.forEach { partId ->
+                    partRepository.getPartById(partId).firstOrNull()?.let { partRepository.deletePart(it) }
+                }
+
+                // Фото, на которые после сохранения никто не ссылается
+                FileHelper.deleteFiles(
+                    orphanPhotosToDelete(
+                        touchedPhotos = currentState.touchedPartPhotos,
+                        referencedPhotos = currentState.addedParts.flatMap { it.photosPaths }.toSet()
+                    )
+                )
+
                 val accident = Accident(
                     id = currentState.accidentId ?: 0,
                     carId = currentState.carId,
@@ -340,6 +472,17 @@ class AddAccidentViewModel @Inject constructor(
                 }
                 
                 carRepository.updateCarMileageIfNeeded(currentState.carId, currentState.mileage.toInt())
+
+                // PDF заменили — файл, на который ссылалась старая версия записи, больше не нужен
+                val originalDocument = currentState.originalDocumentPath
+                if (originalDocument != null && originalDocument != currentState.documentPath &&
+                    isLocalFile(originalDocument)
+                ) {
+                    FileHelper.deleteFile(originalDocument)
+                }
+
+                // Уведомляем об изменении данных для авто-бэкапа
+                dataChangeNotifier.notifyDataChanged()
                 
                 _state.value = currentState.copy(
                     isSaving = false,

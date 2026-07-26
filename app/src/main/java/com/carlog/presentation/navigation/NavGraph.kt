@@ -166,6 +166,9 @@ fun NavGraph(
                 },
                 onNavigateToExpenses = { id ->
                     navController.navigate(Screen.Expenses.createRoute(id))
+                },
+                onNavigateToDocuments = { id ->
+                    navController.navigate(Screen.Documents.createRoute(id))
                 }
             )
         }
@@ -187,7 +190,16 @@ fun NavGraph(
         // Settings Screen
         composable(route = Screen.Settings.route) {
             com.carlog.presentation.screens.settings.SettingsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDataCheck = { navController.navigate(Screen.DataCheck.route) }
+            )
+        }
+
+        // Проверка данных: находки и точечные исправления
+        composable(route = Screen.DataCheck.route) {
+            com.carlog.presentation.screens.integrity.DataCheckScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToBackup = { navController.navigate(Screen.Backup.route) }
             )
         }
         
@@ -643,6 +655,74 @@ fun NavGraph(
                 onNavigateToEdit = { cId, eId ->
                     navController.navigate(Screen.AddExpense.createRoute(cId, eId))
                 }
+            )
+        }
+
+        // Documents Screen
+        composable(
+            route = Screen.Documents.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+            com.carlog.presentation.screens.documents.DocumentsScreen(
+                carId = carId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDocumentDetail = { documentId ->
+                    navController.navigate(Screen.DocumentDetail.createRoute(carId, documentId))
+                },
+                onNavigateToAddDocument = { cId, type ->
+                    navController.navigate(Screen.AddDocument.createRoute(cId, type = type))
+                }
+            )
+        }
+
+        // Document Detail Screen
+        composable(
+            route = Screen.DocumentDetail.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType },
+                navArgument("documentId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+            com.carlog.presentation.screens.documents.DocumentDetailScreen(
+                carId = carId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { cId, dId ->
+                    navController.navigate(Screen.AddDocument.createRoute(cId, documentId = dId))
+                },
+                onNavigateToRenew = { cId, dId ->
+                    navController.navigate(Screen.AddDocument.createRoute(cId, renewFromId = dId))
+                }
+            )
+        }
+
+        // Add/Edit/Renew Document Screen
+        composable(
+            route = Screen.AddDocument.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType },
+                navArgument("documentId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("renewFromId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("type") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { _ ->
+            com.carlog.presentation.screens.documents.AddDocumentScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

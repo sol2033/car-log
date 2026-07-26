@@ -89,3 +89,6 @@ app/debug/
 
 # Internal docs (technical documentation for developers/AI)
 docs/
+
+# Памятка для ИИ-агента (покрыта правилом *.md выше, указана явно для наглядности)
+CLAUDE.md

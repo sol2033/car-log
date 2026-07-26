@@ -23,6 +23,9 @@ import com.carlog.data.backup.YandexAuthManager
 import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ThemeMode
 import com.carlog.data.repository.CarRepository
+import com.carlog.data.repository.RefuelingRepository
+import com.carlog.presentation.components.WhatsNewDialog
+import com.carlog.presentation.components.shouldShowWhatsNew
 import com.carlog.presentation.navigation.NavGraph
 import com.carlog.presentation.theme.CarLogTheme
 import com.carlog.presentation.util.LocalCurrency
@@ -36,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var carRepository: CarRepository
+
+    @Inject
+    lateinit var refuelingRepository: RefuelingRepository
 
     @Inject
     lateinit var appPreferences: AppPreferences
@@ -60,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             carRepository.syncAllCarsMileage()
+            recalculateFuelConsumptionOnce()
         }
 
         // Обрабатываем OAuth-редирект при первом запуске через deep link
@@ -106,9 +113,45 @@ class MainActivity : ComponentActivity() {
                         ) {
                             NavGraph(startDestination = startDestination)
                         }
+
+                        // Окно с изменениями версии — один раз на версию (условие и его тесты
+                        // в shouldShowWhatsNew)
+                        val whatsNewShownFor by appPreferences.whatsNewShownFor
+                            .collectAsState(initial = null)
+                        if (shouldShowWhatsNew(
+                                isFirstLaunch = isFirstLaunch,
+                                shownForVersion = whatsNewShownFor,
+                                currentVersion = BuildConfig.VERSION_NAME
+                            )
+                        ) {
+                            WhatsNewDialog(
+                                onDismiss = {
+                                    lifecycleScope.launch {
+                                        appPreferences.setWhatsNewShownFor(BuildConfig.VERSION_NAME)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Разовый пересчёт расхода топлива существующих заправок по новой формуле
+     * «между двумя полными баками» (v1.2.0). Расход хранится в записи и сам по себе
+     * при обновлении приложения не пересчитался бы. Флаг ставится только после
+     * успешного прохода — при ошибке попробуем на следующем запуске.
+     */
+    private suspend fun recalculateFuelConsumptionOnce() {
+        val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("fuel_consumption_recalculated_v2", false)) return
+        try {
+            refuelingRepository.recalculateFuelConsumptionForAllCars()
+            prefs.edit().putBoolean("fuel_consumption_recalculated_v2", true).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

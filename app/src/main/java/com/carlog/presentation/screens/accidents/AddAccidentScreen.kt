@@ -142,12 +142,10 @@ fun AddAccidentScreen(
                 serviceCost = state.serviceCost,
                 totalRepairCost = state.totalRepairCost,
                 onToggleRepairMethod = viewModel::toggleRepairMethod,
-                onAddPart = { name, manufacturer, price ->
-                    viewModel.addPart(name, manufacturer, price)
-                },
-                onRemovePart = { index ->
-                    state.addedParts.getOrNull(index)?.let { viewModel.removePart(it) }
-                },
+                onAddPart = viewModel::addPart,
+                onUpdatePart = viewModel::updatePart,
+                onRemovePart = viewModel::removePart,
+                onPhotoDiscarded = viewModel::onPartPhotoDiscarded,
                 onServiceCostChange = viewModel::updateServiceCost,
                 onTotalRepairCostChange = viewModel::updateTotalRepairCost
             )

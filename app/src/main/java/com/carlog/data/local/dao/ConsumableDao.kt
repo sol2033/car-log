@@ -33,10 +33,24 @@ interface ConsumableDao {
     
     @Query("DELETE FROM consumables WHERE carId = :carId")
     suspend fun deleteConsumablesByCarId(carId: Long)
+
+    // Каскад при удалении ТО: одним запросом вместо выборки и удаления по одному
+    @Query("DELETE FROM consumables WHERE id IN (:ids)")
+    suspend fun deleteConsumablesByIds(ids: List<Long>)
     
     @Query("SELECT MAX(installationMileage) FROM consumables WHERE carId = :carId")
     suspend fun getMaxInstallationMileage(carId: Long): Int?
     
     @Query("SELECT MAX(replacementMileage) FROM consumables WHERE carId = :carId AND replacementMileage IS NOT NULL")
     suspend fun getMaxReplacementMileage(carId: Long): Int?
+
+    @Query("SELECT COUNT(*) FROM consumables WHERE carId = :carId AND (installationMileage > :mileage OR replacementMileage > :mileage)")
+    suspend fun getCountAboveMileage(carId: Long, mileage: Int): Int
+
+    // Прижимает пробег установки/замены к новому (уменьшенному) пробегу автомобиля
+    @Query("UPDATE consumables SET installationMileage = :mileage, updatedAt = :updatedAt WHERE carId = :carId AND installationMileage > :mileage")
+    suspend fun clampInstallationMileageTo(carId: Long, mileage: Int, updatedAt: Long)
+
+    @Query("UPDATE consumables SET replacementMileage = :mileage, updatedAt = :updatedAt WHERE carId = :carId AND replacementMileage > :mileage")
+    suspend fun clampReplacementMileageTo(carId: Long, mileage: Int, updatedAt: Long)
 }

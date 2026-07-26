@@ -6,6 +6,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.carlog.util.FileHelper
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.carlog.R
 import com.carlog.presentation.screens.accidents.AddAccidentViewModel
-import com.carlog.presentation.screens.accidents.AddedPart
+import com.carlog.presentation.components.EventPart
+import com.carlog.presentation.components.EventPartDialog
 
 @Composable
 fun PayoutsSection(
@@ -131,16 +133,19 @@ private fun PayoutItem(
 @Composable
 fun RepairSection(
     usePartsForRepair: Boolean,
-    addedParts: List<AddedPart>,
+    addedParts: List<EventPart>,
     serviceCost: String,
     totalRepairCost: String,
     onToggleRepairMethod: (Boolean) -> Unit,
-    onAddPart: (name: String, manufacturer: String, price: Double) -> Unit,
+    onAddPart: (EventPart) -> Unit,
+    onUpdatePart: (Int, EventPart) -> Unit,
     onRemovePart: (Int) -> Unit,
+    onPhotoDiscarded: (String) -> Unit,
     onServiceCostChange: (String) -> Unit,
     onTotalRepairCostChange: (String) -> Unit
 ) {
-    var showAddPartDialog by remember { mutableStateOf(false) }
+    // null — окно закрыто, -1 — добавление новой запчасти, иначе индекс редактируемой
+    var editedPartIndex by remember { mutableStateOf<Int?>(null) }
     
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -181,7 +186,9 @@ fun RepairSection(
                     ) {
                         addedParts.forEachIndexed { index, part ->
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { editedPartIndex = index },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -191,9 +198,15 @@ fun RepairSection(
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )
-                                    if (part.manufacturer.isNotBlank()) {
+                                    val details = listOfNotNull(
+                                        part.manufacturer.ifBlank { null },
+                                        part.partNumber.ifBlank { null },
+                                        part.photosPaths.size.takeIf { it > 0 }
+                                            ?.let { stringResource(R.string.event_part_photos_count, it) }
+                                    ).joinToString(" · ")
+                                    if (details.isNotBlank()) {
                                         Text(
-                                            text = part.manufacturer,
+                                            text = details,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -232,7 +245,7 @@ fun RepairSection(
             
             // Кнопка добавления запчасти
             OutlinedButton(
-                onClick = { showAddPartDialog = true },
+                onClick = { editedPartIndex = -1 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -300,71 +313,17 @@ fun RepairSection(
         }
     }
     
-    if (showAddPartDialog) {
-        AddPartDialog(
-            onDismiss = { showAddPartDialog = false },
-            onConfirm = { name, manufacturer, price ->
-                onAddPart(name, manufacturer, price)
-                showAddPartDialog = false
-            }
+    editedPartIndex?.let { index ->
+        EventPartDialog(
+            initial = addedParts.getOrNull(index),
+            onDismiss = { editedPartIndex = null },
+            onConfirm = { part ->
+                if (index >= 0) onUpdatePart(index, part) else onAddPart(part)
+                editedPartIndex = null
+            },
+            onPhotoDiscarded = onPhotoDiscarded
         )
     }
-}
-
-@Composable
-private fun AddPartDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (name: String, manufacturer: String, price: Double) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var manufacturer by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_part_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.part_name_required)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = manufacturer,
-                    onValueChange = { manufacturer = it },
-                    label = { Text(stringResource(R.string.part_manufacturer_label)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it },
-                    label = { Text(stringResource(R.string.part_price_required)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    suffix = { Text("₽") }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val priceDouble = price.toDoubleOrNull()
-                    if (name.isNotBlank() && priceDouble != null) {
-                        onConfirm(name, manufacturer, priceDouble)
-                    }
-                },
-                enabled = name.isNotBlank() && price.toDoubleOrNull() != null
-            ) {
-                Text(stringResource(R.string.add))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
 }
 
 @Composable
@@ -460,10 +419,17 @@ fun DocumentSection(
     documentPath: String?,
     onDocumentSelected: (String?) -> Unit
 ) {
+    val context = LocalContext.current
     val documentPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        onDocumentSelected(uri?.toString())
+        // Копируем PDF во внутреннее хранилище (как фото): сырой content:// URI
+        // со временем протухает и не попадает в бэкапы
+        uri?.let {
+            FileHelper.saveDocumentToInternalStorage(context, it)?.let { savedPath ->
+                onDocumentSelected(savedPath)
+            }
+        }
     }
     
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

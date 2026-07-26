@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BuildCircle
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -40,7 +43,18 @@ fun PartDetailScreen(
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
     val showMarkBrokenDialog by viewModel.showMarkBrokenDialog.collectAsState()
     val showReplacePartDialog by viewModel.showReplacePartDialog.collectAsState()
-    
+    val currentCarMileage by viewModel.currentCarMileage.collectAsState()
+
+    // Дата и пробег поломки: заполняются в диалоге отметки и применяются после
+    // подтверждения во втором диалоге (предлагать ли добавить новую запчасть)
+    var breakdownDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var breakdownMileage by remember { mutableStateOf("") }
+    LaunchedEffect(currentCarMileage) {
+        if (breakdownMileage.isBlank() && currentCarMileage > 0) {
+            breakdownMileage = currentCarMileage.toString()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,6 +96,7 @@ fun PartDetailScreen(
             is PartDetailUiState.Success -> {
                 PartDetailContent(
                     part = state.part,
+                    currentCarMileage = currentCarMileage,
                     onMarkAsBroken = { viewModel.showMarkBrokenDialog() },
                     modifier = Modifier
                         .fillMaxSize()
@@ -130,19 +145,53 @@ fun PartDetailScreen(
         )
     }
     
-    // Диалог подтверждения поломки
+    // Диалог подтверждения поломки: дату и пробег спрашиваем так же, как в списке запчастей
     if (showMarkBrokenDialog && uiState is PartDetailUiState.Success) {
         val part = (uiState as PartDetailUiState.Success).part
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        var showDatePicker by remember { mutableStateOf(false) }
+
         AlertDialog(
             onDismissRequest = { viewModel.dismissMarkBrokenDialog() },
             title = { Text(stringResource(R.string.mark_broken_title)) },
-            text = { Text(stringResource(R.string.mark_broken_message, part.name)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(stringResource(R.string.mark_broken_message, part.name))
+
+                    OutlinedTextField(
+                        value = dateFormat.format(Date(breakdownDateMillis)),
+                        onValueChange = {},
+                        label = { Text(stringResource(R.string.breakdown_date_label)) },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(
+                                    Icons.Filled.DateRange,
+                                    contentDescription = stringResource(R.string.select_date)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = breakdownMileage,
+                        onValueChange = { input ->
+                            breakdownMileage = input.filter { it.isDigit() }
+                        },
+                        label = { Text(stringResource(R.string.breakdown_mileage_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.dismissMarkBrokenDialog()
                         viewModel.showReplacePartDialog()
-                    }
+                    },
+                    enabled = breakdownMileage.toIntOrNull()?.let { it > 0 } == true
                 ) {
                     Text(stringResource(R.string.yes))
                 }
@@ -153,8 +202,30 @@ fun PartDetailScreen(
                 }
             }
         )
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = breakdownDateMillis)
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { breakdownDateMillis = it }
+                        showDatePicker = false
+                    }) {
+                        Text(stringResource(R.string.ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
-    
+
     // Диалог предложения добавить новую запчасть
     if (showReplacePartDialog && uiState is PartDetailUiState.Success) {
         val part = (uiState as PartDetailUiState.Success).part
@@ -166,7 +237,7 @@ fun PartDetailScreen(
                 TextButton(
                     onClick = {
                         viewModel.dismissReplacePartDialog()
-                        viewModel.markPartAsBroken(part, 0)
+                        viewModel.markPartAsBroken(part, breakdownDateMillis, breakdownMileage.toIntOrNull() ?: currentCarMileage)
                         onNavigateToAddPart(carId)
                     }
                 ) {
@@ -177,7 +248,7 @@ fun PartDetailScreen(
                 TextButton(
                     onClick = {
                         viewModel.dismissReplacePartDialog()
-                        viewModel.markPartAsBroken(part, 0)
+                        viewModel.markPartAsBroken(part, breakdownDateMillis, breakdownMileage.toIntOrNull() ?: currentCarMileage)
                     }
                 ) {
                     Text(stringResource(R.string.no_dont_add))
@@ -190,6 +261,7 @@ fun PartDetailScreen(
 @Composable
 private fun PartDetailContent(
     part: Part,
+    currentCarMileage: Int,
     onMarkAsBroken: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -315,8 +387,14 @@ private fun PartDetailContent(
                     }
                 }
                 
-                if (part.mileageDriven != null) {
-                    InfoRow(label = "Проехала запчасть", value = "${part.mileageDriven} км")
+                // Пройденный ресурс: у сломанной он зафиксирован в записи, у активной
+                // считается на лету от текущего пробега машины — как в списке запчастей.
+                // Раньше карточка показывала только сохранённое значение, поэтому у активной
+                // запчасти строки не было никогда, хотя в списке она есть
+                val mileageDriven = part.mileageDriven
+                    ?: (currentCarMileage - part.installMileage).takeIf { !part.isBroken && it > 0 }
+                if (mileageDriven != null) {
+                    InfoRow(label = "Проехала запчасть", value = "$mileageDriven км")
                 }
             }
         }

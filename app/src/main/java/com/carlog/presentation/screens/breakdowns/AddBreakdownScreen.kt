@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.breakdowns
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
 import com.carlog.domain.model.MaintenanceType
+import com.carlog.presentation.components.EventPartDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,6 +34,8 @@ fun AddBreakdownScreen(
     val state by viewModel.state.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
     var showAddConsumableDialog by remember { mutableStateOf(false) }
+    // Окно запчасти: null — закрыто, -1 — добавление новой, иначе индекс редактируемой
+    var editedPartIndex by remember { mutableStateOf<Int?>(null) }
     
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -279,43 +283,24 @@ fun AddBreakdownScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
-                    // Форма добавления конкретной запчасти
-                    var newPartName by remember { mutableStateOf("") }
-                    var newPartPrice by remember { mutableStateOf("") }
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Top
+                    // Кнопка открывает то же окно, что и создание отдельной запчасти:
+                    // раньше здесь была строка из двух полей, и производителя с артикулом
+                    // приходилось дозаполнять потом в самой карточке запчасти
+                    Button(
+                        onClick = { editedPartIndex = -1 },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = newPartName,
-                            onValueChange = { newPartName = it },
-                            label = { Text(stringResource(R.string.part_name_breakdown_label)) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = newPartPrice,
-                            onValueChange = { newPartPrice = it },
-                            label = { Text(stringResource(R.string.part_price_breakdown_label)) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = {
-                                val price = newPartPrice.toDoubleOrNull()
-                                if (newPartName.isNotBlank() && price != null && price > 0) {
-                                    viewModel.addPart(newPartName, price)
-                                    newPartName = ""
-                                    newPartPrice = ""
-                                }
-                            },
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Add, stringResource(R.string.add))
-                        }
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.event_part_add_title))
                     }
-                    
+
+                    Text(
+                        text = stringResource(R.string.event_part_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     if (state.partsCostError != null) {
                         Text(
                             text = state.partsCostError!!,
@@ -324,13 +309,14 @@ fun AddBreakdownScreen(
                             modifier = Modifier.padding(start = 16.dp)
                         )
                     }
-                    
-                    // Список добавленных запчастей
+
+                    // Список добавленных запчастей — тап открывает окно на редактирование
                     state.addedParts.forEachIndexed { index, part ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
+                                .clickable { editedPartIndex = index }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -344,11 +330,32 @@ fun AddBreakdownScreen(
                                         text = part.name,
                                         style = MaterialTheme.typography.bodyLarge
                                     )
+                                    val details = listOfNotNull(
+                                        part.manufacturer.ifBlank { null },
+                                        part.partNumber.ifBlank { null }
+                                    ).joinToString(" · ")
+                                    if (details.isNotBlank()) {
+                                        Text(
+                                            text = details,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                     Text(
                                         text = "₽%.2f".format(part.price),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
+                                    if (part.photosPaths.isNotEmpty()) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.event_part_photos_count,
+                                                part.photosPaths.size
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                                 IconButton(onClick = { viewModel.removePart(index) }) {
                                     Icon(
@@ -653,6 +660,18 @@ fun AddBreakdownScreen(
     }
     
     // Dialog для добавления расходника
+    editedPartIndex?.let { index ->
+        EventPartDialog(
+            initial = state.addedParts.getOrNull(index),
+            onDismiss = { editedPartIndex = null },
+            onConfirm = { part ->
+                if (index >= 0) viewModel.updatePart(index, part) else viewModel.addPart(part)
+                editedPartIndex = null
+            },
+            onPhotoDiscarded = viewModel::onPartPhotoDiscarded
+        )
+    }
+
     if (showAddConsumableDialog) {
         AddConsumableDialog(
             availableCategories = availableCategories,

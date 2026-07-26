@@ -42,10 +42,17 @@ class PartDetailViewModel @Inject constructor(
     val showReplacePartDialog: StateFlow<Boolean> = _showReplacePartDialog.asStateFlow()
     
     private val carId: Long = savedStateHandle.get<Long>("carId") ?: 0L
-    
+
+    /** Текущий пробег машины — предзаполняет поле пробега поломки */
+    private val _currentCarMileage = MutableStateFlow(0)
+    val currentCarMileage: StateFlow<Int> = _currentCarMileage.asStateFlow()
+
     init {
         val partId = savedStateHandle.get<Long>("partId") ?: 0L
         loadPart(partId)
+        viewModelScope.launch {
+            _currentCarMileage.value = carRepository.getCarByIdOnce(carId)?.currentMileage ?: 0
+        }
     }
     
     private fun loadPart(partId: Long) {
@@ -103,18 +110,19 @@ class PartDetailViewModel @Inject constructor(
         _showReplacePartDialog.value = false
     }
     
-    fun markPartAsBroken(part: Part, currentCarMileage: Int) {
+    /**
+     * Отметить запчасть сломанной. Дата и пробег поломки приходят из диалога —
+     * раньше здесь молча подставлялись «сейчас» и текущий пробег машины, хотя в списке
+     * запчастей их спрашивают у пользователя.
+     */
+    fun markPartAsBroken(part: Part, breakdownDate: Long, breakdownMileage: Int) {
         viewModelScope.launch {
             try {
-                // Получаем текущий пробег автомобиля
-                val car = carRepository.getCarById(carId).firstOrNull()
-                val actualMileage = car?.currentMileage ?: currentCarMileage
-                
                 val updatedPart = part.copy(
                     isBroken = true,
-                    breakdownDate = System.currentTimeMillis(),
-                    breakdownMileage = actualMileage,
-                    mileageDriven = actualMileage - part.installMileage,
+                    breakdownDate = breakdownDate,
+                    breakdownMileage = breakdownMileage,
+                    mileageDriven = breakdownMileage - part.installMileage,
                     updatedAt = System.currentTimeMillis()
                 )
                 partRepository.updatePart(updatedPart)

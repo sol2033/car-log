@@ -24,6 +24,7 @@ import com.carlog.R
 import com.carlog.presentation.screens.settings.CloudBackupSection
 import com.carlog.presentation.screens.settings.SettingsSection
 import com.carlog.presentation.screens.settings.SettingsViewModel
+import com.carlog.util.AppRestart
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,15 +81,17 @@ fun BackupScreen(
                         if (result.isSuccess) {
                             val photosRestored = result.getOrNull() ?: 0
                             val message = if (photosRestored > 0) {
-                                "Данные успешно импортированы! Восстановлено фотографий: $photosRestored. Перезапустите приложение."
+                                "Данные успешно импортированы! Восстановлено фотографий: $photosRestored. Перезапуск..."
                             } else {
-                                "Данные успешно импортированы! Перезапустите приложение."
+                                "Данные успешно импортированы! Перезапуск..."
                             }
                             Toast.makeText(
                                 context,
                                 message,
                                 Toast.LENGTH_LONG
                             ).show()
+                            // Полный перезапуск процесса — БД была подменена под работающим приложением
+                            AppRestart.restart(context)
                         } else {
                             Toast.makeText(context, "Ошибка импорта: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
                         }

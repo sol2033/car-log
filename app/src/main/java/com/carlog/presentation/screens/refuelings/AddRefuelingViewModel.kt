@@ -85,23 +85,19 @@ class AddRefuelingViewModel @Inject constructor(
     
     private val _availableFuelTypes = MutableStateFlow<List<String>>(emptyList())
     val availableFuelTypes: StateFlow<List<String>> = _availableFuelTypes.asStateFlow()
-    
-    private val _previousRefueling = MutableStateFlow<Refueling?>(null)
-    val previousRefueling: StateFlow<Refueling?> = _previousRefueling.asStateFlow()
+
+    /** Ошибка сохранения: раньше исключение уходило в лог, а экран молча не закрывался */
+    private val _saveError = mutableStateOf<String?>(null)
+    val saveError: State<String?> = _saveError
     
     fun setCarId(carId: Long, refuelingId: Long? = null) {
         _carId.value = carId
         _refuelingId.value = refuelingId
-        
+
         viewModelScope.launch {
             _car.collect { car ->
                 if (car != null) {
                     updateAvailableFuelTypes(car)
-                    
-                    // Загружаем предыдущую заправку для расчета расхода
-                    refuelingRepository.getRefuelingsByCarId(carId).collect { refuelings ->
-                        _previousRefueling.value = refuelings.firstOrNull()
-                    }
                 }
             }
         }
@@ -218,11 +214,20 @@ class AddRefuelingViewModel @Inject constructor(
         _notes.value = notes
     }
     
+    fun dismissSaveError() {
+        _saveError.value = null
+    }
+
     fun saveRefueling(onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
                 val carId = _carId.value ?: return@launch
-                
+                _saveError.value = null
+
+                // Запись ещё не догрузилась — сохранять нельзя: вставка создала бы дубликат
+                val existing = _refueling.value
+                if (_refuelingId.value != null && existing == null) return@launch
+
                 // Валидация
                 val mileageValue = _mileage.value.toIntOrNull()
                 val litersValue = _liters.value.toDoubleOrNull()
@@ -257,39 +262,49 @@ class AddRefuelingViewModel @Inject constructor(
                 
                 if (hasError) return@launch
                 
-                // Вычисляем расход, если это полный бак и есть предыдущая заправка
-                var fuelConsumption: Double? = null
-                if (_isFullTank.value && _previousRefueling.value != null) {
-                    val previousMileage = _previousRefueling.value?.mileage ?: 0
-                    val distance = mileageValue!! - previousMileage
-                    if (distance > 0) {
-                        fuelConsumption = (litersValue!! / distance) * 100
-                    }
-                }
-                
-                val refueling = Refueling(
-                    id = _refuelingId.value ?: 0,
-                    carId = carId,
-                    date = _date.value,
-                    mileage = mileageValue!!,
-                    liters = litersValue!!,
-                    fuelType = _fuelType.value,
-                    pricePerLiter = _pricePerLiter.value.toDoubleOrNull(),
-                    totalCost = _totalCost.value.toDoubleOrNull(),
-                    isFullTank = _isFullTank.value,
-                    stationName = _stationName.value.ifEmpty { null },
-                    fuelConsumption = fuelConsumption,
-                    notes = _notes.value.ifEmpty { null },
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                )
-                
-                if (_refuelingId.value == null) {
-                    refuelingRepository.insertRefueling(refueling)
+                val currentTime = System.currentTimeMillis()
+
+                if (existing == null) {
+                    refuelingRepository.insertRefueling(
+                        Refueling(
+                            carId = carId,
+                            date = _date.value,
+                            mileage = mileageValue!!,
+                            liters = litersValue!!,
+                            fuelType = _fuelType.value,
+                            pricePerLiter = _pricePerLiter.value.toDoubleOrNull(),
+                            totalCost = _totalCost.value.toDoubleOrNull(),
+                            isFullTank = _isFullTank.value,
+                            stationName = _stationName.value.ifEmpty { null },
+                            fuelConsumption = null, // заполнит пересчёт ниже
+                            notes = _notes.value.ifEmpty { null },
+                            createdAt = currentTime,
+                            updatedAt = currentTime
+                        )
+                    )
                 } else {
-                    refuelingRepository.updateRefueling(refueling)
+                    // copy сохраняет исходный createdAt: @Update перезаписывает строку целиком
+                    refuelingRepository.updateRefueling(
+                        existing.copy(
+                            date = _date.value,
+                            mileage = mileageValue!!,
+                            liters = litersValue!!,
+                            fuelType = _fuelType.value,
+                            pricePerLiter = _pricePerLiter.value.toDoubleOrNull(),
+                            totalCost = _totalCost.value.toDoubleOrNull(),
+                            isFullTank = _isFullTank.value,
+                            stationName = _stationName.value.ifEmpty { null },
+                            fuelConsumption = null, // заполнит пересчёт ниже
+                            notes = _notes.value.ifEmpty { null },
+                            updatedAt = currentTime
+                        )
+                    )
                 }
-                
+
+                // Пересчитываем расход по всей машине: алгоритм «между полными баками»
+                // учитывает частичные заправки и чинит соседние записи при правках задним числом
+                refuelingRepository.recalculateFuelConsumption(carId)
+
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageIfNeeded(carId, _mileage.value.toInt())
                 
@@ -298,7 +313,7 @@ class AddRefuelingViewModel @Inject constructor(
                 
                 onSuccess()
             } catch (e: Exception) {
-                e.printStackTrace()
+                _saveError.value = e.message ?: "Не удалось сохранить заправку"
             }
         }
     }

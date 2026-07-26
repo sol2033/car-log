@@ -3,6 +3,7 @@ package com.carlog.presentation.screens.accidents
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.AccidentRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Accident
@@ -17,6 +18,7 @@ import javax.inject.Inject
 class AccidentDetailViewModel @Inject constructor(
     private val accidentRepository: AccidentRepository,
     private val carRepository: CarRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -64,6 +66,8 @@ class AccidentDetailViewModel @Inject constructor(
                     val accident = (_state.value as AccidentDetailState.Success).accident
                     accidentRepository.deleteAccident(accident)
                     carRepository.updateCarMileageAfterDelete(accident.carId, accident.mileage)
+                    // Уведомляем об изменении данных для авто-бэкапа
+                    dataChangeNotifier.notifyDataChanged()
                     onDeleted()
                 }
             } catch (e: Exception) {

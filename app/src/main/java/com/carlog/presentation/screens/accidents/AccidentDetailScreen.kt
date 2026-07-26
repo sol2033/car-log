@@ -1,6 +1,7 @@
 package com.carlog.presentation.screens.accidents
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
 import com.carlog.domain.model.Accident
+import com.carlog.util.FileHelper
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -164,7 +167,7 @@ private fun AccidentDetailContent(
         
         // Документ
         if (accident.documentPath != null) {
-            DocumentInfoSection()
+            DocumentInfoSection(accident.documentPath)
         }
         
         // Заметки
@@ -339,10 +342,21 @@ private fun PhotosInfoSection(photosPaths: List<String>) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DocumentInfoSection() {
+private fun DocumentInfoSection(documentPath: String) {
+    val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        onClick = {
+            if (!FileHelper.openPdf(context, documentPath)) {
+                Toast.makeText(
+                    context,
+                    "Не удалось открыть документ",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     ) {
         Row(
             modifier = Modifier
@@ -357,10 +371,17 @@ private fun DocumentInfoSection() {
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
-            Text(
-                text = "Прикреплен документ ДТП (PDF)",
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Column {
+                Text(
+                    text = "Прикреплен документ ДТП (PDF)",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = "Нажмите, чтобы открыть",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
