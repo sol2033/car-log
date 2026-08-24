@@ -11,6 +11,9 @@ import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.ExpenseDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
+import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.repository.CarRepository
+import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.*
 import com.carlog.di.DefaultDispatcher
 import com.carlog.util.DateUtils
@@ -33,6 +36,8 @@ data class StatisticsUiState(
     val specificMonth: YearMonth? = null, // Конкретный месяц для фильтрации
     val selectedMileageFilter: MileageFilter = MileageFilter.AllMileage,
     val excludeAccidents: Boolean = false,
+    // Запрошен новый отсчёт среднего расхода: точкой отсчёта станет следующая заправка
+    val fuelResetPending: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null
 )
@@ -47,6 +52,9 @@ class StatisticsViewModel @Inject constructor(
     private val refuelingDao: RefuelingDao,
     private val expenseDao: ExpenseDao,
     private val carDocumentDao: CarDocumentDao,
+    private val carRepository: CarRepository,
+    private val refuelingRepository: RefuelingRepository,
+    private val dataChangeNotifier: DataChangeNotifier,
     @DefaultDispatcher private val computationDispatcher: CoroutineDispatcher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -75,6 +83,40 @@ class StatisticsViewModel @Inject constructor(
         loadStatistics()
     }
     
+    /**
+     * Пропущенная заправка навсегда сбивает средний расход, поэтому пользователь может
+     * начать отсчёт заново: точкой отсчёта станет следующая добавленная заправка
+     * (§4.5 бизнес-логики). Записи, литры и деньги остаются в статистике.
+     */
+    fun requestFuelConsumptionReset() {
+        viewModelScope.launch {
+            carRepository.setFuelResetPending(carId, true)
+            dataChangeNotifier.notifyDataChanged()
+            _uiState.value = _uiState.value.copy(fuelResetPending = true)
+        }
+    }
+
+    /** Отменяет запрос: следующая заправка точкой отсчёта не станет */
+    fun cancelFuelConsumptionReset() {
+        viewModelScope.launch {
+            carRepository.setFuelResetPending(carId, false)
+            dataChangeNotifier.notifyDataChanged()
+            _uiState.value = _uiState.value.copy(fuelResetPending = false)
+        }
+    }
+
+    /** Снимает уже назначенную точку отсчёта: расход снова считается по всей истории */
+    fun clearFuelConsumptionReset() {
+        viewModelScope.launch {
+            refuelingRepository.clearConsumptionResetPoints(carId)
+            // Точка отсчёта рвала цепочку «от бака до бака» — расход записей меняется
+            refuelingRepository.recalculateFuelConsumption(carId)
+            carRepository.setFuelResetPending(carId, false)
+            dataChangeNotifier.notifyDataChanged()
+            loadStatistics()
+        }
+    }
+
     fun toggleExcludeAccidents() {
         _uiState.value = _uiState.value.copy(excludeAccidents = !_uiState.value.excludeAccidents)
         loadStatistics()
@@ -186,6 +228,7 @@ class StatisticsViewModel @Inject constructor(
 
                 _uiState.value = _uiState.value.copy(
                     statistics = statistics,
+                    fuelResetPending = car?.fuelResetPending == true,
                     isLoading = false,
                     error = null
                 )
@@ -951,8 +994,10 @@ class StatisticsViewModel @Inject constructor(
         )
     }
     
-    private fun calculateConsumablesStatistics(consumables: List<Consumable>): ConsumablesStatistics? {
-        // Все расходники учитываются (включая добавленные через ТО)
+    private fun calculateConsumablesStatistics(allConsumables: List<Consumable>): ConsumablesStatistics? {
+        // Все расходники учитываются (включая добавленные через ТО), кроме разовых позиций
+        // «Другое»: у них нет ни категории, ни интервалов — их деньги уже посчитаны в «ТО»
+        val consumables = allConsumables.filter { it.category != ConsumableCategories.OTHER }
         if (consumables.isEmpty()) return null
         
         val totalCost = consumables.sumOf { it.cost ?: 0.0 }
@@ -1036,22 +1081,19 @@ class StatisticsViewModel @Inject constructor(
         
         // Group refuelings by normalized fuel type
         val refuelingsByType = refuelings.groupBy { normalizeFuelType(it.fuelType) }
-        
+
+        // Точка отсчёта расхода: пользователь начал расчёт заново из-за пропущенной заправки.
+        // Ограничивает только средний расход — литры и деньги остаются за всю историю
+        val sortedByMileage = refuelings.sortedWith(compareBy({ it.mileage }, { it.date }, { it.id }))
+        val resetIndex = sortedByMileage.indexOfLast { it.isConsumptionResetPoint }
+        val consumptionSince =
+            if (resetIndex >= 0) DateUtils.toLocalDate(sortedByMileage[resetIndex].date) else null
+        val consumptionByType = (if (resetIndex > 0) sortedByMileage.drop(resetIndex) else refuelings)
+            .groupBy { normalizeFuelType(it.fuelType) }
+
         // Calculate statistics for each fuel type
         val fuelTypeStatistics = refuelingsByType.map { (fuelType, typeRefuelings) ->
-            // Calculate average consumption for this fuel type based on ALL refuelings
-            val averageConsumption = if (typeRefuelings.size >= 2) {
-                // Sort by mileage to get the range
-                val sortedByMileage = typeRefuelings.sortedBy { it.mileage }
-                val minMileage = sortedByMileage.first().mileage
-                val maxMileage = sortedByMileage.last().mileage
-                val totalDistance = maxMileage - minMileage
-                
-                if (totalDistance > 0) {
-                    val totalLitersForConsumption = typeRefuelings.sumOf { it.liters }
-                    (totalLitersForConsumption / totalDistance) * 100
-                } else 0.0
-            } else 0.0
+            val averageConsumption = averageConsumption(consumptionByType[fuelType].orEmpty())
             
             // Calculate total cost for this fuel type
             val totalCost = typeRefuelings.sumOf { it.totalCost ?: 0.0 }
@@ -1110,8 +1152,25 @@ class StatisticsViewModel @Inject constructor(
         return FuelStatistics(
             fuelTypes = fuelTypeStatistics,
             totalFuelCost = totalFuelCost,
-            monthlyFuelCosts = monthlyFuelCosts
+            monthlyFuelCosts = monthlyFuelCosts,
+            consumptionSince = consumptionSince
         )
+    }
+
+    /**
+     * Средний расход по диапазону пробега заправок: Σ литров / пройденное расстояние × 100.
+     *
+     * Литры самой первой заправки в расчёт не идут — этот бак сгорел до неё, на пройденной
+     * дистанции его нет. Иначе среднее завышалось бы на целый бак (тем сильнее, чем меньше
+     * заправок в расчёте), а после назначения новой точки отсчёта — почти вдвое.
+     * 0.0 — данных не хватает (меньше двух заправок или нулевая дистанция).
+     */
+    private fun averageConsumption(refuelings: List<Refueling>): Double {
+        if (refuelings.size < 2) return 0.0
+        val sorted = refuelings.sortedBy { it.mileage }
+        val distance = sorted.last().mileage - sorted.first().mileage
+        if (distance <= 0) return 0.0
+        return sorted.drop(1).sumOf { it.liters } / distance * 100
     }
     
     private fun calculateExpensesStatistics(expenses: List<Expense>, allPeriods: List<LocalDate>, groupingType: GroupingType): ExpensesStatistics? {

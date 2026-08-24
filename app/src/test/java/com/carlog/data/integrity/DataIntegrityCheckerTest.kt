@@ -9,6 +9,7 @@ import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Car
 import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.Part
 import io.mockk.coEvery
 import io.mockk.every
@@ -261,6 +262,21 @@ class DataIntegrityCheckerTest {
         assertEquals(1, findings.size)
         // Первым идёт самый свежий — его и предлагается оставить активным
         assertEquals(90_000, findings.first().consumables.first().installationMileage)
+    }
+
+    @Test
+    fun `несколько позиций «Другое» дубликатами не считаются`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, ConsumableCategories.OTHER, isActive = true, mileage = 80_000),
+                consumable(2, ConsumableCategories.OTHER, isActive = true, mileage = 80_000)
+            )
+        )
+
+        assertTrue(
+            "герметик и хомуты из одного ТО — не ошибка данных",
+            checker.scan().filterIsInstance<IntegrityFinding.DuplicateActiveConsumables>().isEmpty()
+        )
     }
 
     @Test

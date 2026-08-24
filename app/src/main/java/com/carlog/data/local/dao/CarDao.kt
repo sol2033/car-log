@@ -34,6 +34,11 @@ interface CarDao {
     @Query("UPDATE cars SET purchaseMileage = :mileage, updatedAt = :updatedAt WHERE id = :carId AND purchaseMileage > :mileage")
     suspend fun clampPurchaseMileage(carId: Long, mileage: Int, updatedAt: Long)
     
+    // Запрос нового отсчёта расхода топлива. updatedAt не трогаем: по нему сортируется
+    // список машин, а служебный флаг не должен переставлять машину в начало гаража
+    @Query("UPDATE cars SET fuelResetPending = :pending WHERE id = :carId")
+    suspend fun setFuelResetPending(carId: Long, pending: Boolean)
+
     @Query("SELECT COUNT(*) FROM cars")
     suspend fun getCarsCount(): Int
 }

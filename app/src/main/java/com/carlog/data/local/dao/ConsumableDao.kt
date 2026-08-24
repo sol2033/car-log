@@ -19,6 +19,10 @@ interface ConsumableDao {
     @Query("SELECT * FROM consumables WHERE carId = :carId AND category = :category ORDER BY installationDate DESC")
     fun getConsumablesByCategory(carId: Long, category: String): Flow<List<Consumable>>
     
+    // Расходники, созданные конкретным ТО — показываются в карточке этого ТО
+    @Query("SELECT * FROM consumables WHERE linkedMaintenanceId = :maintenanceId ORDER BY installationDate DESC, id ASC")
+    fun getConsumablesByMaintenanceId(maintenanceId: Long): Flow<List<Consumable>>
+
     @Query("SELECT * FROM consumables WHERE id = :consumableId")
     fun getConsumableById(consumableId: Long): Flow<Consumable?>
     

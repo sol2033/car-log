@@ -37,6 +37,8 @@ import com.carlog.util.FileHelper
  * Фото копируются в хранилище сразу при выборе; если пользователь откажется от события,
  * файлы подчистит вызывающая сторона (`orphanPhotosToDelete`).
  *
+ * @param showVisibilityToggle показывать ли галочку «Показывать в разделе „Запчасти"».
+ * Для ДТП не показывается: там запчасти всегда идут в раздел.
  * @param initial редактируемая позиция; null — добавление новой.
  * @param onPhotoDiscarded фото убрали из этого окна — файл больше не нужен, если он не
  * принадлежит уже сохранённой записи.
@@ -46,7 +48,8 @@ fun EventPartDialog(
     initial: EventPart?,
     onDismiss: () -> Unit,
     onConfirm: (EventPart) -> Unit,
-    onPhotoDiscarded: (String) -> Unit = {}
+    onPhotoDiscarded: (String) -> Unit = {},
+    showVisibilityToggle: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -56,6 +59,7 @@ fun EventPartDialog(
     var price by remember { mutableStateOf(initial?.price?.toString() ?: "") }
     var notes by remember { mutableStateOf(initial?.notes ?: "") }
     var photos by remember { mutableStateOf(initial?.photosPaths ?: emptyList()) }
+    var showInPartsList by remember { mutableStateOf(initial?.showInPartsList ?: true) }
 
     var nameTouched by remember { mutableStateOf(false) }
     var priceTouched by remember { mutableStateOf(false) }
@@ -139,6 +143,31 @@ fun EventPartDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                if (showVisibilityToggle) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = showInPartsList,
+                            onCheckedChange = { showInPartsList = it }
+                        )
+                        Text(
+                            text = stringResource(R.string.event_part_show_in_list),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+
+                    if (!showInPartsList) {
+                        Text(
+                            text = stringResource(R.string.event_part_hidden_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Text(
                     text = stringResource(R.string.event_part_photos),
                     style = MaterialTheme.typography.labelLarge,
@@ -204,6 +233,7 @@ fun EventPartDialog(
                             price = priceValue ?: 0.0,
                             notes = notes.trim(),
                             photosPaths = photos,
+                            showInPartsList = showInPartsList,
                             partId = initial?.partId
                         )
                     )

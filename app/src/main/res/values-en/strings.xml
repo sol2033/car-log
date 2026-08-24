@@ -63,17 +63,14 @@
     <!-- What's new -->
     <string name="whats_new_title">What\'s new in %1$s</string>
     <string name="whats_new_confirm">Got it</string>
-    <string name="whats_new_mileage_title">Mileage can be decreased</string>
-    <string name="whats_new_mileage_body">manual update no longer rejects a value below the current one.</string>
-    <string name="whats_new_data_check_title">Data check</string>
-    <string name="whats_new_data_check_body">a new screen in settings: finds inconsistencies in your records and fixes them on the spot.</string>
-    <string name="whats_new_editing_title">Editing no longer loses data</string>
-    <string name="whats_new_editing_body">saving a record could wipe the accident repair cost, the link between maintenance and its parts, and the "broken" mark on a part. Whatever could be restored was fixed automatically, the rest is listed in Data check. Scheduled service can be edited again.</string>
-    <string name="whats_new_event_parts_title">Parts in repairs and accidents</string>
-    <string name="whats_new_event_parts_body">the add dialog now has manufacturer, part number, notes and photos, and an added item can be reopened and edited.</string>
-    <string name="whats_new_statistics_title">More accurate and tidier</string>
-    <string name="whats_new_statistics_body">no double counting of accident parts in statistics; a part\'s installation type now follows the \"at a service\" checkbox; the record mileage is no longer overwritten with the current one when opened.</string>
-    <string name="whats_new_broken_parts_warning">⚠️ Check Parts → Active: the "broken" mark cannot be restored.</string>
+    <string name="whats_new_fuel_reset_title">Fuel consumption can be restarted</string>
+    <string name="whats_new_fuel_reset_body">a missed refueling no longer skews the average forever: the statistics screen has a button next to the average — counting restarts from the next refueling you add. The calculation itself got more accurate: the first tank no longer inflates the average.</string>
+    <string name="whats_new_works_title">Works as a list</string>
+    <string name="whats_new_works_body">in repairs, scheduled service and tuning you can list the service works with their prices — their sum becomes the labor cost.</string>
+    <string name="whats_new_to_consumables_title">Consumables in service got easier</string>
+    <string name="whats_new_to_consumables_body">volume is asked only for fluids, one replacement interval is enough, and one-off items now have the "Other" category — it stays out of the Consumables section. Consumables and works are now visible in the record card.</string>
+    <string name="whats_new_hidden_parts_title">Not everything belongs in Parts</string>
+    <string name="whats_new_hidden_parts_body">parts added in a repair or tuning now have a visibility checkbox: small items like gaskets can stay inside the record instead of cluttering the section. Their cost still counts.</string>
 
     <!-- Data check -->
     <string name="settings_data_section">Data</string>
@@ -286,6 +283,45 @@
     <string name="select_month">Select month...</string>
     <string name="select_month_and_year">Select month and year</string>
     <string name="select">Select</string>
+    <!-- Service consumables, works and part visibility -->
+    <string name="to_consumable_dialog_title">Add consumable for service</string>
+    <string name="to_consumable_category">Category *</string>
+    <string name="to_consumable_custom_name">Name *</string>
+    <string name="to_consumable_other_hint">One-off item: it will not appear in Consumables and will not remind about replacement, but its cost counts toward the service.</string>
+    <string name="to_consumable_manufacturer">Manufacturer</string>
+    <string name="to_consumable_article">Part number</string>
+    <string name="to_consumable_cost">Cost *</string>
+    <string name="to_consumable_volume">Volume (L) *</string>
+    <string name="to_consumable_interval_mileage">Replacement interval (km)</string>
+    <string name="to_consumable_interval_days">Replacement interval (days)</string>
+    <string name="to_consumable_interval_hint">One interval is enough — by mileage or by time.</string>
+    <string name="to_consumable_notes">Notes</string>
+    <string name="general_service_cost">Total labor cost</string>
+    <string name="specific_works_list">List of works</string>
+    <string name="work_item_add_title">Add work</string>
+    <string name="work_item_edit_title">Edit work</string>
+    <string name="work_item_name">Work name *</string>
+    <string name="work_item_cost">Cost *</string>
+    <string name="work_item_notes">Notes</string>
+    <string name="work_item_hint">Works are kept inside this record only; their sum is the labor cost.</string>
+    <string name="work_items_total">Works total</string>
+    <string name="breakdown_works_title">Works</string>
+    <string name="breakdown_consumables_title">Consumables</string>
+    <string name="event_part_show_in_list">Show in the Parts section</string>
+    <string name="event_part_hidden_hint">The item stays in this event and in its cost, but will not appear in the parts list.</string>
+    <!-- Fuel consumption restart (missed refueling) -->
+    <string name="fuel_reset_action">Restart calculation</string>
+    <string name="fuel_reset_dialog_title">Restart consumption calculation?</string>
+    <string name="fuel_reset_dialog_message">If a refueling was missed, the average consumption is wrong and will not fix itself.
+
+The next refueling you add becomes the new starting point — average consumption will be counted from it. Records, liters and costs stay in the statistics.</string>
+    <string name="fuel_reset_dialog_confirm">Restart</string>
+    <string name="fuel_reset_pending">The next refueling you add becomes the starting point</string>
+    <string name="fuel_reset_pending_cancel">Cancel</string>
+    <string name="fuel_reset_active">Consumption counted since %1$s</string>
+    <string name="fuel_reset_undo">Use full history</string>
+    <string name="fuel_reset_need_more">Add one more refueling after the starting point</string>
+    <string name="fuel_need_two_refuelings">Add at least 2 refuelings</string>
     
     <!-- Error Messages -->
     <string name="error_loading">Loading error</string>

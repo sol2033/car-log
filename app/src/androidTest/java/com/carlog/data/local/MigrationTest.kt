@@ -313,4 +313,56 @@ class MigrationTest {
         // runMigrationsAndValidate упадёт, если фактическая схема разойдётся с 20.json
         helper.runMigrationsAndValidate(testDb, 20, true, MIGRATION_19_20)
     }
+
+    /**
+     * 20→21: точка отсчёта расхода топлива. Существующие заправки и машины должны
+     * получить выключенные флаги — расход продолжает считаться по всей истории.
+     */
+    @Test
+    fun migrate20To21_добавляетФлагиНовогоОтсчётаРасхода() {
+        helper.createDatabase(testDb, 20).apply {
+            insertCar(this, 1)
+            execSQL(
+                "INSERT INTO refuelings (id, carId, date, mileage, liters, fuelType, isFullTank, " +
+                    "createdAt, updatedAt) VALUES (1, 1, 0, 90000, 40.0, 'АИ-95', 1, 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 21, true, MIGRATION_20_21)
+
+        db.query("SELECT isConsumptionResetPoint FROM refuelings WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(0, it.getInt(0))
+        }
+        db.query("SELECT fuelResetPending FROM cars WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(0, it.getInt(0))
+        }
+    }
+
+    /**
+     * 21→22: позиции «Другое» в ТО, список работ и скрытие запчастей из модуля.
+     * Существующие запчасти обязаны остаться видимыми — иначе обновление «спрячет» раздел.
+     */
+    @Test
+    fun migrate21To22_существующиеЗапчастиОстаютсяВидимыми() {
+        helper.createDatabase(testDb, 21).apply {
+            insertCar(this, 1)
+            insertPart(this, id = 1, mileage = 80_000, price = 5_000.0, installationType = "Сервис")
+            insertRepairBreakdown(this, id = 40, mileage = 80_000, partsCost = 5_000.0)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 22, true, MIGRATION_21_22)
+
+        db.query("SELECT showInPartsList FROM parts WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(1, it.getInt(0))
+        }
+        db.query("SELECT workItems FROM breakdowns WHERE id = 40").use {
+            it.moveToFirst()
+            assertNull(it.getString(0))
+        }
+    }
 }

@@ -9,11 +9,17 @@ import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.ExpenseDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
+import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.repository.CarRepository
+import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Car
+import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.MileageFilter
 import com.carlog.domain.model.Part
+import com.carlog.domain.model.Refueling
 import com.carlog.domain.model.StatisticsPeriod
 import io.mockk.every
 import io.mockk.mockk
@@ -48,6 +54,9 @@ class StatisticsViewModelTest {
     private val refuelingDao = mockk<RefuelingDao>(relaxed = true)
     private val expenseDao = mockk<ExpenseDao>(relaxed = true)
     private val documentDao = mockk<CarDocumentDao>(relaxed = true)
+    private val carRepository = mockk<CarRepository>(relaxed = true)
+    private val refuelingRepository = mockk<RefuelingRepository>(relaxed = true)
+    private val dataChangeNotifier = mockk<DataChangeNotifier>(relaxed = true)
 
     private val now = System.currentTimeMillis()
     private val yesterday = now - TimeUnit.DAYS.toMillis(1)
@@ -97,6 +106,7 @@ class StatisticsViewModelTest {
     private fun viewModel() = StatisticsViewModel(
         accidentDao, breakdownDao, consumableDao, carDao,
         partDao, refuelingDao, expenseDao, documentDao,
+        carRepository, refuelingRepository, dataChangeNotifier,
         dispatcher,
         SavedStateHandle(mapOf("carId" to 1L))
     )
@@ -229,6 +239,157 @@ class StatisticsViewModelTest {
         advanceUntilIdle()
 
         assertEquals(null, vm.uiState.value.statistics.general)
+    }
+
+    private fun consumable(
+        id: Long,
+        category: String,
+        cost: Double,
+        customName: String? = null,
+        linkedMaintenanceId: Long? = null
+    ) = Consumable(
+        id = id,
+        carId = 1,
+        category = category,
+        customName = customName,
+        manufacturer = null,
+        articleNumber = null,
+        installationMileage = 90_000,
+        installationDate = yesterday,
+        linkedMaintenanceId = linkedMaintenanceId,
+        replacementMileage = null,
+        replacementDate = null,
+        cost = cost,
+        isInstalledAtService = false,
+        serviceCost = null,
+        volume = null,
+        replacementIntervalMileage = null,
+        replacementIntervalDays = null,
+        isActive = true,
+        notes = null,
+        createdAt = yesterday,
+        updatedAt = yesterday
+    )
+
+    /**
+     * Разовая позиция ТО («Другое») не имеет категории с напоминаниями, поэтому в статистику
+     * расходников не идёт — её деньги уже посчитаны в стоимости самого ТО.
+     */
+    @Test
+    fun `позиция «Другое» не попадает в статистику расходников`() = runTest(dispatcher) {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, "Фильтр масляный", cost = 900.0),
+                consumable(
+                    2, ConsumableCategories.OTHER, cost = 500.0,
+                    customName = "Герметик", linkedMaintenanceId = 7
+                )
+            )
+        )
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val consumables = vm.uiState.value.statistics.consumables!!
+        assertEquals(900.0, consumables.totalConsumablesCost, 0.01)
+        assertEquals(
+            listOf("Фильтр масляный"),
+            consumables.averagePerCategory.map { it.category }
+        )
+    }
+
+    @Test
+    fun `из одних позиций «Другое» статистики расходников нет`() = runTest(dispatcher) {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(consumable(1, ConsumableCategories.OTHER, cost = 500.0, customName = "Хомуты"))
+        )
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(null, vm.uiState.value.statistics.consumables)
+    }
+
+    private fun refueling(
+        id: Long,
+        mileage: Int,
+        liters: Double,
+        cost: Double = 1_000.0,
+        isResetPoint: Boolean = false
+    ) = Refueling(
+        id = id,
+        carId = 1,
+        // Порядок дат совпадает с порядком пробега, все заправки — в пределах периода
+        date = now - TimeUnit.DAYS.toMillis((110_000L - mileage) / 100),
+        mileage = mileage,
+        liters = liters,
+        fuelType = "АИ-95",
+        totalCost = cost,
+        isConsumptionResetPoint = isResetPoint
+    )
+
+    /**
+     * Бак первой заправки сгорел до неё: на пройденной дистанции его нет, иначе среднее
+     * завышается на целый бак (§6.4 бизнес-логики).
+     */
+    @Test
+    fun `средний расход не считает бак первой заправки`() = runTest(dispatcher) {
+        every { refuelingDao.getRefuelingsByCarId(1) } returns flowOf(
+            listOf(
+                refueling(1, 90_000, 50.0),
+                refueling(2, 90_500, 45.0)
+            )
+        )
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        // 45 л на 500 км = 9 л/100км (а не (50 + 45) / 500)
+        val fuel = vm.uiState.value.statistics.fuel!!
+        assertEquals(9.0, fuel.fuelTypes.single().averageConsumption, 0.0001)
+    }
+
+    /** Пропущенная заправка сбивает среднее — расчёт начинается с новой точки отсчёта */
+    @Test
+    fun `точка отсчёта ограничивает средний расход, но не литры и деньги`() = runTest(dispatcher) {
+        every { refuelingDao.getRefuelingsByCarId(1) } returns flowOf(
+            listOf(
+                // «Испорченный» участок: заправку между ними пользователь забыл добавить
+                refueling(1, 80_000, 50.0, cost = 3_000.0),
+                refueling(2, 85_000, 50.0, cost = 3_000.0),
+                // Новая точка отсчёта и заправка после неё
+                refueling(3, 90_000, 50.0, cost = 3_000.0, isResetPoint = true),
+                refueling(4, 90_500, 45.0, cost = 2_000.0)
+            )
+        )
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val type = vm.uiState.value.statistics.fuel!!.fuelTypes.single()
+        // 45 л на 500 км — участок до точки отсчёта (1 л/100км) в среднее не идёт
+        assertEquals(9.0, type.averageConsumption, 0.0001)
+        assertEquals("литры остаются за всю историю", 195.0, type.totalLiters, 0.0001)
+        assertEquals("деньги остаются за всю историю", 11_000.0, type.totalCost, 0.01)
+    }
+
+    @Test
+    fun `без точки отсчёта средний расход считается по всей истории`() = runTest(dispatcher) {
+        every { refuelingDao.getRefuelingsByCarId(1) } returns flowOf(
+            listOf(
+                refueling(1, 90_000, 50.0),
+                refueling(2, 90_500, 45.0),
+                refueling(3, 91_000, 45.0)
+            )
+        )
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val fuel = vm.uiState.value.statistics.fuel!!
+        // (45 + 45) л на 1000 км = 9 л/100км
+        assertEquals(9.0, fuel.fuelTypes.single().averageConsumption, 0.0001)
+        assertEquals(null, fuel.consumptionSince)
     }
 
     /** Регрессия: помесячные точки брались от «сегодня», и траты из начала диапазона пропадали */

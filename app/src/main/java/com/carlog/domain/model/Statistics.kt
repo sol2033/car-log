@@ -107,7 +107,10 @@ data class CostTrendItem(
 data class FuelStatistics(
     val fuelTypes: List<FuelTypeStatistics>,   // Статистика по каждому типу топлива
     val totalFuelCost: Double,                  // Общая стоимость топлива (всех типов)
-    val monthlyFuelCosts: List<MonthlyCostItem> // Расходы на топливо по месяцам (всех типов)
+    val monthlyFuelCosts: List<MonthlyCostItem>, // Расходы на топливо по месяцам (всех типов)
+    // Дата точки отсчёта среднего расхода (null — считается по всей истории).
+    // Литры и деньги точка отсчёта не ограничивает: она про расход, а не про траты
+    val consumptionSince: LocalDate? = null
 )
 
 /**

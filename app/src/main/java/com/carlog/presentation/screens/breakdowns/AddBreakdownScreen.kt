@@ -20,8 +20,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.domain.model.ConsumableCategories
+import com.carlog.domain.model.ConsumableFormRules
 import com.carlog.domain.model.MaintenanceType
+import com.carlog.domain.model.WorkItem
+import com.carlog.domain.model.totalCost
 import com.carlog.presentation.components.EventPartDialog
+import com.carlog.presentation.components.WorkItemDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,9 +38,11 @@ fun AddBreakdownScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
+    val consumableDefaults by viewModel.consumableDefaults.collectAsState()
     var showAddConsumableDialog by remember { mutableStateOf(false) }
     // Окно запчасти: null — закрыто, -1 — добавление новой, иначе индекс редактируемой
     var editedPartIndex by remember { mutableStateOf<Int?>(null) }
+    var editedWorkIndex by remember { mutableStateOf<Int?>(null) }
     
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -416,7 +423,8 @@ fun AddBreakdownScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = consumable.category,
+                                        // У разовой позиции «Другое» имя задаёт пользователь
+                                        text = consumable.customName ?: consumable.category,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                     )
@@ -497,15 +505,123 @@ fun AddBreakdownScreen(
                 
                 // Стоимость услуг сервиса - показывается только при галочке "В сервисе"
                 if (state.isServiceMaintenance) {
-                    OutlinedTextField(
-                        value = if (state.isWarrantyRepair) "ремонт по гарантии" else state.serviceCost,
-                        onValueChange = { if (!state.isWarrantyRepair) viewModel.updateServiceCost(it) },
-                        label = { Text(stringResource(R.string.service_cost_label)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        readOnly = state.isWarrantyRepair,
-                        enabled = !state.isWarrantyRepair,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (state.isWarrantyRepair) {
+                        // Гарантийный ремонт: работ к оплате нет, расписывать нечего
+                        OutlinedTextField(
+                            value = "ремонт по гарантии",
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.service_cost_label)) },
+                            readOnly = true,
+                            enabled = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = state.useGeneralServiceCost,
+                                onClick = { viewModel.toggleUseGeneralServiceCost(true) }
+                            )
+                            Text(
+                                text = stringResource(R.string.general_service_cost),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = !state.useGeneralServiceCost,
+                                onClick = { viewModel.toggleUseGeneralServiceCost(false) }
+                            )
+                            Text(
+                                text = stringResource(R.string.specific_works_list),
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+
+                        if (state.useGeneralServiceCost) {
+                            OutlinedTextField(
+                                value = state.serviceCost,
+                                onValueChange = viewModel::updateServiceCost,
+                                label = { Text(stringResource(R.string.service_cost_label)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Button(
+                                onClick = { editedWorkIndex = -1 },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.work_item_add_title))
+                            }
+
+                            Text(
+                                text = stringResource(R.string.work_item_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            state.workItems.forEachIndexed { index, work ->
+                                Card(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { editedWorkIndex = index }
+                                            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = work.name,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            if (!work.notes.isNullOrBlank()) {
+                                                Text(
+                                                    text = work.notes,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = "₽%.2f".format(work.cost),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        IconButton(onClick = { viewModel.removeWorkItem(index) }) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = stringResource(R.string.delete),
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (state.workItems.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.work_items_total),
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Text(
+                                        text = "₽%.2f".format(state.workItems.totalCost()),
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 // Галочка гарантийного ремонта - только для REPAIR
@@ -557,7 +673,8 @@ fun AddBreakdownScreen(
                 } else {
                     state.addedParts.sumOf { it.price }
                 }
-                val totalCost = partsCostValue + (state.serviceCost.toDoubleOrNull() ?: 0.0)
+                val serviceCostValue = state.calculatedServiceCost ?: 0.0
+                val totalCost = partsCostValue + serviceCostValue
                 
                 if (totalCost > 0) {
                     Card(
@@ -584,7 +701,7 @@ fun AddBreakdownScreen(
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
-                            if (state.serviceCost.isNotBlank()) {
+                            if (serviceCostValue > 0) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
@@ -594,7 +711,7 @@ fun AddBreakdownScreen(
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        text = "₽%.2f".format(state.serviceCost.toDoubleOrNull() ?: 0.0),
+                                        text = "₽%.2f".format(serviceCostValue),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -668,13 +785,27 @@ fun AddBreakdownScreen(
                 if (index >= 0) viewModel.updatePart(index, part) else viewModel.addPart(part)
                 editedPartIndex = null
             },
-            onPhotoDiscarded = viewModel::onPartPhotoDiscarded
+            onPhotoDiscarded = viewModel::onPartPhotoDiscarded,
+            showVisibilityToggle = true
+        )
+    }
+
+    editedWorkIndex?.let { index ->
+        WorkItemDialog(
+            initial = state.workItems.getOrNull(index),
+            onDismiss = { editedWorkIndex = null },
+            onConfirm = { work ->
+                if (index >= 0) viewModel.updateWorkItem(index, work) else viewModel.addWorkItem(work)
+                editedWorkIndex = null
+            }
         )
     }
 
     if (showAddConsumableDialog) {
         AddConsumableDialog(
             availableCategories = availableCategories,
+            defaults = consumableDefaults,
+            onCategorySelected = viewModel::loadConsumableDefaults,
             onDismiss = { showAddConsumableDialog = false },
             onAdd = { consumable ->
                 val success = viewModel.addTemporaryConsumable(consumable)
@@ -691,12 +822,15 @@ fun AddBreakdownScreen(
 @Composable
 private fun AddConsumableDialog(
     availableCategories: List<String>,
+    defaults: ConsumableDefaults?,
+    onCategorySelected: (String) -> Unit,
     onDismiss: () -> Unit,
     onAdd: (TemporaryConsumable) -> Unit,
     errorMessage: String?
 ) {
     var category by remember { mutableStateOf("") }
     var categoryExpanded by remember { mutableStateOf(false) }
+    var customName by remember { mutableStateOf("") }
     var manufacturer by remember { mutableStateOf("") }
     var articleNumber by remember { mutableStateOf("") }
     var cost by remember { mutableStateOf("") }
@@ -704,10 +838,32 @@ private fun AddConsumableDialog(
     var replacementIntervalMileage by remember { mutableStateOf("") }
     var replacementIntervalDays by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
-    
+
+    // Интервалы и объём подставляются по категории — как в отдельной форме расходника,
+    // где они берутся из настроек пользователя или из дефолтов категории
+    LaunchedEffect(defaults) {
+        val prefill = defaults ?: return@LaunchedEffect
+        if (prefill.category != category) return@LaunchedEffect
+        replacementIntervalMileage = prefill.intervalMileage?.toString() ?: ""
+        replacementIntervalDays = prefill.intervalDays?.toString() ?: ""
+        volume = prefill.volume?.toString() ?: ""
+    }
+
+    val needsCustomName = ConsumableFormRules.requiresCustomName(category)
+    val needsVolume = ConsumableFormRules.requiresVolume(category)
+    val hasReminders = ConsumableFormRules.supportsReminders(category)
+    val canAdd = ConsumableFormRules.canAdd(
+        category = category,
+        customName = customName,
+        cost = cost,
+        volume = volume,
+        intervalMileage = replacementIntervalMileage,
+        intervalDays = replacementIntervalDays
+    )
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Добавить расходник для ТО") },
+        title = { Text(stringResource(R.string.to_consumable_dialog_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -728,7 +884,7 @@ private fun AddConsumableDialog(
                         )
                     }
                 }
-                
+
                 // Dropdown для категории
                 ExposedDropdownMenuBox(
                     expanded = categoryExpanded,
@@ -738,84 +894,113 @@ private fun AddConsumableDialog(
                         value = category,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Категория *") },
+                        label = { Text(stringResource(R.string.to_consumable_category)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                         isError = errorMessage != null && category.isBlank(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor()
                     )
-                    
+
                     ExposedDropdownMenu(
                         expanded = categoryExpanded,
                         onDismissRequest = { categoryExpanded = false }
                     ) {
-                        availableCategories.forEach { cat ->
+                        // «Другое» идёт последним: это не категория, а разовая позиция
+                        (availableCategories + ConsumableCategories.OTHER).forEach { cat ->
                             DropdownMenuItem(
                                 text = { Text(cat) },
                                 onClick = {
                                     category = cat
                                     categoryExpanded = false
+                                    onCategorySelected(cat)
                                 }
                             )
                         }
                     }
                 }
-                
+
+                if (needsCustomName) {
+                    OutlinedTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        label = { Text(stringResource(R.string.to_consumable_custom_name)) },
+                        singleLine = true,
+                        isError = errorMessage != null && customName.isBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        text = stringResource(R.string.to_consumable_other_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 OutlinedTextField(
                     value = manufacturer,
                     onValueChange = { manufacturer = it },
-                    label = { Text("Производитель") },
+                    label = { Text(stringResource(R.string.to_consumable_manufacturer)) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 OutlinedTextField(
                     value = articleNumber,
                     onValueChange = { articleNumber = it },
-                    label = { Text("Артикул") },
+                    label = { Text(stringResource(R.string.to_consumable_article)) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 OutlinedTextField(
                     value = cost,
                     onValueChange = { cost = it },
-                    label = { Text("Стоимость *") },
+                    label = { Text(stringResource(R.string.to_consumable_cost)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
-                    isError = cost.isBlank() || cost.toDoubleOrNull() == null
+                    isError = cost.isNotBlank() && cost.toDoubleOrNull() == null
                 )
-                
-                OutlinedTextField(
-                    value = volume,
-                    onValueChange = { volume = it },
-                    label = { Text("Объем (л) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = volume.isBlank() || volume.toDoubleOrNull() == null
-                )
-                
-                OutlinedTextField(
-                    value = replacementIntervalMileage,
-                    onValueChange = { replacementIntervalMileage = it },
-                    label = { Text("Интервал замены (км) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = replacementIntervalMileage.isBlank() || replacementIntervalMileage.toIntOrNull() == null
-                )
-                
-                OutlinedTextField(
-                    value = replacementIntervalDays,
-                    onValueChange = { replacementIntervalDays = it },
-                    label = { Text("Интервал замены (дней) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = replacementIntervalDays.isBlank() || replacementIntervalDays.toIntOrNull() == null
-                )
-                
+
+                // Объём — только у жидкостей: у фильтра или колодок литров не бывает
+                if (needsVolume) {
+                    OutlinedTextField(
+                        value = volume,
+                        onValueChange = { volume = it },
+                        label = { Text(stringResource(R.string.to_consumable_volume)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = volume.isNotBlank() && volume.toDoubleOrNull() == null
+                    )
+                }
+
+                // У разовой позиции «Другое» замен по расписанию не бывает
+                if (hasReminders) {
+                    OutlinedTextField(
+                        value = replacementIntervalMileage,
+                        onValueChange = { replacementIntervalMileage = it },
+                        label = { Text(stringResource(R.string.to_consumable_interval_mileage)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = replacementIntervalDays,
+                        onValueChange = { replacementIntervalDays = it },
+                        label = { Text(stringResource(R.string.to_consumable_interval_days)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        text = stringResource(R.string.to_consumable_interval_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Заметки") },
+                    label = { Text(stringResource(R.string.to_consumable_notes)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
@@ -824,39 +1009,34 @@ private fun AddConsumableDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (category.isNotBlank() && 
-                        cost.isNotBlank() && cost.toDoubleOrNull() != null &&
-                        volume.isNotBlank() && volume.toDoubleOrNull() != null &&
-                        replacementIntervalMileage.isNotBlank() && replacementIntervalMileage.toIntOrNull() != null &&
-                        replacementIntervalDays.isNotBlank() && replacementIntervalDays.toIntOrNull() != null) {
+                    if (canAdd) {
                         onAdd(
                             TemporaryConsumable(
                                 category = category,
+                                customName = customName.trim().ifBlank { null },
                                 manufacturer = manufacturer.ifBlank { null },
                                 articleNumber = articleNumber.ifBlank { null },
                                 cost = cost.toDoubleOrNull(),
                                 isInstalledAtService = false,
                                 serviceCost = null,
-                                volume = volume.toDoubleOrNull(),
-                                replacementIntervalMileage = replacementIntervalMileage.toIntOrNull(),
-                                replacementIntervalDays = replacementIntervalDays.toIntOrNull(),
+                                volume = if (needsVolume) volume.toDoubleOrNull() else null,
+                                replacementIntervalMileage =
+                                    if (hasReminders) replacementIntervalMileage.toIntOrNull() else null,
+                                replacementIntervalDays =
+                                    if (hasReminders) replacementIntervalDays.toIntOrNull() else null,
                                 notes = notes.ifBlank { null }
                             )
                         )
                     }
                 },
-                enabled = category.isNotBlank() && 
-                         cost.isNotBlank() && cost.toDoubleOrNull() != null &&
-                         volume.isNotBlank() && volume.toDoubleOrNull() != null &&
-                         replacementIntervalMileage.isNotBlank() && replacementIntervalMileage.toIntOrNull() != null &&
-                         replacementIntervalDays.isNotBlank() && replacementIntervalDays.toIntOrNull() != null
+                enabled = canAdd
             ) {
-                Text("Добавить")
+                Text(stringResource(R.string.add))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

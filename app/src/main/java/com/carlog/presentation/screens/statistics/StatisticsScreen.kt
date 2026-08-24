@@ -137,6 +137,10 @@ fun StatisticsScreen(
                                 statistics = uiState.statistics.fuel,
                                 selectedPeriod = uiState.selectedPeriod,
                                 specificMonth = uiState.specificMonth,
+                                fuelResetPending = uiState.fuelResetPending,
+                                onRequestFuelReset = viewModel::requestFuelConsumptionReset,
+                                onCancelFuelReset = viewModel::cancelFuelConsumptionReset,
+                                onClearFuelReset = viewModel::clearFuelConsumptionReset,
                                 modifier = Modifier.fillMaxSize()
                             )
                             2 -> RepairsStatisticsTab(

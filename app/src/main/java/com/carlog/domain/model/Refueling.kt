@@ -30,6 +30,9 @@ data class Refueling(
     val isFullTank: Boolean = true,
     val stationName: String? = null,
     val fuelConsumption: Double? = null, // л/100км (auto-calculated)
+    // Точка отсчёта расхода: перед этой заправкой была пропущенная — всё, что до неё,
+    // в средний расход не идёт, и цепочка «от полного бака к полному» начинается заново
+    val isConsumptionResetPoint: Boolean = false,
     val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

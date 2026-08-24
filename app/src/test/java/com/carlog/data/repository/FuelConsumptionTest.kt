@@ -27,7 +27,8 @@ class FuelConsumptionTest {
         mileage: Int,
         liters: Double,
         isFullTank: Boolean,
-        consumption: Double? = null
+        consumption: Double? = null,
+        isResetPoint: Boolean = false
     ) = Refueling(
         id = id,
         carId = 1,
@@ -36,7 +37,8 @@ class FuelConsumptionTest {
         liters = liters,
         fuelType = "АИ-95",
         isFullTank = isFullTank,
-        fuelConsumption = consumption
+        fuelConsumption = consumption,
+        isConsumptionResetPoint = isResetPoint
     )
 
     private suspend fun recalculate(refuelings: List<Refueling>): List<Refueling> {
@@ -112,6 +114,50 @@ class FuelConsumptionTest {
 
         val second = updated.single { it.id == 2L }
         assertNull("деления на ноль быть не должно", second.fuelConsumption)
+    }
+
+    @Test
+    fun `у точки отсчёта своего расхода нет — до неё была пропущенная заправка`() = runTest {
+        val updated = recalculate(
+            listOf(
+                refueling(1, 100_000, 40.0, isFullTank = true),
+                // Пропуск: между 100 000 и 101 000 была незаписанная заправка
+                refueling(2, 101_000, 45.0, isFullTank = true, consumption = 4.5, isResetPoint = true)
+            )
+        )
+
+        val resetPoint = updated.single { it.id == 2L }
+        assertNull("расход считать не из чего", resetPoint.fuelConsumption)
+    }
+
+    @Test
+    fun `после точки отсчёта расход считается заново`() = runTest {
+        val updated = recalculate(
+            listOf(
+                refueling(1, 100_000, 40.0, isFullTank = true),
+                refueling(2, 101_000, 45.0, isFullTank = true, isResetPoint = true),
+                refueling(3, 101_500, 45.0, isFullTank = true)
+            )
+        )
+
+        // 45 л на 500 км от новой точки отсчёта = 9 л/100км
+        val third = updated.single { it.id == 3L }
+        assertEquals(9.0, third.fuelConsumption!!, 0.0001)
+    }
+
+    @Test
+    fun `литры частичных заправок до точки отсчёта в новый расчёт не идут`() = runTest {
+        val updated = recalculate(
+            listOf(
+                refueling(1, 100_000, 40.0, isFullTank = true),
+                refueling(2, 100_800, 10.0, isFullTank = false),
+                refueling(3, 101_000, 45.0, isFullTank = true, isResetPoint = true),
+                refueling(4, 101_500, 45.0, isFullTank = true)
+            )
+        )
+
+        val fourth = updated.single { it.id == 4L }
+        assertEquals("частичные 10 л остались до точки отсчёта", 9.0, fourth.fuelConsumption!!, 0.0001)
     }
 
     @Test

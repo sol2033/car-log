@@ -1,6 +1,7 @@
 package com.carlog.data.local
 
 import androidx.room.TypeConverter
+import com.carlog.domain.model.WorkItem
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -29,6 +30,20 @@ class Converters {
     fun toLongList(value: String?): List<Long>? {
         return value?.let {
             val type = object : TypeToken<List<Long>>() {}.type
+            gson.fromJson(it, type)
+        }
+    }
+
+    // Работы обслуживания живут внутри его же строки: отдельного раздела у них нет
+    @TypeConverter
+    fun fromWorkItemList(value: List<WorkItem>?): String? {
+        return value?.let { gson.toJson(it) }
+    }
+
+    @TypeConverter
+    fun toWorkItemList(value: String?): List<WorkItem>? {
+        return value?.let {
+            val type = object : TypeToken<List<WorkItem>>() {}.type
             gson.fromJson(it, type)
         }
     }

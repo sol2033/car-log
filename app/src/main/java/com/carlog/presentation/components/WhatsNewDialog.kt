@@ -55,43 +55,31 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
             ) {
                 Text(
                     item(
-                        stringResource(R.string.whats_new_mileage_title),
-                        stringResource(R.string.whats_new_mileage_body)
+                        stringResource(R.string.whats_new_fuel_reset_title),
+                        stringResource(R.string.whats_new_fuel_reset_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_data_check_title),
-                        stringResource(R.string.whats_new_data_check_body)
+                        stringResource(R.string.whats_new_works_title),
+                        stringResource(R.string.whats_new_works_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_event_parts_title),
-                        stringResource(R.string.whats_new_event_parts_body)
+                        stringResource(R.string.whats_new_to_consumables_title),
+                        stringResource(R.string.whats_new_to_consumables_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_editing_title),
-                        stringResource(R.string.whats_new_editing_body)
+                        stringResource(R.string.whats_new_hidden_parts_title),
+                        stringResource(R.string.whats_new_hidden_parts_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    item(
-                        stringResource(R.string.whats_new_statistics_title),
-                        stringResource(R.string.whats_new_statistics_body)
-                    ),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = stringResource(R.string.whats_new_broken_parts_warning),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },

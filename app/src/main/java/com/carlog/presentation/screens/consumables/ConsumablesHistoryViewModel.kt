@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.repository.ConsumableRepository
+import com.carlog.domain.model.ConsumableCategories
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -31,8 +32,13 @@ class ConsumablesHistoryViewModel @Inject constructor(
     private fun loadCategories() {
         consumableRepository.getActiveConsumablesByCarId(carId)
             .map { consumables ->
-                // Получаем уникальные категории из активных расходников
-                val categories = consumables.map { it.category }.distinct().sorted()
+                // Получаем уникальные категории из активных расходников.
+                // Разовые позиции «Другое» историей замен не обладают — пропускаем
+                val categories = consumables
+                    .map { it.category }
+                    .filter { it != ConsumableCategories.OTHER }
+                    .distinct()
+                    .sorted()
                 ConsumablesHistoryState(
                     categories = categories,
                     isLoading = false

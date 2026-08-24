@@ -37,13 +37,26 @@ interface RefuelingDao {
     @Query("SELECT SUM(liters) FROM refuelings WHERE carId = :carId")
     fun getTotalLitersByCarId(carId: Long): Flow<Double?>
     
-    @Query("SELECT AVG(fuelConsumption) FROM refuelings WHERE carId = :carId AND fuelConsumption IS NOT NULL")
+    // Средний расход в сводке списка заправок: если назначена точка отсчёта (была пропущена
+    // заправка), записи до неё в среднее не идут — иначе список и статистика разошлись бы
+    @Query("""
+        SELECT AVG(fuelConsumption) FROM refuelings
+        WHERE carId = :carId AND fuelConsumption IS NOT NULL
+        AND mileage >= COALESCE(
+            (SELECT MAX(mileage) FROM refuelings WHERE carId = :carId AND isConsumptionResetPoint = 1),
+            0
+        )
+    """)
     fun getAverageConsumptionByCarId(carId: Long): Flow<Double?>
     
     // Для пересчёта расхода: порядок по пробегу — это ось дистанции,
     // date/id разруливают записи с одинаковым пробегом
     @Query("SELECT * FROM refuelings WHERE carId = :carId ORDER BY mileage ASC, date ASC, id ASC")
     suspend fun getRefuelingsByCarIdSortedByMileageOnce(carId: Long): List<Refueling>
+
+    // Снимает точку отсчёта расхода: средний расход снова считается по всей истории
+    @Query("UPDATE refuelings SET isConsumptionResetPoint = 0, updatedAt = :updatedAt WHERE carId = :carId AND isConsumptionResetPoint = 1")
+    suspend fun clearConsumptionResetPoints(carId: Long, updatedAt: Long)
 
     @Query("SELECT DISTINCT carId FROM refuelings")
     suspend fun getCarIdsWithRefuelings(): List<Long>

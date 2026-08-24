@@ -9,6 +9,7 @@ import com.carlog.data.local.repair.EventPartLinkRepair
 import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Car
+import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.Part
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
@@ -170,6 +171,9 @@ class DataIntegrityChecker @Inject constructor(
         consumables: List<com.carlog.domain.model.Consumable>
     ): List<IntegrityFinding> = consumables
         .filter { it.isActive }
+        // «Другое» — не категория, а разовые позиции ТО: их у машины законно много,
+        // цепочки замен они не образуют и дубликатами не считаются
+        .filter { it.category != ConsumableCategories.OTHER }
         .groupBy { it.category }
         .filter { (_, items) -> items.size > 1 }
         .map { (category, items) ->

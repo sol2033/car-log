@@ -97,6 +97,10 @@ class PartsViewModel @Inject constructor(
                             parts.filter { it.maintenanceType == "MODIFICATION" }
                         }
                     }.map { parts ->
+                        // Позиции, скрытые в форме события (мелочь вроде прокладок), в модуле
+                        // не показываем: их стоимость всё равно учтена в стоимости события
+                        parts.filter { it.showInPartsList }
+                    }.map { parts ->
                         val sortedParts = when (sort) {
                             PartSortOrder.ByInstallDate -> {
                                 if (direction == SortDirection.DESCENDING) {

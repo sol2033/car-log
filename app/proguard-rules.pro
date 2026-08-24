@@ -16,3 +16,8 @@
 -keep class com.google.gson.reflect.TypeToken { *; }
 -keep class * extends com.google.gson.reflect.TypeToken
 -dontwarn sun.misc.Unsafe
+
+# WorkItem — единственная собственная модель, уходящая в JSON (Breakdown.workItems).
+# Gson пишет и читает её по именам полей: без keep R8 переименует name/cost/notes,
+# и работы, сохранённые прежней сборкой, перестанут читаться после обновления.
+-keep class com.carlog.domain.model.WorkItem { *; }

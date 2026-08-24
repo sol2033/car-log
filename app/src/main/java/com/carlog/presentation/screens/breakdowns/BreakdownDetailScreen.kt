@@ -21,6 +21,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
 import com.carlog.domain.model.Breakdown
+import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.totalCost
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -77,6 +79,7 @@ fun BreakdownDetailScreen(
             is BreakdownDetailUiState.Success -> {
                 BreakdownDetailContent(
                     breakdown = state.breakdown,
+                    consumables = state.consumables,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -128,6 +131,7 @@ fun BreakdownDetailScreen(
 @Composable
 private fun BreakdownDetailContent(
     breakdown: Breakdown,
+    consumables: List<Consumable>,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -235,6 +239,75 @@ private fun BreakdownDetailContent(
             }
         }
         
+        // Расходники ТО: то, что было добавлено в форме обслуживания
+        if (consumables.isNotEmpty()) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.breakdown_consumables_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    consumables.forEach { consumable ->
+                        InfoRow(
+                            label = consumable.customName ?: consumable.category,
+                            value = "₽%.2f".format(consumable.cost ?: 0.0)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Работы: расписаны отдельными позициями с ценами
+        val workItems = breakdown.workItems
+        if (!workItems.isNullOrEmpty()) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.breakdown_works_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    workItems.forEach { work ->
+                        InfoRow(
+                            label = work.name,
+                            value = "₽%.2f".format(work.cost)
+                        )
+                        if (!work.notes.isNullOrBlank()) {
+                            Text(
+                                text = work.notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    InfoRow(
+                        label = stringResource(R.string.work_items_total),
+                        value = "₽%.2f".format(workItems.totalCost()),
+                        labelStyle = MaterialTheme.typography.titleSmall,
+                        valueStyle = MaterialTheme.typography.titleSmall
+                    )
+                }
+            }
+        }
+
         // Cost Information
         ElevatedCard(
             modifier = Modifier.fillMaxWidth()

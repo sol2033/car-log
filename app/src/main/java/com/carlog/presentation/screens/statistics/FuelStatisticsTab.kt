@@ -3,11 +3,16 @@ package com.carlog.presentation.screens.statistics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.carlog.R
 import com.carlog.domain.model.FuelStatistics
 import com.carlog.domain.model.StatisticsPeriod
 import com.carlog.presentation.screens.statistics.charts.*
@@ -77,6 +82,10 @@ fun FuelStatisticsTab(
     statistics: FuelStatistics?,
     selectedPeriod: StatisticsPeriod,
     specificMonth: YearMonth?,
+    fuelResetPending: Boolean,
+    onRequestFuelReset: () -> Unit,
+    onCancelFuelReset: () -> Unit,
+    onClearFuelReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (statistics == null) {
@@ -115,6 +124,31 @@ fun FuelStatisticsTab(
         
         // Statistics for each fuel type
         statistics.fuelTypes.forEach { fuelTypeStats ->
+            var showResetDialog by remember { mutableStateOf(false) }
+
+            if (showResetDialog) {
+                AlertDialog(
+                    onDismissRequest = { showResetDialog = false },
+                    title = { Text(stringResource(R.string.fuel_reset_dialog_title)) },
+                    text = { Text(stringResource(R.string.fuel_reset_dialog_message)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showResetDialog = false
+                                onRequestFuelReset()
+                            }
+                        ) {
+                            Text(stringResource(R.string.fuel_reset_dialog_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showResetDialog = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
+                )
+            }
+
             // Fuel Type Card with Metrics and Charts
             Card(
                 modifier = Modifier.fillMaxWidth()
@@ -131,20 +165,41 @@ fun FuelStatisticsTab(
                     
                     // Key Metrics for this fuel type
                     Column {
-                        MetricRow(
-                            label = "Средний расход",
-                            value = if (fuelTypeStats.averageConsumption > 0) 
-                                "${formatNumber(fuelTypeStats.averageConsumption)} л/100км" 
-                            else "—"
-                        )
-                        if (fuelTypeStats.averageConsumption == 0.0) {
-                            Text(
-                                text = "Добавьте минимум 2 заправки",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                MetricRow(
+                                    label = "Средний расход",
+                                    value = if (fuelTypeStats.averageConsumption > 0)
+                                        "${formatNumber(fuelTypeStats.averageConsumption)} л/100км"
+                                    else "—"
+                                )
+                            }
+                            // Пропущенная заправка сбивает средний расход навсегда:
+                            // отсюда пользователь назначает новую точку отсчёта
+                            IconButton(
+                                onClick = { showResetDialog = true },
+                                modifier = Modifier
+                                    .padding(start = 4.dp)
+                                    .size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.RestartAlt,
+                                    contentDescription = stringResource(R.string.fuel_reset_action),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
+
+                        FuelConsumptionResetHint(
+                            hasConsumption = fuelTypeStats.averageConsumption > 0,
+                            resetPending = fuelResetPending,
+                            consumptionSince = statistics.consumptionSince,
+                            onCancelPending = onCancelFuelReset,
+                            onClearReset = onClearFuelReset
+                        )
                     }
                     
                     MetricRow(
@@ -255,5 +310,71 @@ fun FuelStatisticsTab(
             }
         }
         
+    }
+}
+
+/**
+ * Подсказка под средним расходом: чего не хватает для расчёта и с какого момента он идёт.
+ * Точка отсчёта — общая для машины, поэтому и запрос, и отмена действуют на все типы топлива.
+ */
+@Composable
+private fun FuelConsumptionResetHint(
+    hasConsumption: Boolean,
+    resetPending: Boolean,
+    consumptionSince: LocalDate?,
+    onCancelPending: () -> Unit,
+    onClearReset: () -> Unit
+) {
+    if (!hasConsumption) {
+        Text(
+            text = if (consumptionSince != null) {
+                stringResource(R.string.fuel_reset_need_more)
+            } else {
+                stringResource(R.string.fuel_need_two_refuelings)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+        )
+    }
+
+    val (hint, actionLabel, action) = when {
+        resetPending -> Triple(
+            stringResource(R.string.fuel_reset_pending),
+            stringResource(R.string.fuel_reset_pending_cancel),
+            onCancelPending
+        )
+        consumptionSince != null -> Triple(
+            stringResource(
+                R.string.fuel_reset_active,
+                consumptionSince.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            ),
+            stringResource(R.string.fuel_reset_undo),
+            onClearReset
+        )
+        else -> return
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp, top = 2.dp)
+        )
+        TextButton(
+            onClick = action,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+        ) {
+            Text(
+                text = actionLabel,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }

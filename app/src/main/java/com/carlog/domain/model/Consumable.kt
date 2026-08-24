@@ -22,6 +22,9 @@ data class Consumable(
     val id: Long = 0,
     val carId: Long,
     val category: String, // "Масло в двигателе", "Фильтр масляный", etc.
+    // Название позиции категории «Другое» (герметик, хомуты): у неё нет ни интервалов,
+    // ни напоминаний, и в модуле «Расходники» она не показывается
+    val customName: String? = null,
     val manufacturer: String?, // Производитель
     val articleNumber: String?, // Артикул
     val installationMileage: Int, // Пробег установки

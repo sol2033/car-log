@@ -32,6 +32,9 @@ data class Breakdown(
     val brokenPartName: String? = null,
     val installedPartIds: List<Long>? = null,
     val partsCost: Double,
+    // Список работ сервиса с ценами; null — стоимость работ введена одной суммой.
+    // serviceCost при заполненном списке равен сумме его стоимостей
+    val workItems: List<WorkItem>? = null,
     val serviceCost: Double? = null,
     val totalCost: Double,
     val isWarrantyRepair: Boolean = false,

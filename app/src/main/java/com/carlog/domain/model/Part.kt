@@ -38,6 +38,9 @@ data class Part(
     val mileageDriven: Int? = null,
     val notes: String? = null,
     val maintenanceType: String? = null, // "REPAIR", "SCHEDULED_SERVICE", "MODIFICATION"
+    // Показывать ли запись в модуле «Запчасти». Мелочь вроде прокладок можно скрыть:
+    // стоимость и привязка к событию сохраняются, из списка запчастей запись пропадает
+    val showInPartsList: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

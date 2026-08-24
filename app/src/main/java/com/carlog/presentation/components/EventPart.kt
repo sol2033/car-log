@@ -9,6 +9,8 @@ package com.carlog.presentation.components
  * они берутся из события, иначе разойдутся с ним, а стоимость работ ещё и задвоилась бы
  * с собственной «стоимостью работ сервиса» события.
  *
+ * @property showInPartsList показывать ли запись в модуле «Запчасти»: мелочь вроде прокладок
+ * можно оставить только внутри события — стоимость и привязка при этом сохраняются.
  * @property partId id уже сохранённой записи (при редактировании события); null — ещё не создана.
  * @property photosPaths файлы уже скопированы в хранилище, поэтому при отказе от события
  * их нужно чистить — см. [orphanPhotosToDelete].
@@ -20,6 +22,7 @@ data class EventPart(
     val price: Double,
     val notes: String = "",
     val photosPaths: List<String> = emptyList(),
+    val showInPartsList: Boolean = true,
     val partId: Long? = null
 )
 

@@ -28,5 +28,8 @@ data class Car(
     val photosPaths: List<String>?,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    // Пользователь запросил новый отсчёт расхода топлива: следующая добавленная
+    // заправка станет точкой отсчёта (см. Refueling.isConsumptionResetPoint)
+    val fuelResetPending: Boolean = false
 )

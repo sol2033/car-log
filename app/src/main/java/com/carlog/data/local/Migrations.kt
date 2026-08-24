@@ -445,3 +445,37 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         )
     }
 }
+
+/**
+ * Новый отсчёт среднего расхода топлива: пропущенная заправка навсегда сбивала среднее,
+ * теперь пользователь может назначить новую точку отсчёта (§4.5 бизнес-логики).
+ *
+ * `refuelings.isConsumptionResetPoint` — заправка, с которой расход считается заново;
+ * `cars.fuelResetPending` — запрос пользователя: точкой отсчёта станет следующая заправка.
+ */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE refuelings ADD COLUMN isConsumptionResetPoint INTEGER NOT NULL DEFAULT 0"
+        )
+        db.execSQL(
+            "ALTER TABLE cars ADD COLUMN fuelResetPending INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}
+
+/**
+ * Расходники «Другое» в ТО, список работ с ценами и скрытие мелочи из модуля «Запчасти».
+ *
+ * `consumables.customName` — название позиции категории «Другое»;
+ * `breakdowns.workItems` — JSON-список работ (сумма их стоимостей лежит в `serviceCost`);
+ * `parts.showInPartsList` — показывать ли запчасть в модуле «Запчасти» (по умолчанию да,
+ * поведение существующих записей не меняется).
+ */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE consumables ADD COLUMN customName TEXT")
+        db.execSQL("ALTER TABLE breakdowns ADD COLUMN workItems TEXT")
+        db.execSQL("ALTER TABLE parts ADD COLUMN showInPartsList INTEGER NOT NULL DEFAULT 1")
+    }
+}

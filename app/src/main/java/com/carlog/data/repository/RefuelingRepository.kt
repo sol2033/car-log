@@ -66,6 +66,9 @@ class RefuelingRepository @Inject constructor(
      * полного бака) / (пробег текущего − пробег предыдущего полного) × 100.
      *
      * У частичных заправок и у первого полного бака (нет точки отсчёта) расход = null.
+     * Заправка с `isConsumptionResetPoint` рвёт цепочку: перед ней была пропущенная
+     * заправка, поэтому её собственный расход посчитать не из чего, а отсчёт начинается
+     * с неё заново (§4.5 бизнес-логики).
      * Вызывается после каждой мутации заправок: это чинит и соседние записи
      * (например, при добавлении заправки задним числом или удалении промежуточной).
      */
@@ -77,6 +80,12 @@ class RefuelingRepository @Inject constructor(
         var partialLitersSinceFullTank = 0.0
 
         for (refueling in refuelings) {
+            if (refueling.isConsumptionResetPoint) {
+                // Всё, что было до пропущенной заправки, точкой отсчёта служить не может
+                previousFullTank = null
+                partialLitersSinceFullTank = 0.0
+            }
+
             if (refueling.isFullTank) {
                 var newConsumption: Double? = null
                 val previous = previousFullTank
@@ -104,6 +113,14 @@ class RefuelingRepository @Inject constructor(
         if (updated.isNotEmpty()) {
             refuelingDao.updateRefuelings(updated)
         }
+    }
+
+    /**
+     * Убирает точку отсчёта расхода: средний расход снова считается по всей истории.
+     * Расход соседних записей после этого меняется — пересчёт вызывает вызывающий код.
+     */
+    suspend fun clearConsumptionResetPoints(carId: Long) {
+        refuelingDao.clearConsumptionResetPoints(carId, System.currentTimeMillis())
     }
 
     /** Разовый пересчёт по всем машинам (миграция данных на новую формулу) */

@@ -74,6 +74,28 @@ class CarRepository @Inject constructor(
         carDao.updateMileage(carId, mileage, System.currentTimeMillis())
     }
     
+    /**
+     * Пользователь просит считать средний расход топлива заново (была пропущена заправка):
+     * точкой отсчёта станет следующая добавленная заправка (§4.5 бизнес-логики).
+     */
+    suspend fun setFuelResetPending(carId: Long, pending: Boolean) {
+        carDao.setFuelResetPending(carId, pending)
+    }
+
+    suspend fun isFuelResetPending(carId: Long): Boolean {
+        return carDao.getCarByIdOnce(carId)?.fuelResetPending == true
+    }
+
+    /**
+     * Забирает запрос нового отсчёта: возвращает true, если он был, и сразу снимает флаг —
+     * точкой отсчёта становится ровно одна заправка, та, что добавляется сейчас.
+     */
+    suspend fun consumeFuelResetPending(carId: Long): Boolean {
+        if (!isFuelResetPending(carId)) return false
+        carDao.setFuelResetPending(carId, false)
+        return true
+    }
+
     suspend fun getCarsCount(): Int {
         return carDao.getCarsCount()
     }

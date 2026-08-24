@@ -6,23 +6,32 @@ import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.BreakdownRepository
 import com.carlog.data.repository.CarRepository
+import com.carlog.data.repository.ConsumableRepository
 import com.carlog.domain.model.Breakdown
+import com.carlog.domain.model.Consumable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 sealed class BreakdownDetailUiState {
     object Loading : BreakdownDetailUiState()
-    data class Success(val breakdown: Breakdown) : BreakdownDetailUiState()
+    data class Success(
+        val breakdown: Breakdown,
+        // Расходники, созданные этим ТО: в форме после сохранения они не редактируются,
+        // поэтому карточка обслуживания — единственное место, где их видно
+        val consumables: List<Consumable> = emptyList()
+    ) : BreakdownDetailUiState()
     data class Error(val message: String) : BreakdownDetailUiState()
 }
 
 @HiltViewModel
 class BreakdownDetailViewModel @Inject constructor(
     private val breakdownRepository: BreakdownRepository,
+    private val consumableRepository: ConsumableRepository,
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
@@ -42,13 +51,18 @@ class BreakdownDetailViewModel @Inject constructor(
     private fun loadBreakdown(breakdownId: Long) {
         viewModelScope.launch {
             try {
-                breakdownRepository.getBreakdownById(breakdownId).collect { breakdown ->
-                    if (breakdown != null) {
-                        _uiState.value = BreakdownDetailUiState.Success(breakdown)
-                    } else {
-                        _uiState.value = BreakdownDetailUiState.Error("Поломка не найдена")
+                combine(
+                    breakdownRepository.getBreakdownById(breakdownId),
+                    consumableRepository.getConsumablesByMaintenanceId(breakdownId)
+                ) { breakdown, consumables -> breakdown to consumables }
+                    .collect { (breakdown, consumables) ->
+                        if (breakdown != null) {
+                            _uiState.value =
+                                BreakdownDetailUiState.Success(breakdown, consumables)
+                        } else {
+                            _uiState.value = BreakdownDetailUiState.Error("Поломка не найдена")
+                        }
                     }
-                }
             } catch (e: Exception) {
                 _uiState.value = BreakdownDetailUiState.Error(e.message ?: "Неизвестная ошибка")
             }

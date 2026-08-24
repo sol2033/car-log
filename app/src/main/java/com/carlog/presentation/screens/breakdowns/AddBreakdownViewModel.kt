@@ -12,8 +12,11 @@ import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
+import com.carlog.domain.model.ConsumableFormRules
 import com.carlog.domain.model.MaintenanceType
 import com.carlog.domain.model.Part
+import com.carlog.domain.model.WorkItem
+import com.carlog.domain.model.totalCost
 import com.carlog.presentation.components.EventPart
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.util.FileHelper
@@ -28,6 +31,8 @@ import javax.inject.Inject
 // Временная структура для расходника до сохранения в БД
 data class TemporaryConsumable(
     val category: String,
+    // Название позиции категории «Другое»; у обычных категорий null
+    val customName: String? = null,
     val manufacturer: String?,
     val articleNumber: String?,
     val cost: Double?,
@@ -47,6 +52,7 @@ data class TemporaryConsumable(
         return Consumable(
             carId = carId,
             category = category,
+            customName = customName,
             manufacturer = manufacturer,
             articleNumber = articleNumber,
             installationMileage = installationMileage,
@@ -68,6 +74,14 @@ data class TemporaryConsumable(
     }
 }
 
+/** Подстановки для диалога расходника ТО: интервалы и объём выбранной категории */
+data class ConsumableDefaults(
+    val category: String,
+    val intervalMileage: Int?,
+    val intervalDays: Int?,
+    val volume: Double?
+)
+
 data class AddBreakdownState(
     val carId: Long = 0,
     val breakdownId: Long? = null,
@@ -84,6 +98,9 @@ data class AddBreakdownState(
     val addedParts: List<EventPart> = emptyList(),
     val temporaryConsumables: List<TemporaryConsumable> = emptyList(),
     val serviceCost: String = "",
+    // Работы сервиса списком: false — стоимость работ введена одной суммой
+    val useGeneralServiceCost: Boolean = true,
+    val workItems: List<WorkItem> = emptyList(),
     val serviceName: String = "",
     val serviceAddress: String = "",
     val notes: String = "",
@@ -111,6 +128,20 @@ data class AddBreakdownState(
 ) {
     val calculatedPartsCost: Double
         get() = temporaryConsumables.sumOf { it.cost ?: 0.0 }
+
+    /**
+     * Стоимость работ: в режиме списка её источник — сами работы, а не поле ввода.
+     *
+     * В режиме общей суммы поведение ровно прежнее — введённое значение сохраняется как есть,
+     * даже если галочка «в сервисе» снята. Иначе редактирование старой записи, у которой
+     * стоимость работ проставлена без этой галочки, молча обнулило бы её стоимость.
+     */
+    val calculatedServiceCost: Double?
+        get() = if (!useGeneralServiceCost) {
+            workItems.totalCost()
+        } else {
+            serviceCost.toDoubleOrNull()
+        }
     
     val isEditMode: Boolean
         get() = breakdownId != null
@@ -132,6 +163,9 @@ class AddBreakdownViewModel @Inject constructor(
     
     private val _availableCategories = MutableStateFlow<List<String>>(emptyList())
     val availableCategories: StateFlow<List<String>> = _availableCategories.asStateFlow()
+
+    private val _consumableDefaults = MutableStateFlow<ConsumableDefaults?>(null)
+    val consumableDefaults: StateFlow<ConsumableDefaults?> = _consumableDefaults.asStateFlow()
     
     init {
         val carId = savedStateHandle.get<Long>("carId") ?: 0L
@@ -209,6 +243,7 @@ class AddBreakdownViewModel @Inject constructor(
                                 price = part.price,
                                 notes = part.notes ?: "",
                                 photosPaths = part.photosPaths ?: emptyList(),
+                                showInPartsList = part.showInPartsList,
                                 partId = part.id
                             )
                         },
@@ -217,6 +252,8 @@ class AddBreakdownViewModel @Inject constructor(
                         touchedPartPhotos = linkedParts.flatMap { it.photosPaths ?: emptyList() }.toSet(),
                         originalBreakdown = breakdown,
                         serviceCost = breakdown.serviceCost?.toString() ?: "",
+                        workItems = breakdown.workItems ?: emptyList(),
+                        useGeneralServiceCost = breakdown.workItems.isNullOrEmpty(),
                         serviceName = breakdown.serviceName ?: "",
                         serviceAddress = breakdown.serviceAddress ?: "",
                         notes = breakdown.notes ?: "",
@@ -282,6 +319,28 @@ class AddBreakdownViewModel @Inject constructor(
         )
     }
     
+    fun toggleUseGeneralServiceCost(useGeneral: Boolean) {
+        _state.value = _state.value.copy(useGeneralServiceCost = useGeneral)
+    }
+
+    fun addWorkItem(item: WorkItem) {
+        _state.value = _state.value.copy(workItems = _state.value.workItems + item)
+    }
+
+    fun updateWorkItem(index: Int, item: WorkItem) {
+        val items = _state.value.workItems.toMutableList()
+        if (index !in items.indices) return
+        items[index] = item
+        _state.value = _state.value.copy(workItems = items)
+    }
+
+    fun removeWorkItem(index: Int) {
+        val items = _state.value.workItems.toMutableList()
+        if (index !in items.indices) return
+        items.removeAt(index)
+        _state.value = _state.value.copy(workItems = items)
+    }
+
     fun updateServiceCost(cost: String) {
         _state.value = _state.value.copy(serviceCost = cost)
     }
@@ -310,7 +369,7 @@ class AddBreakdownViewModel @Inject constructor(
     fun addTemporaryConsumable(consumable: TemporaryConsumable): Boolean {
         // Валидация: проверка уникальности категории
         val existingCategories = _state.value.temporaryConsumables.map { it.category }
-        if (existingCategories.contains(consumable.category)) {
+        if (ConsumableFormRules.isDuplicateCategory(existingCategories, consumable.category)) {
             _state.value = _state.value.copy(
                 consumablesError = "Расходник категории '${consumable.category}' уже добавлен"
             )
@@ -332,7 +391,7 @@ class AddBreakdownViewModel @Inject constructor(
         
         // Проверка уникальности категории (кроме текущего)
         val otherCategories = currentConsumables.filterIndexed { i, _ -> i != index }.map { it.category }
-        if (otherCategories.contains(consumable.category)) {
+        if (ConsumableFormRules.isDuplicateCategory(otherCategories, consumable.category)) {
             _state.value = _state.value.copy(
                 consumablesError = "Расходник категории '${consumable.category}' уже добавлен"
             )
@@ -406,6 +465,31 @@ class AddBreakdownViewModel @Inject constructor(
         _state.value = _state.value.copy(notes = notes)
     }
     
+    /**
+     * Интервалы и объём для выбранной категории: сначала настройки пользователя,
+     * затем дефолты категории. Раньше в диалоге ТО их приходилось вбивать руками,
+     * хотя в отдельной форме расходника подстановка уже работала.
+     */
+    fun loadConsumableDefaults(category: String) {
+        viewModelScope.launch {
+            if (!ConsumableFormRules.supportsReminders(category)) {
+                _consumableDefaults.value = ConsumableDefaults(category, null, null, null)
+                return@launch
+            }
+            val intervalMileage = consumablePreferences.getIntervalMileage(category).firstOrNull()
+                ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.first
+            val intervalDays = consumablePreferences.getIntervalDays(category).firstOrNull()
+                ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.second
+            val volume = if (ConsumableFormRules.requiresVolume(category)) {
+                consumablePreferences.getVolume(category).firstOrNull()
+            } else {
+                null
+            }
+            _consumableDefaults.value =
+                ConsumableDefaults(category, intervalMileage, intervalDays, volume)
+        }
+    }
+
     fun saveBreakdown() {
         val currentState = _state.value
 
@@ -471,7 +555,14 @@ class AddBreakdownViewModel @Inject constructor(
                     currentState.addedParts.sumOf { it.price }
                 }
                 
-                val serviceCost = currentState.serviceCost.toDoubleOrNull()
+                // В режиме списка стоимость работ — это их сумма; так «Услуги сервисов»
+                // в статистике продолжают считаться по serviceCost и задвоиться не могут
+                val serviceCost = currentState.calculatedServiceCost
+                val workItems = if (!currentState.useGeneralServiceCost) {
+                    currentState.workItems.ifEmpty { null }
+                } else {
+                    null
+                }
                 val totalCost = partsCost + (serviceCost ?: 0.0)
                 
                 // Создаем расходники в БД ТОЛЬКО для нового ТО (не при редактировании)
@@ -479,8 +570,11 @@ class AddBreakdownViewModel @Inject constructor(
                 if (currentState.maintenanceType == MaintenanceType.SCHEDULED_SERVICE && 
                     currentState.breakdownId == null) { // Только при создании нового ТО
                     
-                    // Перед созданием новых расходников, деактивируем старые в тех же категориях
+                    // Перед созданием новых расходников, деактивируем старые в тех же категориях.
+                    // Разовые позиции «Другое» пропускаем: они не образуют цепочку замен,
+                    // иначе новый герметик «заменял» бы прошлые хомуты — категория-то одна
                     for (tempConsumable in currentState.temporaryConsumables) {
+                        if (!ConsumableFormRules.supportsReminders(tempConsumable.category)) continue
                         // Находим расходники в этой категории
                         val consumablesInCategory = consumableRepository.getConsumablesByCategory(
                             currentState.carId, 
@@ -539,6 +633,7 @@ class AddBreakdownViewModel @Inject constructor(
                                     photosPaths = addedPart.photosPaths.ifEmpty { null },
                                     notes = addedPart.notes.ifBlank { null },
                                     maintenanceType = currentState.maintenanceType?.name,
+                                    showInPartsList = addedPart.showInPartsList,
                                     updatedAt = currentTime
                                 )
                             )
@@ -558,6 +653,7 @@ class AddBreakdownViewModel @Inject constructor(
                                 isBroken = false,
                                 notes = addedPart.notes.ifBlank { null },
                                 maintenanceType = currentState.maintenanceType?.name,
+                                showInPartsList = addedPart.showInPartsList,
                                 createdAt = currentTime,
                                 updatedAt = currentTime
                             )
@@ -596,6 +692,7 @@ class AddBreakdownViewModel @Inject constructor(
                         installedPartIds = if (addedPartIds.isNotEmpty()) addedPartIds else null,
                         isServiceMaintenance = currentState.isServiceMaintenance,
                         partsCost = partsCost,
+                        workItems = workItems,
                         serviceCost = serviceCost,
                         totalCost = totalCost,
                         isWarrantyRepair = currentState.isWarrantyRepair,
@@ -630,6 +727,7 @@ class AddBreakdownViewModel @Inject constructor(
                         linkedConsumableIds = if (linkedConsumableIds.isNotEmpty()) linkedConsumableIds else null,
                         isServiceMaintenance = currentState.isServiceMaintenance,
                         partsCost = partsCost,
+                        workItems = workItems,
                         serviceCost = serviceCost,
                         totalCost = totalCost,
                         isWarrantyRepair = currentState.isWarrantyRepair,

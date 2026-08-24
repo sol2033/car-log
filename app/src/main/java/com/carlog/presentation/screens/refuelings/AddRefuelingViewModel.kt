@@ -265,6 +265,9 @@ class AddRefuelingViewModel @Inject constructor(
                 val currentTime = System.currentTimeMillis()
 
                 if (existing == null) {
+                    // Если пользователь запросил новый отсчёт расхода — точкой отсчёта
+                    // становится эта заправка, и запрос считается исполненным
+                    val isResetPoint = carRepository.consumeFuelResetPending(carId)
                     refuelingRepository.insertRefueling(
                         Refueling(
                             carId = carId,
@@ -277,6 +280,7 @@ class AddRefuelingViewModel @Inject constructor(
                             isFullTank = _isFullTank.value,
                             stationName = _stationName.value.ifEmpty { null },
                             fuelConsumption = null, // заполнит пересчёт ниже
+                            isConsumptionResetPoint = isResetPoint,
                             notes = _notes.value.ifEmpty { null },
                             createdAt = currentTime,
                             updatedAt = currentTime

@@ -63,17 +63,14 @@
     <!-- Что нового -->
     <string name="whats_new_title">Что нового в %1$s</string>
     <string name="whats_new_confirm">Понятно</string>
-    <string name="whats_new_mileage_title">Пробег можно уменьшить</string>
-    <string name="whats_new_mileage_body">ручное обновление больше не отклоняет значение меньше текущего.</string>
-    <string name="whats_new_data_check_title">Проверка данных</string>
-    <string name="whats_new_data_check_body">новый экран в настройках: находит расхождения в записях и исправляет их на месте.</string>
-    <string name="whats_new_editing_title">Редактирование больше не теряет данные</string>
-    <string name="whats_new_editing_body">раньше при сохранении могли обнулиться стоимость ремонта ДТП, связь обслуживания с запчастями и отметка «сломана». Восстановимое исправлено автоматически, остальное покажет «Проверка данных». Плановое ТО снова редактируется.</string>
-    <string name="whats_new_event_parts_title">Запчасти в ремонте и ДТП</string>
-    <string name="whats_new_event_parts_body">в окне добавления появились производитель, артикул, заметки и фото, а добавленную позицию можно открыть и изменить.</string>
-    <string name="whats_new_statistics_title">Точнее и аккуратнее</string>
-    <string name="whats_new_statistics_body">в статистике нет двойного учёта запчастей из ДТП; способ установки запчасти следует галочке «В сервисе»; пробег записи не подменяется текущим при открытии.</string>
-    <string name="whats_new_broken_parts_warning">⚠️ Загляните в «Запчасти» → «Активные»: отметку «сломана» вернуть нечем.</string>
+    <string name="whats_new_fuel_reset_title">Расход топлива можно считать заново</string>
+    <string name="whats_new_fuel_reset_body">если заправку забыли внести, средний расход больше не остаётся сбитым навсегда: в статистике рядом со средним расходом появилась кнопка — отсчёт начнётся со следующей добавленной заправки. Сам расчёт стал точнее: бак первой заправки больше не завышает среднее.</string>
+    <string name="whats_new_works_title">Работы списком</string>
+    <string name="whats_new_works_body">в ремонте, ТО и тюнинге работы сервиса можно расписать по позициям с ценами — их сумма и станет стоимостью работ.</string>
+    <string name="whats_new_to_consumables_title">Расходники в ТО стали удобнее</string>
+    <string name="whats_new_to_consumables_body">объём спрашивается только у жидкостей, интервал замены достаточно указать один, а для разовой мелочи появилась категория «Другое» — в раздел «Расходники» она не попадёт. Расходники и работы теперь видны в карточке обслуживания.</string>
+    <string name="whats_new_hidden_parts_title">Не всё нужно в «Запчастях»</string>
+    <string name="whats_new_hidden_parts_body">у запчасти в ремонте и тюнинге появилась галочка видимости: мелочь вроде прокладок можно оставить только внутри записи, не забивая раздел. Её стоимость по-прежнему учитывается.</string>
 
     <!-- Проверка данных -->
     <string name="settings_data_section">Данные</string>
@@ -286,6 +283,45 @@
     <string name="select_month">Выбрать месяц...</string>
     <string name="select_month_and_year">Выберите месяц и год</string>
     <string name="select">Выбрать</string>
+    <!-- Расходники ТО, работы и видимость запчастей -->
+    <string name="to_consumable_dialog_title">Добавить расходник для ТО</string>
+    <string name="to_consumable_category">Категория *</string>
+    <string name="to_consumable_custom_name">Название *</string>
+    <string name="to_consumable_other_hint">Разовая позиция: в разделе «Расходники» не появится и о замене не напомнит, но войдёт в стоимость ТО.</string>
+    <string name="to_consumable_manufacturer">Производитель</string>
+    <string name="to_consumable_article">Артикул</string>
+    <string name="to_consumable_cost">Стоимость *</string>
+    <string name="to_consumable_volume">Объём (л) *</string>
+    <string name="to_consumable_interval_mileage">Интервал замены (км)</string>
+    <string name="to_consumable_interval_days">Интервал замены (дней)</string>
+    <string name="to_consumable_interval_hint">Достаточно одного интервала — по пробегу или по сроку.</string>
+    <string name="to_consumable_notes">Заметки</string>
+    <string name="general_service_cost">Общая стоимость работ</string>
+    <string name="specific_works_list">Список работ</string>
+    <string name="work_item_add_title">Добавить работу</string>
+    <string name="work_item_edit_title">Редактировать работу</string>
+    <string name="work_item_name">Название работы *</string>
+    <string name="work_item_cost">Стоимость *</string>
+    <string name="work_item_notes">Заметки</string>
+    <string name="work_item_hint">Работы учитываются только внутри этой записи; их сумма и есть стоимость работ.</string>
+    <string name="work_items_total">Итого работ</string>
+    <string name="breakdown_works_title">Работы</string>
+    <string name="breakdown_consumables_title">Расходники</string>
+    <string name="event_part_show_in_list">Показывать в разделе «Запчасти»</string>
+    <string name="event_part_hidden_hint">Запись останется в этом событии и в его стоимости, но в списке запчастей не появится.</string>
+    <!-- Новый отсчёт среднего расхода топлива (пропущенная заправка) -->
+    <string name="fuel_reset_action">Начать расчёт заново</string>
+    <string name="fuel_reset_dialog_title">Считать расход заново?</string>
+    <string name="fuel_reset_dialog_message">Если заправка была пропущена, средний расход посчитан неверно и сам уже не выправится.
+
+Точкой отсчёта станет следующая добавленная заправка — средний расход начнёт считаться с неё. Записи, литры и расходы останутся в статистике.</string>
+    <string name="fuel_reset_dialog_confirm">Начать заново</string>
+    <string name="fuel_reset_pending">Точкой отсчёта станет следующая добавленная заправка</string>
+    <string name="fuel_reset_pending_cancel">Отменить</string>
+    <string name="fuel_reset_active">Расход считается с %1$s</string>
+    <string name="fuel_reset_undo">Считать по всей истории</string>
+    <string name="fuel_reset_need_more">Добавьте ещё одну заправку после точки отсчёта</string>
+    <string name="fuel_need_two_refuelings">Добавьте минимум 2 заправки</string>
     
     <!-- Error Messages -->
     <string name="error_loading">Ошибка загрузки</string>
