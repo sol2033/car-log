@@ -1,13 +1,8 @@
 package com.carlog.presentation.screens.documents
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,15 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.SingleAttachmentPicker
 import com.carlog.domain.model.DocumentTypes
 import com.carlog.util.FileHelper
 import java.text.SimpleDateFormat
@@ -276,75 +268,18 @@ fun AddDocumentScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Фото документа
+            // Вложение документа: фото полиса или его PDF
             Text(
-                text = stringResource(R.string.document_photo),
+                text = stringResource(R.string.document_attachment),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            val context = LocalContext.current
-            val photoPickerLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.PickVisualMedia()
-            ) { uri: Uri? ->
-                uri?.let {
-                    FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
-                        viewModel.updatePhoto(savedPath)
-                    }
-                }
-            }
-
-            if (photoPath == null) {
-                Card(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clickable {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.add_photo),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            } else {
-                Box {
-                    AsyncImage(
-                        model = Uri.parse(photoPath),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(150.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                        contentScale = ContentScale.Crop
-                    )
-                    IconButton(
-                        onClick = { viewModel.removePhoto() },
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.delete),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
+            SingleAttachmentPicker(
+                attachment = photoPath,
+                onSelected = viewModel::updatePhoto,
+                onRemove = viewModel::removePhoto
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

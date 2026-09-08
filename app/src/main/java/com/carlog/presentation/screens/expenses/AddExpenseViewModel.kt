@@ -158,6 +158,10 @@ class AddExpenseViewModel @Inject constructor(
 
     fun saveExpense() {
         viewModelScope.launch {
+            // Запись ещё не догрузилась — сохранять нельзя: ниже идёт `_expense.value!!`,
+            // и нажатие «Сохранить» до конца загрузки роняло приложение по NPE
+            if (isEditMode && _expense.value == null) return@launch
+
             // Валидация
             var hasError = false
 

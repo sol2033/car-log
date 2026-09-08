@@ -7,8 +7,13 @@ import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.BreakdownRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
+import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.EventComposition
+import com.carlog.domain.model.EventCostSplit
+import com.carlog.domain.model.MaintenanceType
+import com.carlog.domain.model.Part
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,10 +26,25 @@ sealed class BreakdownDetailUiState {
     object Loading : BreakdownDetailUiState()
     data class Success(
         val breakdown: Breakdown,
-        // Расходники, созданные этим ТО: в форме после сохранения они не редактируются,
-        // поэтому карточка обслуживания — единственное место, где их видно
-        val consumables: List<Consumable> = emptyList()
-    ) : BreakdownDetailUiState()
+        /** Расходники события — его ТО-часть */
+        val consumables: List<Consumable> = emptyList(),
+        /** Запчасти события: каждая несёт свой тип — ремонт или тюнинг */
+        val parts: List<Part> = emptyList()
+    ) : BreakdownDetailUiState() {
+        /**
+         * Разбивка стоимости по категориям — та же, по которой событие попадает
+         * в статистику, поэтому карточка и цифры в статистике не расходятся.
+         */
+        val costSplit: EventCostSplit
+            get() = EventComposition.split(
+                partsCost = breakdown.partsCost,
+                fallbackType = MaintenanceType.fromString(breakdown.maintenanceType),
+                consumableCosts = consumables.map { it.cost },
+                partPrices = parts.map {
+                    EventComposition.typeOfPart(it.maintenanceType) to it.price
+                }
+            )
+    }
     data class Error(val message: String) : BreakdownDetailUiState()
 }
 
@@ -32,10 +52,13 @@ sealed class BreakdownDetailUiState {
 class BreakdownDetailViewModel @Inject constructor(
     private val breakdownRepository: BreakdownRepository,
     private val consumableRepository: ConsumableRepository,
+    private val partRepository: PartRepository,
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val carId: Long = savedStateHandle.get<Long>("carId") ?: 0L
     
     private val _uiState = MutableStateFlow<BreakdownDetailUiState>(BreakdownDetailUiState.Loading)
     val uiState: StateFlow<BreakdownDetailUiState> = _uiState.asStateFlow()
@@ -53,9 +76,16 @@ class BreakdownDetailViewModel @Inject constructor(
             try {
                 combine(
                     breakdownRepository.getBreakdownById(breakdownId),
-                    consumableRepository.getConsumablesByMaintenanceId(breakdownId)
-                ) { breakdown, consumables -> breakdown to consumables }
-                    .collect { (breakdown, consumables) ->
+                    consumableRepository.getConsumablesByMaintenanceId(breakdownId),
+                    partRepository.getPartsByCarId(carId)
+                ) { breakdown, consumables, allParts ->
+                    // Запчасти именно этого события: у машины их может быть много,
+                    // а нас интересуют только привязанные
+                    val eventParts = breakdown?.installedPartIds.orEmpty()
+                        .mapNotNull { id -> allParts.firstOrNull { it.id == id } }
+                    Triple(breakdown, consumables, eventParts)
+                }
+                    .collect { (breakdown, consumables, eventParts) ->
                         if (breakdown != null) {
                             _uiState.value =
                                 BreakdownDetailUiState.Success(breakdown, consumables)

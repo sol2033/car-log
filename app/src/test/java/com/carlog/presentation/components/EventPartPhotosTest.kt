@@ -60,4 +60,48 @@ class EventPartPhotosTest {
     fun `новая запчасть без фото ничего не удаляет`() {
         assertTrue(orphanPhotosToDelete(emptySet(), emptySet()).isEmpty())
     }
+
+    // --- Переход на общую сумму запчастей ---
+    // Позиции при этом в БД не сохраняются, а прежние удаляются, поэтому их фото обязаны
+    // уйти следом. Раньше они считались нужными и оставались в хранилище навсегда.
+
+    @Test
+    fun `в режиме общей суммы фото запчастей становятся сиротами`() {
+        val parts = listOf(part("a.jpg"), part("b.jpg"))
+        val touched = setOf("a.jpg", "b.jpg", "event.pdf")
+
+        val referenced = referencedEventPhotos(
+            eventPhotos = listOf("event.pdf"),
+            parts = parts,
+            keepsParts = false
+        )
+
+        assertEquals(setOf("event.pdf"), referenced)
+        assertEquals(setOf("a.jpg", "b.jpg"), orphanPhotosToDelete(touched, referenced).toSet())
+    }
+
+    @Test
+    fun `в режиме списка фото запчастей остаются нужными`() {
+        val parts = listOf(part("a.jpg"), part("b.jpg"))
+        val touched = setOf("a.jpg", "b.jpg", "event.pdf")
+
+        val referenced = referencedEventPhotos(
+            eventPhotos = listOf("event.pdf"),
+            parts = parts,
+            keepsParts = true
+        )
+
+        assertTrue(orphanPhotosToDelete(touched, referenced).isEmpty())
+    }
+
+    @Test
+    fun `вложения самого события не зависят от режима стоимости запчастей`() {
+        val eventPhotos = listOf("scan.pdf", "photo.jpg")
+
+        val withParts = referencedEventPhotos(eventPhotos, listOf(part("a.jpg")), keepsParts = true)
+        val withoutParts = referencedEventPhotos(eventPhotos, listOf(part("a.jpg")), keepsParts = false)
+
+        assertTrue(withParts.containsAll(eventPhotos))
+        assertTrue(withoutParts.containsAll(eventPhotos))
+    }
 }

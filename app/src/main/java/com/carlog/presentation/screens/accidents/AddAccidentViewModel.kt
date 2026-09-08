@@ -11,6 +11,7 @@ import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Part
 import com.carlog.presentation.components.EventPart
 import com.carlog.presentation.components.orphanPhotosToDelete
+import com.carlog.presentation.components.referencedEventPhotos
 import com.carlog.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -440,7 +441,13 @@ class AddAccidentViewModel @Inject constructor(
                 FileHelper.deleteFiles(
                     orphanPhotosToDelete(
                         touchedPhotos = currentState.touchedPartPhotos,
-                        referencedPhotos = currentState.addedParts.flatMap { it.photosPaths }.toSet()
+                        referencedPhotos = referencedEventPhotos(
+                            eventPhotos = currentState.photosPaths,
+                            parts = currentState.addedParts,
+                            // Стоимость ремонта общей суммой — запчасти не сохраняются,
+                            // а прежние удалены выше
+                            keepsParts = currentState.usePartsForRepair
+                        )
                     )
                 )
 

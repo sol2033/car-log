@@ -55,22 +55,11 @@
     <string name="event_part_number">Part number</string>
     <string name="event_part_price">Price *</string>
     <string name="event_part_notes">Notes</string>
-    <string name="event_part_photos">Photos</string>
-    <string name="event_part_add_photo">Add photo</string>
     <string name="event_part_hint">Date, mileage and service are taken from the record itself</string>
-    <string name="event_part_photos_count">Photos: %1$d</string>
 
     <!-- What's new -->
     <string name="whats_new_title">What\'s new in %1$s</string>
     <string name="whats_new_confirm">Got it</string>
-    <string name="whats_new_fuel_reset_title">Fuel consumption can be restarted</string>
-    <string name="whats_new_fuel_reset_body">a missed refueling no longer skews the average forever: the statistics screen has a button next to the average — counting restarts from the next refueling you add. The calculation itself got more accurate: the first tank no longer inflates the average.</string>
-    <string name="whats_new_works_title">Works as a list</string>
-    <string name="whats_new_works_body">in repairs, scheduled service and tuning you can list the service works with their prices — their sum becomes the labor cost.</string>
-    <string name="whats_new_to_consumables_title">Consumables in service got easier</string>
-    <string name="whats_new_to_consumables_body">volume is asked only for fluids, one replacement interval is enough, and one-off items now have the "Other" category — it stays out of the Consumables section. Consumables and works are now visible in the record card.</string>
-    <string name="whats_new_hidden_parts_title">Not everything belongs in Parts</string>
-    <string name="whats_new_hidden_parts_body">parts added in a repair or tuning now have a visibility checkbox: small items like gaskets can stay inside the record instead of cluttering the section. Their cost still counts.</string>
 
     <!-- Data check -->
     <string name="settings_data_section">Data</string>
@@ -596,4 +585,120 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="delete_document_title">Delete document?</string>
     <string name="delete_document_message">The document and its photo will be permanently deleted.</string>
     <string name="not_specified">Not specified</string>
+
+    <!-- Backup: notifications -->
+    <string name="backup_channel_name">Backup</string>
+    <string name="backup_channel_description">Notifications about backup creation</string>
+    <string name="backup_progress_channel_name">Backup progress</string>
+    <string name="backup_progress_channel_description">Shows that a backup is being uploaded</string>
+    <string name="backup_success_title">Backup created</string>
+    <string name="backup_success_text">Data has been saved to Yandex.Disk</string>
+    <string name="backup_error_title">Backup failed</string>
+    <string name="backup_progress_title">Creating a backup</string>
+    <string name="backup_progress_preparing">Preparing…</string>
+    <string name="backup_progress_media">Uploading files: %1$d of %2$d</string>
+    <string name="backup_progress_snapshot">Uploading to Yandex.Disk…</string>
+    <string name="backup_progress_finishing">Finishing…</string>
+
+    <!-- Backup: error reasons -->
+    <string name="backup_error_no_network">No internet connection</string>
+    <string name="backup_error_timeout">Yandex.Disk did not respond in time</string>
+    <string name="backup_error_server">Yandex.Disk is temporarily unavailable</string>
+    <string name="backup_error_not_connected">Yandex.Disk is not connected — connect it in settings</string>
+    <string name="backup_error_unauthorized">Yandex.Disk access has expired — reconnect it in settings</string>
+    <string name="backup_error_quota">Yandex.Disk is out of free space</string>
+    <string name="backup_error_not_found">Backup not found on Yandex.Disk</string>
+    <string name="backup_error_unknown">Could not create a backup</string>
+
+    <!-- Backup: settings -->
+    <string name="backup_wifi_only_title">Wi-Fi only</string>
+    <string name="backup_wifi_only_subtitle">Automatic backups will not use mobile data</string>
+
+    <!-- Backup: log -->
+    <string name="backup_log_open">Recent backups log</string>
+    <string name="backup_log_title">Backup log</string>
+    <string name="backup_log_empty">No events yet</string>
+    <string name="backup_log_share">Share</string>
+    <string name="backup_log_close">Close</string>
+    <string name="backup_log_share_title">Backup log</string>
+    <string name="backup_log_outcome_success">Succeeded</string>
+    <string name="backup_log_outcome_retry">Retry scheduled</string>
+    <string name="backup_log_outcome_failure">Failed</string>
+    <string name="backup_log_trigger_auto">Automatic</string>
+    <string name="backup_log_trigger_manual">Manual</string>
+    <string name="backup_log_trigger_catch_up">On app start</string>
+    <string name="backup_log_media_uploaded">new files: %1$d</string>
+
+    <!-- Backup: battery optimization hint -->
+    <string name="backup_battery_hint_title">Backups failing in the background?</string>
+    <string name="backup_battery_hint_text">Android defers background tasks while the screen is off, which interrupts the upload. Allow the app to run in the background without restrictions: it barely affects battery life — Car Log does nothing until there is a backup to send.</string>
+    <string name="backup_battery_hint_allow">Allow</string>
+    <string name="backup_battery_hint_dismiss">Don\'t show again</string>
+    <string name="backup_battery_hint_failed">Could not open the battery settings</string>
+
+    <!-- What\'s new in 1.2.3 -->
+    <string name="whats_new_attachments_title">PDFs alongside photos</string>
+    <string name="whats_new_attachments_body">a car, part, service record, accident or document can now hold a PDF as well as a photo — a scanned work order, receipt or policy. The file opens straight from the record and goes into backups just like a photo.</string>
+    <string name="whats_new_to_consumables_title">Editable service consumables</string>
+    <string name="whats_new_to_consumables_body">tap a consumable inside a saved service to change its brand, part number, cost, volume and intervals. You can add a forgotten item or drop an extra one — the service cost is recalculated and the previous consumable becomes active again.</string>
+    <string name="whats_new_breakdown_photos_title">Files on the service record</string>
+    <string name="whats_new_breakdown_photos_body">repairs, scheduled services and modifications got their own attachments block — photos used to show up on the card with no way to add them.</string>
+
+    <!-- Diagnostics -->
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_diagnostics_subtitle">Failure log and how to send it to the developer</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_explanation">The app records its own failures here: what did not work, at which step and why. Your car data, photos and passwords never go into the log. If something is not working right, save the log and send it to me — it tells me the cause.</string>
+    <string name="diagnostics_empty">No failures recorded</string>
+    <string name="diagnostics_save">Save file</string>
+    <string name="diagnostics_save_failed">Could not save the file</string>
+    <string name="diagnostics_contact">Contact</string>
+    <string name="diagnostics_contact_title">How to reach me</string>
+    <string name="diagnostics_contact_message">Pick whichever suits you and describe what happened. The log is attached to the email automatically.</string>
+    <string name="diagnostics_contact_email">Send an email</string>
+    <string name="diagnostics_contact_drive2">Message on Drive2</string>
+    <string name="diagnostics_contact_drive2_hint">A private message on the profile — attach the file manually</string>
+    <string name="diagnostics_email_subject">Car Log — a problem with the app</string>
+    <string name="diagnostics_email_body">Please describe what happened and what you were doing before it:\n\n\n---\nThe log file is attached to this email.</string>
+    <string name="diagnostics_no_email_app">No email app found</string>
+    <string name="diagnostics_clear">Clear</string>
+    <string name="diagnostics_clear_title">Clear the log?</string>
+    <string name="diagnostics_clear_message">Records of past failures will be deleted. New ones will keep being recorded.</string>
+
+    <!-- Attachments: photos and PDFs in one list -->
+    <string name="attachments_title">Photos and documents</string>
+    <string name="attachment_add">Add</string>
+    <string name="attachment_source_photo">Photo</string>
+    <string name="attachment_source_pdf">PDF document</string>
+    <string name="attachment_pdf">PDF</string>
+    <string name="attachment_photo">Photo</string>
+    <string name="attachment_main_photo">Main photo</string>
+    <string name="attachment_open_failed">Could not open the document</string>
+    <string name="attachment_save_failed">Could not save the document</string>
+    <string name="attachments_empty">No files added</string>
+    <string name="attachments_count">Files: %1$d</string>
+    <string name="document_attachment">Document photo or PDF</string>
+    <string name="to_consumable_edit_title">Edit consumable</string>
+    <string name="to_consumable_category_locked">The category of a saved consumable cannot be changed: the replacement chain depends on it</string>
+
+    <!-- Одно событие на несколько типов: ТО, ремонт и тюнинг вместе -->
+    <string name="event_part_type">Work type</string>
+    <string name="event_type_section_parts">Parts</string>
+    <string name="event_type_hint">The event type follows what you add: consumables mean scheduled service, parts mean repair or modification</string>
+    <string name="event_type_fallback_label">Event type</string>
+    <string name="event_cost_consumables">Consumables</string>
+    <string name="event_cost_repair_parts">Parts (repair)</string>
+    <string name="event_cost_modification_parts">Modification</string>
+    <string name="event_cost_works">Labour</string>
+
+    <string name="whats_new_combined_events_title">One event instead of three</string>
+    <string name="whats_new_combined_events_body">a full service visit is now a single record: consumables, repair parts and modifications together, with labour entered as one sum for the whole visit. The event type is no longer picked by hand — it follows what you put in.</string>
+    <string name="whats_new_event_colors_title">The make-up of an event is visible</string>
+    <string name="whats_new_event_colors_body">a card in the list is coloured in equal shares by its types: a \"service + repair\" visit is half in the service colour and half in the repair one. The filter shows such an event under both — it is the same visit.</string>
+
+    <!-- Скрытые запчасти: фильтр и переключатель в карточке -->
+    <string name="filter_hidden">Hidden</string>
+    <string name="no_hidden_parts">No hidden parts</string>
+    <string name="part_show_in_list">Show in the Parts section</string>
+    <string name="part_hidden_hint">The record is hidden from the list, but its cost still counts in the event and in statistics</string>
 </resources>

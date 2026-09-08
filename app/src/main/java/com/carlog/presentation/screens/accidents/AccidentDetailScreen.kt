@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Accident
 import com.carlog.util.FileHelper
 import java.text.SimpleDateFormat
@@ -319,26 +320,13 @@ private fun PhotosInfoSection(photosPaths: List<String>) {
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Фотографии (${photosPaths.size})",
+                text = stringResource(R.string.attachments_title) + " (${photosPaths.size})",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
         }
         
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(photosPaths) { photoPath ->
-                AsyncImage(
-                    model = Uri.parse(photoPath),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(150.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
+        AttachmentsRow(attachments = photosPaths)
     }
 }
 

@@ -129,7 +129,10 @@ fun ActiveDocumentsGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(documents) { documentWithStatus ->
+        // Ключ по id записи: у произвольных документов type — это displayName,
+        // и два документа с одинаковым названием дали бы дубликат ключа.
+        // Пустые плитки стандартных типов записи не имеют — там уникален сам тип
+        items(documents, key = { it.document?.id ?: it.type }) { documentWithStatus ->
             DocumentCard(
                 documentWithStatus = documentWithStatus,
                 onClick = {
@@ -276,7 +279,7 @@ fun ArchivedDocumentsList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(documents) { document ->
+        items(documents, key = { it.id }) { document ->
             OutlinedCard(
                 onClick = { onDocumentClick(document.id) },
                 modifier = Modifier.fillMaxWidth()

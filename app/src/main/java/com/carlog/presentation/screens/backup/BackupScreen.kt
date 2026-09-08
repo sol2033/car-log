@@ -17,9 +17,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.carlog.R
 import com.carlog.presentation.screens.settings.CloudBackupSection
 import com.carlog.presentation.screens.settings.SettingsSection
@@ -37,6 +40,17 @@ fun BackupScreen(
     val cloudBackupState by viewModel.cloudBackupState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Возврат из системного диалога «работа в фоне»: подсказка должна исчезнуть сразу,
+    // а не при следующем открытии экрана
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshCloudBackupState()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     
     var isExporting by remember { mutableStateOf(false) }
     var isImporting by remember { mutableStateOf(false) }
@@ -136,12 +150,20 @@ fun BackupScreen(
                 onAutoDeleteToggle = { enabled ->
                     viewModel.setAutoDeleteOldBackups(enabled)
                 },
+                onWifiOnlyToggle = { enabled ->
+                    viewModel.setWifiOnly(enabled)
+                },
                 onManualBackup = {
                     viewModel.createManualBackup()
                 },
                 onRestoreBackup = {
                     onNavigateToRestoreBackup()
                 },
+                onDismissBatteryHint = {
+                    viewModel.dismissBatteryHint()
+                },
+                backupLog = { viewModel.backupLogEntries() },
+                backupLogText = { viewModel.backupLogForSharing() },
                 onDisconnect = {
                     viewModel.disconnectCloudBackup()
                 }

@@ -2,4 +2,6 @@
 <!-- Пути, которые FileProvider может отдавать внешним приложениям (просмотр PDF ДТП) -->
 <paths>
     <files-path name="documents" path="documents/" />
+    <!-- Файл диагностического журнала, который пользователь прикладывает к письму -->
+    <files-path name="diagnostics" path="diagnostics/" />
 </paths>

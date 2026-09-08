@@ -186,6 +186,11 @@ class AddDocumentViewModel @Inject constructor(
 
     fun saveDocument() {
         viewModelScope.launch {
+            // Запись ещё не догрузилась — сохранять нельзя. Раньше в этот момент id уходил
+            // в 0, updateDocument не находил строку, и правка молча пропадала: экран
+            // закрывался с признаком успеха, а в базе ничего не менялось
+            if (isEditMode && _document.value == null) return@launch
+
             var hasError = false
 
             if (_type.value == DocumentTypes.OTHER && _customName.value.isBlank()) {
@@ -212,22 +217,39 @@ class AddDocumentViewModel @Inject constructor(
             val expiryToStore =
                 if (isTax) shiftYears(_expiryDate.value!!, 1) else _expiryDate.value!!
 
-            val documentToSave = CarDocument(
-                id = _document.value?.id ?: 0,
-                carId = carId,
-                type = _type.value,
-                customName = _customName.value.ifBlank { null },
-                number = _number.value.ifBlank { null },
-                organization = _organization.value.ifBlank { null },
-                startDate = _startDate.value,
-                expiryDate = expiryToStore,
-                cost = costValue,
-                photoPath = _photoPath.value,
-                notes = _notes.value.ifBlank { null },
-                isActive = _document.value?.isActive ?: true,
-                createdAt = _document.value?.createdAt ?: System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
+            // Правило 1: при редактировании идём от исходной записи через copy, а не собираем
+            // сущность заново. Сейчас в конструкторе перечислены все поля CarDocument, так что
+            // потери нет, но следующее добавленное поле молча обнулялось бы при каждой правке.
+            val original = _document.value
+            val documentToSave = if (original != null) {
+                original.copy(
+                    type = _type.value,
+                    customName = _customName.value.ifBlank { null },
+                    number = _number.value.ifBlank { null },
+                    organization = _organization.value.ifBlank { null },
+                    startDate = _startDate.value,
+                    expiryDate = expiryToStore,
+                    cost = costValue,
+                    photoPath = _photoPath.value,
+                    notes = _notes.value.ifBlank { null },
+                    updatedAt = System.currentTimeMillis()
+                    // id, carId, isActive и createdAt сохраняются исходными — как и раньше
+                )
+            } else {
+                // Создание и продление: своей записи ещё нет
+                CarDocument(
+                    carId = carId,
+                    type = _type.value,
+                    customName = _customName.value.ifBlank { null },
+                    number = _number.value.ifBlank { null },
+                    organization = _organization.value.ifBlank { null },
+                    startDate = _startDate.value,
+                    expiryDate = expiryToStore,
+                    cost = costValue,
+                    photoPath = _photoPath.value,
+                    notes = _notes.value.ifBlank { null }
+                )
+            }
 
             when {
                 isEditMode -> {

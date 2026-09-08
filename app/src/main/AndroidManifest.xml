@@ -9,6 +9,19 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Заливка бэкапа идёт как foreground-задача: иначе прошивки с агрессивным
+         энергосбережением морозят процесс посреди загрузки, и она обрывается по таймауту.
+         Тип dataSync обязателен начиная с targetSdk 34. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Системный диалог «разрешить работу в фоне без ограничений». Нужен, потому что Doze
+         откладывает фоновые задачи при погашенном экране и заливка копии обрывается.
+         Само по себе исключение приложение не «будит»: периодических задач и будильников
+         в проекте нет. Внимание: Google Play это разрешение ограничивает — при публикации
+         туда его придётся убрать (приложение распространяется через RuStore). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Камера не обязательна - пользователь может выбирать фото из галереи -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -47,6 +60,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- Начиная с Android 14 тип foreground-сервиса должен быть объявлен в манифесте,
+             иначе startForeground падает. Сервис принадлежит WorkManager — дополняем его
+             объявление своим типом. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

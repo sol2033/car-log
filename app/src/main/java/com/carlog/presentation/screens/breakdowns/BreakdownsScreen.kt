@@ -1,5 +1,8 @@
 package com.carlog.presentation.screens.breakdowns
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import com.carlog.presentation.components.eventTypeBrush
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -156,6 +159,7 @@ fun BreakdownsScreen(
                         ) { breakdown ->
                             BreakdownCard(
                                 breakdown = breakdown,
+                                types = uiState.typesOf(breakdown),
                                 onBreakdownClick = { onNavigateToBreakdownDetail(carId, breakdown.id) },
                                 onDeleteClick = { viewModel.deleteBreakdown(breakdown) }
                             )
@@ -170,34 +174,26 @@ fun BreakdownsScreen(
 @Composable
 private fun BreakdownCard(
     breakdown: Breakdown,
+    types: List<MaintenanceType>,
     onBreakdownClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     
-    // Определяем цвет фона карточки на основе типа обслуживания
-    val maintenanceType = breakdown.maintenanceType?.let { MaintenanceType.fromString(it) } 
-        ?: MaintenanceType.REPAIR  // Старые записи без типа = Ремонты
-    
-    val cardColors = when (maintenanceType) {
-        MaintenanceType.REPAIR -> CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        )
-        MaintenanceType.SCHEDULED_SERVICE -> CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        )
-        MaintenanceType.MODIFICATION -> CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-        )
-    }
-    
+    // Фон делится поровну между типами события: заезд «ТО + ремонт» наполовину окрашен
+    // в цвет ТО и наполовину в цвет ремонта. Один тип — карточка выглядит как прежде
+    val background = eventTypeBrush(types)
+
     ElevatedCard(
         onClick = onBreakdownClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = cardColors
+        // Свой фон рисуем кистью, поэтому у самой карточки его быть не должно
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .background(background)
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -205,21 +201,13 @@ private fun BreakdownCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    // Показываем тип обслуживания
-                    breakdown.maintenanceType?.let { typeString ->
-                        MaintenanceType.fromString(typeString)?.let { type ->
-                            Text(
-                                text = type.getDisplayName(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = when (type) {
-                                    MaintenanceType.REPAIR -> MaterialTheme.colorScheme.error
-                                    MaintenanceType.SCHEDULED_SERVICE -> MaterialTheme.colorScheme.primary
-                                    MaintenanceType.MODIFICATION -> MaterialTheme.colorScheme.tertiary
-                                },
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    // Все типы события, а не один: «ТО · Ремонт» — это один заезд в сервис
+                    Text(
+                        text = types.joinToString(" · ") { it.getDisplayName() },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(
                         text = breakdown.title,
                         style = MaterialTheme.typography.titleMedium,

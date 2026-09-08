@@ -66,6 +66,25 @@ class StatisticsViewModel @Inject constructor(
     
     init {
         loadStatistics()
+        observeDataChanges()
+    }
+
+    /**
+     * Пересчёт при изменении данных на других экранах.
+     *
+     * Со статистики можно уйти вперёд — в «Обслуживание» и «Расходники». ViewModel при этом
+     * остаётся в бэкстеке, а данные читаются снимком (`firstOrNull`), поэтому после возврата
+     * цифры оставались прежними: человек видел неверные суммы и не понимал, что они устарели.
+     *
+     * `collectLatest` обрывает предыдущий пересчёт, если изменения идут подряд.
+     * Индикатор загрузки не показываем — экран уже с данными, и мигание было бы лишним.
+     */
+    private fun observeDataChanges() {
+        viewModelScope.launch {
+            dataChangeNotifier.dataVersion
+                .drop(1)
+                .collectLatest { reloadStatistics(showLoading = false) }
+        }
     }
     
     fun setPeriod(period: StatisticsPeriod) {
@@ -123,125 +142,127 @@ class StatisticsViewModel @Inject constructor(
     }
     
     private fun loadStatistics() {
-        viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true)
+        viewModelScope.launch { reloadStatistics(showLoading = true) }
+    }
+
+    private suspend fun reloadStatistics(showLoading: Boolean) {
+        try {
+            if (showLoading) _uiState.value = _uiState.value.copy(isLoading = true)
                 
-                val period = _uiState.value.selectedPeriod
-                val specificMonth = _uiState.value.specificMonth
-                val mileageFilter = _uiState.value.selectedMileageFilter
-                val excludeAccidents = _uiState.value.excludeAccidents
-                val (startDate, endDate) = if (specificMonth != null) {
-                    getSpecificMonthDates(specificMonth)
-                } else {
-                    getPeriodDates(period)
-                }
+            val period = _uiState.value.selectedPeriod
+            val specificMonth = _uiState.value.specificMonth
+            val mileageFilter = _uiState.value.selectedMileageFilter
+            val excludeAccidents = _uiState.value.excludeAccidents
+            val (startDate, endDate) = if (specificMonth != null) {
+                getSpecificMonthDates(specificMonth)
+            } else {
+                getPeriodDates(period)
+            }
                 
-                // Load all data
-                val car = carDao.getCarById(carId).firstOrNull()
-                val accidents = accidentDao.getAccidentsByPeriod(carId, startDate, endDate).firstOrNull() ?: emptyList()
-                val breakdowns = breakdownDao.getBreakdownsByCarId(carId).firstOrNull() ?: emptyList()
-                val consumables = consumableDao.getConsumablesByCarId(carId).firstOrNull() ?: emptyList()
-                val parts = partDao.getPartsByCarId(carId).firstOrNull() ?: emptyList()
-                val refuelings = refuelingDao.getRefuelingsByCarId(carId).firstOrNull() ?: emptyList()
-                val expenses = expenseDao.getExpensesByCarId(carId).firstOrNull() ?: emptyList()
-                val documents = carDocumentDao.getDocumentsByCarId(carId).firstOrNull() ?: emptyList()
+            // Load all data
+            val car = carDao.getCarById(carId).firstOrNull()
+            val accidents = accidentDao.getAccidentsByPeriod(carId, startDate, endDate).firstOrNull() ?: emptyList()
+            val breakdowns = breakdownDao.getBreakdownsByCarId(carId).firstOrNull() ?: emptyList()
+            val consumables = consumableDao.getConsumablesByCarId(carId).firstOrNull() ?: emptyList()
+            val parts = partDao.getPartsByCarId(carId).firstOrNull() ?: emptyList()
+            val refuelings = refuelingDao.getRefuelingsByCarId(carId).firstOrNull() ?: emptyList()
+            val expenses = expenseDao.getExpensesByCarId(carId).firstOrNull() ?: emptyList()
+            val documents = carDocumentDao.getDocumentsByCarId(carId).firstOrNull() ?: emptyList()
                 
-                // Фильтрация и агрегация — вне главного потока: списки могут быть большими,
-                // а раньше всё считалось прямо в UI-потоке (индикатор загрузки не успевал отрисоваться)
-                val statistics = withContext(computationDispatcher) {
-                    // Filter by period (time)
-                    val filteredByPeriod = FilteredData(
-                        breakdowns = filterByPeriod(breakdowns, startDate, endDate),
-                        consumables = filterByPeriod(consumables, startDate, endDate),
-                        parts = filterByPeriod(parts, startDate, endDate),
-                        refuelings = filterByPeriod(refuelings, startDate, endDate),
-                        expenses = filterByPeriod(expenses, startDate, endDate),
-                        accidents = accidents
-                    )
-
-                    // Filter by mileage (AND logic with period filter)
-                    val filteredByMileage = if (mileageFilter != MileageFilter.AllMileage) {
-                        filterByMileage(filteredByPeriod, mileageFilter, car)
-                    } else {
-                        filteredByPeriod
-                    }
-
-                    val filteredAccidents =
-                        if (excludeAccidents) emptyList() else filteredByMileage.accidents
-
-                    // Запчасти, чья стоимость уже учтена в стоимости события, из «отдельных» исключаются:
-                    // иначе одни и те же деньги считались бы дважды (обслуживание — и раньше,
-                    // ДТП — источник двойного учёта: repairCost аварии уже включает свои запчасти)
-                    val partIdsInBreakdowns =
-                        filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }
-                    val partIdsInAccidents =
-                        filteredAccidents.flatMap { it.installedPartIds ?: emptyList() }
-                    val countedPartIds = (partIdsInBreakdowns + partIdsInAccidents).toSet()
-
-                    // Filter parts: only those not already counted in breakdowns/accidents
-                    val filteredParts = filteredByMileage.parts.filter { !countedPartIds.contains(it.id) }
-
-                    // Use filtered data
-                    val filteredBreakdowns = filteredByMileage.breakdowns
-                    val filteredConsumables = filteredByMileage.consumables
-                    val filteredRefuelings = filteredByMileage.refuelings
-                    val filteredExpenses = filteredByMileage.expenses
-
-                    // Документы не имеют пробега: фильтруем только по времени,
-                    // а при активном фильтре по пробегу исключаем целиком (логика И)
-                    val filteredDocuments = if (mileageFilter != MileageFilter.AllMileage) {
-                        emptyList()
-                    } else {
-                        filterByPeriod(documents, startDate, endDate)
-                    }
-
-                    // Pre-calculate all periods once for reuse (optimization)
-                    val groupingType = getGroupingType(period, specificMonth)
-                    val allPeriods = generateAllPeriods(
-                        startDate,
-                        endDate,
-                        groupingType,
-                        earliestDataDate(
-                            filteredBreakdowns, filteredConsumables, filteredParts,
-                            filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments
-                        )
-                    )
-
-                    // Calculate statistics
-                    val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
-                    val generalStats = calculateGeneralStatistics(
-                        car, filteredBreakdowns, filteredConsumables, filteredParts, filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments, period, allPeriods, groupingType, mileageFilter
-                    )
-                    val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
-                    val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
-                    val expensesStats = calculateExpensesStatistics(filteredExpenses, allPeriods, groupingType)
-
-                    CarStatistics(
-                        general = generalStats,
-                        fuel = fuelStats,
-                        repairs = repairsStats,
-                        expenses = expensesStats,
-                        consumables = consumablesStats
-                    )
-                }
-
-                _uiState.value = _uiState.value.copy(
-                    statistics = statistics,
-                    fuelResetPending = car?.fuelResetPending == true,
-                    isLoading = false,
-                    error = null
+            // Фильтрация и агрегация — вне главного потока: списки могут быть большими,
+            // а раньше всё считалось прямо в UI-потоке (индикатор загрузки не успевал отрисоваться)
+            val statistics = withContext(computationDispatcher) {
+                // Filter by period (time)
+                val filteredByPeriod = FilteredData(
+                    breakdowns = filterByPeriod(breakdowns, startDate, endDate),
+                    consumables = filterByPeriod(consumables, startDate, endDate),
+                    parts = filterByPeriod(parts, startDate, endDate),
+                    refuelings = filterByPeriod(refuelings, startDate, endDate),
+                    expenses = filterByPeriod(expenses, startDate, endDate),
+                    accidents = accidents
                 )
-                
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Ошибка при загрузке статистики"
+
+                // Filter by mileage (AND logic with period filter)
+                val filteredByMileage = if (mileageFilter != MileageFilter.AllMileage) {
+                    filterByMileage(filteredByPeriod, mileageFilter, car)
+                } else {
+                    filteredByPeriod
+                }
+
+                val filteredAccidents =
+                    if (excludeAccidents) emptyList() else filteredByMileage.accidents
+
+                // Запчасти, чья стоимость уже учтена в стоимости события, из «отдельных» исключаются:
+                // иначе одни и те же деньги считались бы дважды (обслуживание — и раньше,
+                // ДТП — источник двойного учёта: repairCost аварии уже включает свои запчасти)
+                val partIdsInBreakdowns =
+                    filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }
+                val partIdsInAccidents =
+                    filteredAccidents.flatMap { it.installedPartIds ?: emptyList() }
+                val countedPartIds = (partIdsInBreakdowns + partIdsInAccidents).toSet()
+
+                // Filter parts: only those not already counted in breakdowns/accidents
+                val filteredParts = filteredByMileage.parts.filter { !countedPartIds.contains(it.id) }
+
+                // Use filtered data
+                val filteredBreakdowns = filteredByMileage.breakdowns
+                val filteredConsumables = filteredByMileage.consumables
+                val filteredRefuelings = filteredByMileage.refuelings
+                val filteredExpenses = filteredByMileage.expenses
+
+                // Документы не имеют пробега: фильтруем только по времени,
+                // а при активном фильтре по пробегу исключаем целиком (логика И)
+                val filteredDocuments = if (mileageFilter != MileageFilter.AllMileage) {
+                    emptyList()
+                } else {
+                    filterByPeriod(documents, startDate, endDate)
+                }
+
+                // Pre-calculate all periods once for reuse (optimization)
+                val groupingType = getGroupingType(period, specificMonth)
+                val allPeriods = generateAllPeriods(
+                    startDate,
+                    endDate,
+                    groupingType,
+                    earliestDataDate(
+                        filteredBreakdowns, filteredConsumables, filteredParts,
+                        filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments
+                    )
+                )
+
+                // Calculate statistics
+                val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
+                val generalStats = calculateGeneralStatistics(
+                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredByMileage.parts, filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments, period, allPeriods, groupingType, mileageFilter
+                )
+                val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
+                val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
+                val expensesStats = calculateExpensesStatistics(filteredExpenses, allPeriods, groupingType)
+
+                CarStatistics(
+                    general = generalStats,
+                    fuel = fuelStats,
+                    repairs = repairsStats,
+                    expenses = expensesStats,
+                    consumables = consumablesStats
                 )
             }
+
+            _uiState.value = _uiState.value.copy(
+                statistics = statistics,
+                fuelResetPending = car?.fuelResetPending == true,
+                isLoading = false,
+                error = null
+            )
+                
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = e.message ?: "Ошибка при загрузке статистики"
+            )
         }
     }
-    
+
     private fun getPeriodDates(period: StatisticsPeriod): Pair<Long, Long> {
         val now = LocalDate.now()
         
@@ -512,6 +533,9 @@ class StatisticsViewModel @Inject constructor(
         breakdowns: List<Breakdown>,
         consumables: List<Consumable>,
         parts: List<Part>,
+        // Запчасти событий сюда тоже входят: `parts` — только «отдельные», а стоимость
+        // обслуживания раскладывается по категориям через его собственные позиции
+        allPartsInScope: List<Part>,
         accidents: List<Accident>,
         refuelings: List<Refueling>,
         expenses: List<Expense>,
@@ -525,42 +549,42 @@ class StatisticsViewModel @Inject constructor(
         
         // Calculate total costs
         // Services = breakdown service costs + part installation service costs
-        // Разделяем breakdowns по типам для правильного учёта в категориях
-        val scheduledServiceBreakdowns = breakdowns.filter { 
-            it.maintenanceType?.let { type -> 
-                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.SCHEDULED_SERVICE 
-            } ?: false
+
+        // Одно обслуживание может быть сразу ТО, ремонтом и тюнингом, поэтому его стоимость
+        // запчастей раскладывается по собственным позициям: расходники — это ТО, а каждая
+        // запчасть несёт свой тип. Итог раскладки равен partsCost события, так что суммы
+        // категорий сходятся с карточкой и при обновлении не сдвигаются (§4.3 бизнес-логики)
+        val partsInScopeById = allPartsInScope.associateBy { it.id }
+        val eventsSplit = breakdowns.fold(com.carlog.domain.model.EventCostSplit.EMPTY) { acc, breakdown ->
+            // Расходники ищем по linkedMaintenanceId — по нему же ниже отбираются «отдельные»,
+            // поэтому одни и те же деньги не могут попасть в обе группы
+            val eventConsumables = consumables.filter { it.linkedMaintenanceId == breakdown.id }
+            val eventParts = breakdown.installedPartIds.orEmpty().mapNotNull { partsInScopeById[it] }
+            acc + com.carlog.domain.model.EventComposition.split(
+                partsCost = breakdown.partsCost,
+                fallbackType = com.carlog.domain.model.MaintenanceType.fromString(breakdown.maintenanceType),
+                consumableCosts = eventConsumables.map { it.cost },
+                partPrices = eventParts.map {
+                    com.carlog.domain.model.EventComposition.typeOfPart(it.maintenanceType) to it.price
+                }
+            )
         }
-        
-        val repairBreakdowns = breakdowns.filter { 
-            it.maintenanceType?.let { type -> 
-                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.REPAIR 
-            } ?: true // Старые записи без типа считаем ремонтами
-        }
-        
-        val modificationBreakdowns = breakdowns.filter { 
-            it.maintenanceType?.let { type -> 
-                com.carlog.domain.model.MaintenanceType.fromString(type) == com.carlog.domain.model.MaintenanceType.MODIFICATION 
-            } ?: false
-        }
-        
+
         // ВСЕ услуги сервисов (из всех типов обслуживания)
         val servicesCost = breakdowns.sumOf { it.serviceCost ?: 0.0 } + 
                           parts.sumOf { it.servicePrice ?: 0.0 }
         
-        // ТО = запчасти из ТО breakdowns + расходники БЕЗ привязки к ТО
-        val scheduledServicePartsCost = scheduledServiceBreakdowns.sumOf { it.partsCost }
-        // Считаем только расходники, которые НЕ привязаны к обслуживанию (standalone)
+        // ТО = ТО-часть обслуживаний + расходники БЕЗ привязки к обслуживанию
         val standaloneConsumablesCost = consumables
             .filter { it.linkedMaintenanceId == null }
             .sumOf { it.cost ?: 0.0 }
-        val toCost = scheduledServicePartsCost + standaloneConsumablesCost
+        val toCost = eventsSplit.scheduledService + standaloneConsumablesCost
         
-        // Ремонты = запчасти из ремонтов + отдельные запчасти (БЕЗ услуг)
-        val repairsCost = repairBreakdowns.sumOf { it.partsCost } + parts.sumOf { it.price }
+        // Ремонты = ремонтная часть обслуживаний + отдельные запчасти (БЕЗ услуг)
+        val repairsCost = eventsSplit.repair + parts.sumOf { it.price }
         
-        // Тюнинг = запчасти из тюнинга (БЕЗ услуг)
-        val modificationsCost = modificationBreakdowns.sumOf { it.partsCost }
+        // Тюнинг = тюнинговая часть обслуживаний (БЕЗ услуг)
+        val modificationsCost = eventsSplit.modification
         
         val accidentsCost = accidents.sumOf { it.repairCost ?: 0.0 }
         val fuelCost = refuelings.sumOf { it.totalCost ?: 0.0 }

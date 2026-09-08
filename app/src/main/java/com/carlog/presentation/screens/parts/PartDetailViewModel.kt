@@ -134,4 +134,28 @@ class PartDetailViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Показывать запчасть в модуле «Запчасти» или нет.
+     *
+     * Раньше галочка была только в окне позиции внутри обслуживания, а скрытая запись
+     * пропадала из модуля целиком — вернуть её можно было, лишь вспомнив, из какого события
+     * она заведена. Здесь же переключается и у отдельной запчасти, у которой этой галочки
+     * не было вовсе.
+     */
+    fun toggleVisibility(part: Part) {
+        viewModelScope.launch {
+            try {
+                partRepository.updatePart(
+                    part.copy(
+                        showInPartsList = !part.showInPartsList,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+                dataChangeNotifier.notifyDataChanged()
+            } catch (e: Exception) {
+                _uiState.value = PartDetailUiState.Error(e.message ?: "Ошибка обновления")
+            }
+        }
+    }
 }

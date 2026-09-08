@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Part
 import java.text.SimpleDateFormat
 import java.util.*
@@ -229,6 +230,11 @@ private fun FilterChips(
             selected = currentFilter == PartFilter.Tuning,
             onClick = { onFilterSelected(PartFilter.Tuning) },
             label = { Text("Тюнинг") }
+        )
+        FilterChip(
+            selected = currentFilter == PartFilter.Hidden,
+            onClick = { onFilterSelected(PartFilter.Hidden) },
+            label = { Text(stringResource(R.string.filter_hidden)) }
         )
     }
 }
@@ -499,22 +505,7 @@ private fun PartCard(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(part.photosPaths) { photoPath ->
-                                Card(
-                                    modifier = Modifier.size(80.dp)
-                                ) {
-                                    AsyncImage(
-                                        model = photoPath,
-                                        contentDescription = stringResource(R.string.photo_part),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                            }
-                        }
+                        AttachmentsRow(attachments = part.photosPaths, tileSize = 80.dp)
                     }
                 }
                 
@@ -697,6 +688,7 @@ private fun EmptyPartsState(
                 PartFilter.WithoutAccident -> stringResource(R.string.no_non_accident_parts)
                 PartFilter.Repair -> "Нет запчастей из ремонтов"
                 PartFilter.Tuning -> "Нет запчастей из тюнинга"
+                PartFilter.Hidden -> stringResource(R.string.no_hidden_parts)
             }
             
             Text(

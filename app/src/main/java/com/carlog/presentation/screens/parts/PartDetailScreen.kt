@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Part
 import java.text.SimpleDateFormat
 import java.util.*
@@ -98,6 +99,7 @@ fun PartDetailScreen(
                     part = state.part,
                     currentCarMileage = currentCarMileage,
                     onMarkAsBroken = { viewModel.showMarkBrokenDialog() },
+                    onToggleVisibility = { viewModel.toggleVisibility(state.part) },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -263,6 +265,7 @@ private fun PartDetailContent(
     part: Part,
     currentCarMileage: Int,
     onMarkAsBroken: () -> Unit,
+    onToggleVisibility: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -290,6 +293,35 @@ private fun PartDetailContent(
             }
         }
         
+        // Видимость в модуле «Запчасти». Раньше переключалась только в окне позиции
+        // внутри обслуживания, и скрытую запись негде было найти обратно
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.part_show_in_list),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (!part.showInPartsList) {
+                        Text(
+                            text = stringResource(R.string.part_hidden_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Switch(
+                    checked = part.showInPartsList,
+                    onCheckedChange = { onToggleVisibility() }
+                )
+            }
+        }
+
         // Status Card
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
@@ -520,22 +552,7 @@ private fun PartDetailContent(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(part.photosPaths) { photoPath ->
-                            Card(
-                                modifier = Modifier.size(150.dp)
-                            ) {
-                                AsyncImage(
-                                    model = photoPath,
-                                    contentDescription = "Фото запчасти",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                    }
+                    AttachmentsRow(attachments = part.photosPaths)
                 }
             }
         }

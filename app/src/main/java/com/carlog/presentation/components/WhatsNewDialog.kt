@@ -55,15 +55,22 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
             ) {
                 Text(
                     item(
-                        stringResource(R.string.whats_new_fuel_reset_title),
-                        stringResource(R.string.whats_new_fuel_reset_body)
+                        stringResource(R.string.whats_new_combined_events_title),
+                        stringResource(R.string.whats_new_combined_events_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_works_title),
-                        stringResource(R.string.whats_new_works_body)
+                        stringResource(R.string.whats_new_event_colors_title),
+                        stringResource(R.string.whats_new_event_colors_body)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    item(
+                        stringResource(R.string.whats_new_attachments_title),
+                        stringResource(R.string.whats_new_attachments_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -76,8 +83,8 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_hidden_parts_title),
-                        stringResource(R.string.whats_new_hidden_parts_body)
+                        stringResource(R.string.whats_new_breakdown_photos_title),
+                        stringResource(R.string.whats_new_breakdown_photos_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )

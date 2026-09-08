@@ -24,6 +24,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentTile
+import com.carlog.util.Attachments
 import com.carlog.domain.model.DocumentTypes
 import com.carlog.util.DocumentStatus
 import java.text.SimpleDateFormat
@@ -194,20 +196,25 @@ fun DocumentDetailScreen(
                 // Фото документа
                 doc.photoPath?.let { path ->
                     Text(
-                        text = stringResource(R.string.document_photo),
+                        text = stringResource(R.string.document_attachment),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    AsyncImage(
-                        model = Uri.parse(path),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showPhotoFullScreen = true },
-                        contentScale = ContentScale.Crop
-                    )
+                    // PDF не превьюшится: карточка вложения открывает его внешним просмотрщиком
+                    if (Attachments.isPdf(path)) {
+                        AttachmentTile(path = path, size = 150.dp)
+                    } else {
+                        AsyncImage(
+                            model = Uri.parse(path),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showPhotoFullScreen = true },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
 
                 // Кнопка продления (только для активных)
@@ -228,7 +235,7 @@ fun DocumentDetailScreen(
             }
 
             // Полноэкранный просмотр фото
-            if (showPhotoFullScreen && doc.photoPath != null) {
+            if (showPhotoFullScreen && doc.photoPath != null && !Attachments.isPdf(doc.photoPath)) {
                 Dialog(onDismissRequest = { showPhotoFullScreen = false }) {
                     AsyncImage(
                         model = Uri.parse(doc.photoPath),

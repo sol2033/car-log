@@ -129,7 +129,7 @@ fun CategoryHistoryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(state.consumables) { consumable ->
+                        items(state.consumables, key = { it.id }) { consumable ->
                             HistoryConsumableCard(
                                 consumable = consumable,
                                 onClick = { onConsumableClick(consumable.id) }

@@ -1,17 +1,7 @@
 package com.carlog.presentation.screens.car
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import com.carlog.util.FileHelper
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -20,8 +10,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -29,13 +17,13 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.util.Attachments
+import com.carlog.presentation.components.AttachmentsPicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -472,119 +460,17 @@ fun AddCarScreen(
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             
-            Text(
-                text = "Фотографии автомобиля",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
+            AttachmentsPicker(
+                attachments = state.photosPaths,
+                onAdd = viewModel::addPhoto,
+                onRemove = viewModel::removePhoto,
+                title = stringResource(R.string.attachments_title),
+                tileSize = 120.dp,
+                mainAttachment = state.mainPhotoPath,
+                onImageClick = viewModel::setMainPhoto
             )
             
-            val context = LocalContext.current
-            val photoPickerLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.PickVisualMedia()
-            ) { uri: Uri? ->
-                uri?.let {
-                    // Копируем файл во внутреннее хранилище
-                    FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
-                        viewModel.addPhoto(savedPath)
-                    }
-                }
-            }
-            
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clickable { 
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Добавить фото",
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Text(
-                                    text = "Добавить",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                items(state.photosPaths) { photoPath ->
-                    Box(
-                        modifier = Modifier.size(120.dp)
-                    ) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { viewModel.setMainPhoto(photoPath) }
-                                .then(
-                                    if (photoPath == state.mainPhotoPath) {
-                                        Modifier.border(
-                                            BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                                            shape = MaterialTheme.shapes.medium
-                                        )
-                                    } else Modifier
-                                )
-                        ) {
-                            Box {
-                                AsyncImage(
-                                    model = photoPath,
-                                    contentDescription = "Фото автомобиля",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                                
-                                // Индикатор основного фото
-                                if (photoPath == state.mainPhotoPath) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Основное фото",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .padding(4.dp)
-                                            .size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                        
-                        // Кнопка удаления
-                        IconButton(
-                            onClick = { viewModel.removePhoto(photoPath) },
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Удалить фото",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
-            }
-            
-            if (state.photosPaths.isNotEmpty()) {
+            if (Attachments.images(state.photosPaths).isNotEmpty()) {
                 Text(
                     text = "Нажмите на фото, чтобы сделать его основным",
                     style = MaterialTheme.typography.bodySmall,

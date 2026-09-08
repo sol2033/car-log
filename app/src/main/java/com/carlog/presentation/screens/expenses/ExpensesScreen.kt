@@ -238,7 +238,7 @@ fun ExpensesScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(expenses) { expense ->
+                    items(expenses, key = { it.id }) { expense ->
                         ExpenseCard(
                             expense = expense,
                             onClick = { onNavigateToExpenseDetail(expense.id) },

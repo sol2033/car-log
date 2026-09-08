@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.domain.model.EventCostSplit
+import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.totalCost
@@ -80,6 +82,7 @@ fun BreakdownDetailScreen(
                 BreakdownDetailContent(
                     breakdown = state.breakdown,
                     consumables = state.consumables,
+                    costSplit = state.costSplit,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -132,6 +135,7 @@ fun BreakdownDetailScreen(
 private fun BreakdownDetailContent(
     breakdown: Breakdown,
     consumables: List<Consumable>,
+    costSplit: EventCostSplit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -323,8 +327,31 @@ private fun BreakdownDetailContent(
                     color = MaterialTheme.colorScheme.primary
                 )
                 
-                InfoRow(label = "Стоимость запчастей", value = "₽%.2f".format(breakdown.partsCost))
-                InfoRow(label = "Стоимость работы", value = "₽%.2f".format(breakdown.serviceCost))
+                // Разбивка по категориям: одно событие может быть сразу ТО, ремонтом
+                // и тюнингом, и видно должно быть, сколько ушло на что.
+                // Нулевые строки не показываем — они только зашумляют карточку
+                if (costSplit.scheduledService != 0.0) {
+                    InfoRow(
+                        label = stringResource(R.string.event_cost_consumables),
+                        value = "₽%.2f".format(costSplit.scheduledService)
+                    )
+                }
+                if (costSplit.repair != 0.0) {
+                    InfoRow(
+                        label = stringResource(R.string.event_cost_repair_parts),
+                        value = "₽%.2f".format(costSplit.repair)
+                    )
+                }
+                if (costSplit.modification != 0.0) {
+                    InfoRow(
+                        label = stringResource(R.string.event_cost_modification_parts),
+                        value = "₽%.2f".format(costSplit.modification)
+                    )
+                }
+                InfoRow(
+                    label = stringResource(R.string.event_cost_works),
+                    value = "₽%.2f".format(breakdown.serviceCost ?: 0.0)
+                )
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 
@@ -386,27 +413,12 @@ private fun BreakdownDetailContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Фотографии",
+                        text = stringResource(R.string.attachments_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(breakdown.photosPaths) { photoPath ->
-                            Card(
-                                modifier = Modifier.size(150.dp)
-                            ) {
-                                AsyncImage(
-                                    model = photoPath,
-                                    contentDescription = "Фото поломки",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                    }
+                    AttachmentsRow(attachments = breakdown.photosPaths)
                 }
             }
         }

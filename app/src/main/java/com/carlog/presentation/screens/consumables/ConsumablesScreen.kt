@@ -144,7 +144,7 @@ fun ActiveConsumablesGrid(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(consumables) { consumableWithStatus ->
+        items(consumables, key = { it.category }) { consumableWithStatus ->
             ConsumableCard(
                 consumableWithStatus = consumableWithStatus,
                 onClick = {

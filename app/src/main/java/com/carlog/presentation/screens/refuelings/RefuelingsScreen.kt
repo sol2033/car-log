@@ -161,7 +161,7 @@ fun RefuelingsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(refuelings) { refueling ->
+                    items(refuelings, key = { it.id }) { refueling ->
                         RefuelingCard(
                             refueling = refueling,
                             isElectric = isElectric,

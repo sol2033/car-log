@@ -25,6 +25,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -58,6 +59,9 @@ class StatisticsViewModelTest {
     private val refuelingRepository = mockk<RefuelingRepository>(relaxed = true)
     private val dataChangeNotifier = mockk<DataChangeNotifier>(relaxed = true)
 
+    /** Реальный счётчик изменений: по нему статистика сама пересчитывается */
+    private val dataVersion = MutableStateFlow(0L)
+
     private val now = System.currentTimeMillis()
     private val yesterday = now - TimeUnit.DAYS.toMillis(1)
 
@@ -90,6 +94,7 @@ class StatisticsViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
+        every { dataChangeNotifier.dataVersion } returns dataVersion
         every { carDao.getCarById(1) } returns flowOf(car)
         every { breakdownDao.getBreakdownsByCarId(1) } returns flowOf(emptyList())
         every { consumableDao.getConsumablesByCarId(1) } returns flowOf(emptyList())
@@ -152,6 +157,42 @@ class StatisticsViewModelTest {
         partsCost = partsCost,
         totalCost = partsCost
     )
+
+    /**
+     * Регрессия: со статистики можно уйти вперёд — в «Обслуживание» и «Расходники».
+     * ViewModel остаётся в бэкстеке, данные читаются снимком, и после возврата цифры
+     * оставались прежними: человек видел неверные суммы, не понимая, что они устарели.
+     */
+    @Test
+    fun `статистика пересчитывается после изменения данных на другом экране`() = runTest(dispatcher) {
+        // Пустой набор дал бы general == null — начинаем с одной запчасти
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertEquals(1_000.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+
+        // Пользователь ушёл в «Обслуживание» и добавил там запчасть подороже
+        every { partDao.getPartsByCarId(1) } returns
+            flowOf(listOf(part(10, 1_000.0), part(11, 3_000.0)))
+        dataVersion.value = dataVersion.value + 1
+        advanceUntilIdle()
+
+        // До правки здесь осталась бы прежняя 1000: снимок данных не перечитывался
+        assertEquals(4_000.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+    }
+
+    /** Пересчёт по возврату не должен мигать индикатором: экран уже показывает данные */
+    @Test
+    fun `фоновый пересчёт не поднимает индикатор загрузки`() = runTest(dispatcher) {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        dataVersion.value = dataVersion.value + 1
+        advanceUntilIdle()
+
+        assertEquals(false, vm.uiState.value.isLoading)
+    }
 
     /** Регрессия: запчасти из ДТП считались и в «Ремонтах», и в «ДТП» через repairCost */
     @Test

@@ -191,11 +191,18 @@ fun NavGraph(
         composable(route = Screen.Settings.route) {
             com.carlog.presentation.screens.settings.SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToDataCheck = { navController.navigate(Screen.DataCheck.route) }
+                onNavigateToDataCheck = { navController.navigate(Screen.DataCheck.route) },
+                onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
             )
         }
 
         // Проверка данных: находки и точечные исправления
+        composable(route = Screen.Diagnostics.route) {
+            com.carlog.presentation.screens.diagnostics.DiagnosticsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable(route = Screen.DataCheck.route) {
             com.carlog.presentation.screens.integrity.DataCheckScreen(
                 onNavigateBack = { navController.popBackStack() },

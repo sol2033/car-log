@@ -79,7 +79,10 @@ class ConsumablesViewModel @Inject constructor(
                     preferences.selectedCategories
                 ) { consumables, car, selectedCategories ->
                     val currentMileage = car?.currentMileage ?: 0
-                    val allCategories = ConsumableCategories.STANDARD_CATEGORIES + selectedCategories
+                    // distinct обязателен: selectedCategories может содержать стандартную
+                    // категорию, и тогда на экране рисовались две одинаковые карточки
+                    val allCategories =
+                        (ConsumableCategories.STANDARD_CATEGORIES + selectedCategories).distinct()
                     
                     // Группируем расходники по категориям
                     val consumablesByCategory = consumables.groupBy { it.category }

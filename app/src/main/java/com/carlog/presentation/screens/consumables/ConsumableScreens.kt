@@ -778,7 +778,7 @@ fun ConsumablesHistoryScreen(
                     )
                 }
                 
-                items(state.categories) { category ->
+                items(state.categories, key = { it }) { category ->
                     OutlinedCard(
                         onClick = { onNavigateToCategoryHistory(carId, category) },
                         modifier = Modifier.fillMaxWidth()

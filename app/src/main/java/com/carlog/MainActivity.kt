@@ -19,6 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.carlog.data.backup.BackupScheduler
+import com.carlog.data.diagnostics.DiagnosticArea
+import com.carlog.data.diagnostics.DiagnosticLog
 import com.carlog.data.backup.YandexAuthManager
 import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ThemeMode
@@ -49,6 +52,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var yandexAuthManager: YandexAuthManager
 
+    @Inject
+    lateinit var backupScheduler: BackupScheduler
+
     override fun attachBaseContext(newBase: Context) {
         val sharedPrefs = newBase.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         val languageCode = sharedPrefs.getString("language", "ru") ?: "ru"
@@ -68,6 +74,10 @@ class MainActivity : ComponentActivity() {
             carRepository.syncAllCarsMileage()
             recalculateFuelConsumptionOnce()
         }
+
+        // Догоняющий бэкап: фоновая задача могла не доехать (прошивки с агрессивным
+        // энергосбережением морозят фон). Пока приложение открыто, помешать этому нельзя.
+        backupScheduler.triggerCatchUpBackupIfNeeded()
 
         // Обрабатываем OAuth-редирект при первом запуске через deep link
         handleOAuthIntent(intent)
@@ -151,7 +161,7 @@ class MainActivity : ComponentActivity() {
             refuelingRepository.recalculateFuelConsumptionForAllCars()
             prefs.edit().putBoolean("fuel_consumption_recalculated_v2", true).apply()
         } catch (e: Exception) {
-            e.printStackTrace()
+            DiagnosticLog.recordError(DiagnosticArea.DATABASE, "fuel_recalculation_failed", e)
         }
     }
 

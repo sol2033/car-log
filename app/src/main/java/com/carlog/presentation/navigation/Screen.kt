@@ -147,5 +147,6 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Backup : Screen("backup")
     object DataCheck : Screen("data_check")
+    object Diagnostics : Screen("diagnostics")
     object RestoreBackup : Screen("restore_backup")
 }

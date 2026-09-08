@@ -1,15 +1,6 @@
 package com.carlog.presentation.screens.parts
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import com.carlog.util.FileHelper
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -17,19 +8,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsPicker
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -276,80 +265,14 @@ fun AddPartScreen(
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 
-                Text(
-                    text = stringResource(R.string.part_photos),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                AttachmentsPicker(
+                    attachments = state.photosPaths,
+                    onAdd = viewModel::addPhoto,
+                    onRemove = viewModel::removePhoto,
+                    title = stringResource(R.string.attachments_title),
+                    tileSize = 100.dp,
+                    emptyHint = stringResource(R.string.attachments_empty)
                 )
-                
-                val context = LocalContext.current
-                val photoPickerLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.PickVisualMedia()
-                ) { uri: Uri? ->
-                    uri?.let {
-                        FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
-                            viewModel.addPhoto(savedPath)
-                        }
-                    }
-                }
-                
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clickable { 
-                                    photoPickerLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            )
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = stringResource(R.string.add_photo),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
-                    
-                    items(state.photosPaths) { photoPath ->
-                        Card(
-                            modifier = Modifier.size(100.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                AsyncImage(
-                                    model = photoPath,
-                                    contentDescription = stringResource(R.string.photo_part),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                                IconButton(
-                                    onClick = { viewModel.removePhoto(photoPath) },
-                                    modifier = Modifier.align(Alignment.TopEnd)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.remove_photo),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 

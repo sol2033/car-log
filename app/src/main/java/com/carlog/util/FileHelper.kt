@@ -8,6 +8,8 @@ import android.graphics.Matrix
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
+import com.carlog.data.diagnostics.DiagnosticArea
+import com.carlog.data.diagnostics.DiagnosticLog
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -42,7 +44,7 @@ object FileHelper {
             val saved = try {
                 saveCompressed(context, uri, outputFile)
             } catch (e: Exception) {
-                e.printStackTrace()
+                DiagnosticLog.recordError(DiagnosticArea.PHOTO, "photo_compress_failed", e)
                 false
             } catch (e: OutOfMemoryError) {
                 false
@@ -61,7 +63,7 @@ object FileHelper {
             outputFile.absolutePath
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            DiagnosticLog.recordError(DiagnosticArea.PHOTO, "photo_save_failed", e)
             null
         }
     }
@@ -171,7 +173,7 @@ object FileHelper {
             }
             outputFile.absolutePath
         } catch (e: Exception) {
-            e.printStackTrace()
+            DiagnosticLog.recordError(DiagnosticArea.PHOTO, "document_save_failed", e)
             null
         }
     }
@@ -200,7 +202,7 @@ object FileHelper {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            DiagnosticLog.recordError(DiagnosticArea.PHOTO, "document_open_failed", e)
             false
         }
     }
@@ -227,7 +229,7 @@ object FileHelper {
                 false
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            DiagnosticLog.recordError(DiagnosticArea.PHOTO, "file_delete_failed", e)
             false
         }
     }

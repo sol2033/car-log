@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Car
+import com.carlog.presentation.components.orphanPhotosToDelete
+import com.carlog.util.Attachments
 import com.carlog.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +41,14 @@ data class AddCarState(
     val notes: String = "",
     // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
     val createdAt: Long = 0L,
+    /**
+     * Все фото, прошедшие через экран: исходные плюс выбранные в этот заход. Файл копируется
+     * в хранилище сразу при выборе, поэтому без такого учёта снимок, выбранный и затем
+     * отменённый, оставался бы в хранилище навсегда — и попадал бы в каждый бэкап.
+     */
+    val touchedPhotos: Set<String> = emptySet(),
+    /** Фото, на которые ссылается сохранённая запись: при отмене они должны уцелеть */
+    val originalPhotos: Set<String> = emptySet(),
 
     val brandError: String? = null,
     val modelError: String? = null,
@@ -107,6 +117,8 @@ class AddCarViewModel @Inject constructor(
                             purchaseDateMillis = car.purchaseDate,
                             photosPaths = car.photosPaths ?: emptyList(),
                             mainPhotoPath = car.mainPhotoPath,
+                            touchedPhotos = (car.photosPaths ?: emptyList()).toSet(),
+                            originalPhotos = (car.photosPaths ?: emptyList()).toSet(),
                             notes = car.notes ?: "",
                             createdAt = car.createdAt,
                             isLoading = false
@@ -224,34 +236,32 @@ class AddCarViewModel @Inject constructor(
     }
     
     fun addPhoto(photoPath: String) {
-        val currentPaths = _state.value.photosPaths.toMutableList()
-        currentPaths.add(photoPath)
+        val currentPaths = _state.value.photosPaths + photoPath
         _state.value = _state.value.copy(
             photosPaths = currentPaths,
-            mainPhotoPath = _state.value.mainPhotoPath ?: photoPath // Первое фото становится основным
+            // Основным становится первая картинка: PDF нечем показать ни в списке машин,
+            // ни в шапке карточки
+            mainPhotoPath = Attachments.nextMainPhoto(currentPaths, _state.value.mainPhotoPath),
+            touchedPhotos = _state.value.touchedPhotos + photoPath
         )
     }
     
     fun removePhoto(photoPath: String) {
-        // Удаляем файл из хранилища
-        FileHelper.deleteFile(photoPath)
-        
-        val currentPaths = _state.value.photosPaths.toMutableList()
-        currentPaths.remove(photoPath)
-        
-        val newMainPhoto = if (_state.value.mainPhotoPath == photoPath) {
-            currentPaths.firstOrNull() // Если удалили основное, берем первое
-        } else {
-            _state.value.mainPhotoPath
-        }
-        
+        // Файл не удаляем здесь: при отмене редактирования запись в БД осталась бы
+        // со ссылкой на уже удалённый снимок. Ненужные файлы чистятся одним местом —
+        // при сохранении и в onCleared, по разнице «затронутые минус нужные»
+        val currentPaths = _state.value.photosPaths - photoPath
+
         _state.value = _state.value.copy(
             photosPaths = currentPaths,
-            mainPhotoPath = newMainPhoto
+            // Удалили основное — берём следующую картинку, документ обложкой стать не может
+            mainPhotoPath = Attachments.nextMainPhoto(currentPaths, _state.value.mainPhotoPath)
         )
     }
     
+    /** Обложка автомобиля. PDF сюда не попадает: нажатие на документ его открывает, а не выбирает */
     fun setMainPhoto(photoPath: String) {
+        if (Attachments.isPdf(photoPath)) return
         _state.value = _state.value.copy(mainPhotoPath = photoPath)
     }
     
@@ -351,6 +361,15 @@ class AddCarViewModel @Inject constructor(
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
 
+                // Снимки, не попавшие в итоговую запись (добавили и убрали, либо убрали
+                // существующий) — иначе они остались бы в хранилище навсегда
+                FileHelper.deleteFiles(
+                    orphanPhotosToDelete(
+                        currentState.touchedPhotos,
+                        currentState.photosPaths.toSet()
+                    )
+                )
+
                 _state.value = currentState.copy(
                     isSaving = false,
                     isSaved = true
@@ -362,5 +381,18 @@ class AddCarViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        // Ушли, не сохранив: снимки, выбранные в этот заход, никому не принадлежат.
+        // Эталон при отмене — исходный набор записи, а не то, что осталось в форме,
+        // поэтому убранное, но сохранённое в БД фото уцелеет
+        val current = _state.value
+        if (!current.isSaved) {
+            FileHelper.deleteFiles(
+                orphanPhotosToDelete(current.touchedPhotos, current.originalPhotos)
+            )
+        }
+        super.onCleared()
     }
 }

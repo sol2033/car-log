@@ -23,8 +23,8 @@ android {
         applicationId = "com.carlog"
         minSdk = 29
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.2.2"
+        versionCode = 11
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

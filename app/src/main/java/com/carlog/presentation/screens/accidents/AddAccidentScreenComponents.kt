@@ -2,28 +2,22 @@ package com.carlog.presentation.screens.accidents
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.carlog.util.FileHelper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsPicker
 import com.carlog.presentation.screens.accidents.AddAccidentViewModel
 import com.carlog.presentation.components.EventPart
 import com.carlog.presentation.components.EventPartDialog
@@ -202,7 +196,7 @@ fun RepairSection(
                                         part.manufacturer.ifBlank { null },
                                         part.partNumber.ifBlank { null },
                                         part.photosPaths.size.takeIf { it > 0 }
-                                            ?.let { stringResource(R.string.event_part_photos_count, it) }
+                                            ?.let { stringResource(R.string.attachments_count, it) }
                                     ).joinToString(" · ")
                                     if (details.isNotBlank()) {
                                         Text(
@@ -332,86 +326,15 @@ fun PhotosSection(
     onAddPhoto: (String) -> Unit,
     onRemovePhoto: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        uri?.let {
-            FileHelper.saveImageToInternalStorage(context, it)?.let { savedPath ->
-                onAddPhoto(savedPath)
-            }
-        }
-    }
-    
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Фотографии",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            
-            OutlinedButton(
-                onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Добавить")
-            }
-        }
-        
-        if (photosPaths.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(photosPaths) { photoPath ->
-                    Box {
-                        AsyncImage(
-                            model = Uri.parse(photoPath),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                        
-                        IconButton(
-                            onClick = { onRemovePhoto(photoPath) },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(32.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = MaterialTheme.colorScheme.errorContainer
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Удалить",
-                                    modifier = Modifier.padding(4.dp),
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            Text(
-                text = "Фотографии не добавлены",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    // Отдельным полем ниже живёт документ ДТП (протокол): он один и имеет свой смысл.
+    // Здесь — свободные вложения: снимки повреждений и любые сопутствующие PDF
+    AttachmentsPicker(
+        attachments = photosPaths,
+        onAdd = onAddPhoto,
+        onRemove = onRemovePhoto,
+        title = stringResource(R.string.attachments_title),
+        emptyHint = stringResource(R.string.attachments_empty)
+    )
 }
 
 @Composable

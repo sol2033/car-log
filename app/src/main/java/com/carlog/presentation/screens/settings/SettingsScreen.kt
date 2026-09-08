@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDataCheck: () -> Unit = {},
+    onNavigateToDiagnostics: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -98,6 +99,12 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.data_check_title)) },
                 supportingContent = { Text(stringResource(R.string.data_check_subtitle)) },
                 modifier = Modifier.clickable { onNavigateToDataCheck() }
+            )
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_diagnostics)) },
+                supportingContent = { Text(stringResource(R.string.settings_diagnostics_subtitle)) },
+                modifier = Modifier.clickable { onNavigateToDiagnostics() }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

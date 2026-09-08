@@ -147,7 +147,7 @@ fun RestoreBackupScreen(
                             )
                         }
                         
-                        items(availableBackups) { backup ->
+                        items(availableBackups, key = { it.remotePath }) { backup ->
                             BackupCard(
                                 backup = backup,
                                 isSelected = selectedBackup == backup,

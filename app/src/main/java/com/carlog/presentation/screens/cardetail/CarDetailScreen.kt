@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.carlog.R
+import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Car
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -296,22 +297,7 @@ fun CarDetailContent(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(car.photosPaths) { photoPath ->
-                            Card(
-                                modifier = Modifier.size(150.dp)
-                            ) {
-                                AsyncImage(
-                                    model = photoPath,
-                                    contentDescription = "Фото автомобиля",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                    }
+                    AttachmentsRow(attachments = car.photosPaths)
                 }
             }
         }

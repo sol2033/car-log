@@ -55,22 +55,11 @@
     <string name="event_part_number">Артикул</string>
     <string name="event_part_price">Цена *</string>
     <string name="event_part_notes">Заметки</string>
-    <string name="event_part_photos">Фотографии</string>
-    <string name="event_part_add_photo">Добавить фото</string>
     <string name="event_part_hint">Дата, пробег и сервис возьмутся из самой записи</string>
-    <string name="event_part_photos_count">Фото: %1$d</string>
 
     <!-- Что нового -->
     <string name="whats_new_title">Что нового в %1$s</string>
     <string name="whats_new_confirm">Понятно</string>
-    <string name="whats_new_fuel_reset_title">Расход топлива можно считать заново</string>
-    <string name="whats_new_fuel_reset_body">если заправку забыли внести, средний расход больше не остаётся сбитым навсегда: в статистике рядом со средним расходом появилась кнопка — отсчёт начнётся со следующей добавленной заправки. Сам расчёт стал точнее: бак первой заправки больше не завышает среднее.</string>
-    <string name="whats_new_works_title">Работы списком</string>
-    <string name="whats_new_works_body">в ремонте, ТО и тюнинге работы сервиса можно расписать по позициям с ценами — их сумма и станет стоимостью работ.</string>
-    <string name="whats_new_to_consumables_title">Расходники в ТО стали удобнее</string>
-    <string name="whats_new_to_consumables_body">объём спрашивается только у жидкостей, интервал замены достаточно указать один, а для разовой мелочи появилась категория «Другое» — в раздел «Расходники» она не попадёт. Расходники и работы теперь видны в карточке обслуживания.</string>
-    <string name="whats_new_hidden_parts_title">Не всё нужно в «Запчастях»</string>
-    <string name="whats_new_hidden_parts_body">у запчасти в ремонте и тюнинге появилась галочка видимости: мелочь вроде прокладок можно оставить только внутри записи, не забивая раздел. Её стоимость по-прежнему учитывается.</string>
 
     <!-- Проверка данных -->
     <string name="settings_data_section">Данные</string>
@@ -596,4 +585,124 @@
     <string name="delete_document_title">Удалить документ?</string>
     <string name="delete_document_message">Документ и его фото будут удалены безвозвратно.</string>
     <string name="not_specified">Не указано</string>
+
+    <!-- Резервное копирование: уведомления -->
+    <string name="backup_channel_name">Резервное копирование</string>
+    <string name="backup_channel_description">Уведомления о создании резервных копий</string>
+    <string name="backup_progress_channel_name">Ход резервного копирования</string>
+    <string name="backup_progress_channel_description">Показывает, что копия сейчас загружается</string>
+    <string name="backup_success_title">Резервная копия создана</string>
+    <string name="backup_success_text">Данные успешно сохранены на Яндекс.Диск</string>
+    <string name="backup_error_title">Ошибка резервного копирования</string>
+    <string name="backup_progress_title">Создание резервной копии</string>
+    <string name="backup_progress_preparing">Подготовка…</string>
+    <string name="backup_progress_media">Загрузка файлов: %1$d из %2$d</string>
+    <string name="backup_progress_snapshot">Загрузка на Яндекс.Диск…</string>
+    <string name="backup_progress_finishing">Завершение…</string>
+
+    <!-- Резервное копирование: причины ошибок -->
+    <string name="backup_error_no_network">Нет подключения к интернету</string>
+    <string name="backup_error_timeout">Яндекс.Диск не ответил вовремя</string>
+    <string name="backup_error_server">Яндекс.Диск временно недоступен</string>
+    <string name="backup_error_not_connected">Яндекс.Диск не подключён — подключите его в настройках</string>
+    <string name="backup_error_unauthorized">Доступ к Яндекс.Диску истёк — подключите его заново в настройках</string>
+    <string name="backup_error_quota">На Яндекс.Диске закончилось место</string>
+    <string name="backup_error_not_found">Резервная копия не найдена на Яндекс.Диске</string>
+    <string name="backup_error_unknown">Не удалось создать резервную копию</string>
+
+    <!-- Резервное копирование: настройки -->
+    <string name="backup_wifi_only_title">Только по Wi-Fi</string>
+    <string name="backup_wifi_only_subtitle">Автоматические копии не будут тратить мобильный трафик</string>
+
+    <!-- Резервное копирование: журнал -->
+    <string name="backup_log_open">Журнал последних копий</string>
+    <string name="backup_log_title">Журнал резервного копирования</string>
+    <string name="backup_log_empty">Событий пока нет</string>
+    <string name="backup_log_share">Поделиться</string>
+    <string name="backup_log_close">Закрыть</string>
+    <string name="backup_log_share_title">Журнал резервного копирования</string>
+    <string name="backup_log_outcome_success">Успешно</string>
+    <string name="backup_log_outcome_retry">Повтор попытки</string>
+    <string name="backup_log_outcome_failure">Ошибка</string>
+    <string name="backup_log_trigger_auto">Автоматически</string>
+    <string name="backup_log_trigger_manual">Вручную</string>
+    <string name="backup_log_trigger_catch_up">При запуске</string>
+    <string name="backup_log_media_uploaded">новых файлов: %1$d</string>
+
+    <!-- Резервное копирование: подсказка про оптимизацию батареи -->
+    <string name="backup_battery_hint_title">Копии срываются в фоне?</string>
+    <string name="backup_battery_hint_text">Android откладывает фоновые задачи при выключенном экране — из-за этого загрузка копии обрывается. Разрешите приложению работать в фоне без ограничений: на расход батареи это почти не влияет, пока нет копии для отправки, Car Log ничего не делает.</string>
+    <string name="backup_battery_hint_allow">Разрешить</string>
+    <string name="backup_battery_hint_dismiss">Не показывать</string>
+    <string name="backup_battery_hint_failed">Не удалось открыть настройки батареи</string>
+
+    <!-- Что нового в 1.2.3 -->
+    <string name="whats_new_attachments_title">PDF рядом с фотографиями</string>
+    <string name="whats_new_attachments_body">к автомобилю, запчасти, обслуживанию, ДТП и документу теперь можно приложить не только снимок, но и PDF — скан заказ-наряда, чек или полис. Файл открывается прямо из карточки и попадает в резервные копии наравне с фото.</string>
+    <string name="whats_new_to_consumables_title">Расходники ТО можно править</string>
+    <string name="whats_new_to_consumables_body">в сохранённом ТО расходник теперь открывается по нажатию: меняются производитель, артикул, стоимость, объём и интервалы. Можно добавить забытую позицию или убрать лишнюю — стоимость ТО пересчитается сама, а прошлый расходник вернётся в активные.</string>
+    <string name="whats_new_breakdown_photos_title">Файлы в карточке обслуживания</string>
+    <string name="whats_new_breakdown_photos_body">у ремонта, ТО и тюнинга появился свой блок вложений — раньше фотографии показывались в карточке, но добавить их было негде.</string>
+
+    <!-- Диагностика -->
+    <string name="settings_diagnostics">Диагностика</string>
+    <string name="settings_diagnostics_subtitle">Журнал сбоев и отправка его разработчику</string>
+    <string name="diagnostics_title">Диагностика</string>
+    <string name="diagnostics_explanation">Приложение само записывает сюда свои сбои: что не сработало, на каком шаге и почему. Данные автомобиля, фотографии и пароли в журнал не попадают. Если что-то работает не так — сохраните журнал и пришлите мне, по нему я пойму причину.</string>
+    <string name="diagnostics_empty">Сбоев не зафиксировано</string>
+    <string name="diagnostics_save">Сохранить файл</string>
+    <string name="diagnostics_save_failed">Не удалось сохранить файл</string>
+    <string name="diagnostics_contact">Связаться</string>
+    <string name="diagnostics_contact_title">Как со мной связаться</string>
+    <string name="diagnostics_contact_message">Выберите удобный способ и опишите, что случилось. Журнал прикрепится к письму сам.</string>
+    <string name="diagnostics_contact_email">Написать на почту</string>
+    <string name="diagnostics_contact_drive2">Написать в Drive2</string>
+    <string name="diagnostics_contact_drive2_hint">Личное сообщение в профиле — файл нужно приложить вручную</string>
+    <string name="diagnostics_email_subject">Car Log — проблема в работе приложения</string>
+    <string name="diagnostics_email_body">Опишите, пожалуйста, что произошло и что вы делали перед этим:\n\n\n---\nФайл журнала прикреплён к письму.</string>
+    <string name="diagnostics_no_email_app">Не найдено приложение для отправки почты</string>
+    <string name="diagnostics_clear">Очистить</string>
+    <string name="diagnostics_clear_title">Очистить журнал?</string>
+    <string name="diagnostics_clear_message">Записи о прошлых сбоях будут удалены. Новые продолжат записываться.</string>
+
+    <!-- Контакты для отправки диагностики. translatable=false: это адреса, а не текст. -->
+    <string name="support_email" translatable="false">sol2033@yandex.ru</string>
+    <string name="support_drive2_url" translatable="false">https://www.drive2.ru/users/sol2033/</string>
+
+    <!-- Вложения: фото и PDF в одном списке -->
+    <string name="attachments_title">Фото и документы</string>
+    <string name="attachment_add">Добавить</string>
+    <string name="attachment_source_photo">Фотография</string>
+    <string name="attachment_source_pdf">PDF-документ</string>
+    <string name="attachment_pdf">PDF</string>
+    <string name="attachment_photo">Фотография</string>
+    <string name="attachment_main_photo">Основное фото</string>
+    <string name="attachment_open_failed">Не удалось открыть документ</string>
+    <string name="attachment_save_failed">Не удалось сохранить документ</string>
+    <string name="attachments_empty">Файлы не добавлены</string>
+    <string name="attachments_count">Файлов: %1$d</string>
+    <string name="document_attachment">Фото или PDF документа</string>
+    <string name="to_consumable_edit_title">Редактировать расходник</string>
+    <string name="to_consumable_category_locked">Категория сохранённого расходника не меняется: с ней связана цепочка замен</string>
+
+    <!-- Одно событие на несколько типов: ТО, ремонт и тюнинг вместе -->
+    <string name="event_part_type">Тип работы</string>
+    <string name="event_type_section_parts">Запчасти</string>
+    <string name="event_type_hint">Тип события определяется тем, что в него добавлено: расходники — ТО, запчасти — ремонт или тюнинг</string>
+    <string name="event_type_fallback_label">Тип события</string>
+    <string name="event_cost_consumables">Расходники</string>
+    <string name="event_cost_repair_parts">Запчасти (ремонт)</string>
+    <string name="event_cost_modification_parts">Тюнинг</string>
+    <string name="event_cost_works">Работы</string>
+
+    <string name="whats_new_combined_events_title">Одно событие вместо трёх</string>
+    <string name="whats_new_combined_events_body">комплексный заезд в сервис теперь заводится одной записью: расходники, запчасти ремонта и тюнинг вместе, а стоимость работ — общей суммой за весь визит. Тип события больше не выбирается вручную, а следует за тем, что вы в него добавили.</string>
+    <string name="whats_new_event_colors_title">Видно состав события</string>
+    <string name="whats_new_event_colors_body">карточка в списке окрашена долями по своим типам: заезд «ТО + ремонт» наполовину в цвете ТО, наполовину в цвете ремонта. В фильтре такое событие видно и в «ТО», и в «Ремонт» — это один и тот же заезд.</string>
+
+    <!-- Скрытые запчасти: фильтр и переключатель в карточке -->
+    <string name="filter_hidden">Скрытые</string>
+    <string name="no_hidden_parts">Скрытых запчастей нет</string>
+    <string name="part_show_in_list">Показывать в разделе «Запчасти»</string>
+    <string name="part_hidden_hint">Запись скрыта из списка, но её стоимость по-прежнему учтена в событии и в статистике</string>
 </resources>

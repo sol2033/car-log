@@ -7,6 +7,8 @@ import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
+import com.carlog.presentation.components.orphanPhotosToDelete
+import com.carlog.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,12 @@ data class AddPartState(
     val notes: String = "",
     // Исходная запись при редактировании: поля, которых нет в форме, берутся из неё
     val originalPart: Part? = null,
+    /**
+     * Все фото, прошедшие через экран: исходные плюс выбранные в этот заход. Файл копируется
+     * в хранилище сразу при выборе, поэтому без такого учёта снимок, выбранный и затем
+     * отменённый, оставался бы в хранилище навсегда — и попадал бы в каждый бэкап.
+     */
+    val touchedPhotos: Set<String> = emptySet(),
     
     val nameError: String? = null,
     val installMileageError: String? = null,
@@ -97,6 +105,7 @@ class AddPartViewModel @Inject constructor(
                         serviceName = part.serviceName ?: "",
                         serviceAddress = part.serviceAddress ?: "",
                         photosPaths = part.photosPaths ?: emptyList(),
+                        touchedPhotos = (part.photosPaths ?: emptyList()).toSet(),
                         notes = part.notes ?: "",
                         originalPart = part,
                         isLoading = false
@@ -168,7 +177,10 @@ class AddPartViewModel @Inject constructor(
     fun addPhoto(photoPath: String) {
         val currentPaths = _state.value.photosPaths.toMutableList()
         currentPaths.add(photoPath)
-        _state.value = _state.value.copy(photosPaths = currentPaths)
+        _state.value = _state.value.copy(
+            photosPaths = currentPaths,
+            touchedPhotos = _state.value.touchedPhotos + photoPath
+        )
     }
     
     fun removePhoto(photoPath: String) {
@@ -263,6 +275,15 @@ class AddPartViewModel @Inject constructor(
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
                 
+                // Файлы, выбранные на экране, но не попавшие в итоговую запись
+                // (добавили и тут же убрали) — иначе они остались бы навсегда
+                FileHelper.deleteFiles(
+                    orphanPhotosToDelete(
+                        currentState.touchedPhotos,
+                        currentState.photosPaths.toSet()
+                    )
+                )
+
                 _state.value = currentState.copy(
                     isSaving = false,
                     isSaved = true
@@ -274,5 +295,21 @@ class AddPartViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        // Ушли, не сохранив: снимки, выбранные в этот заход, никому не принадлежат.
+        // Фото, на которые ссылается запись в БД, не трогаем — при отмене «эталоном»
+        // считается исходный набор, а не то, что осталось в форме
+        val current = _state.value
+        if (!current.isSaved) {
+            FileHelper.deleteFiles(
+                orphanPhotosToDelete(
+                    current.touchedPhotos,
+                    (current.originalPart?.photosPaths ?: emptyList()).toSet()
+                )
+            )
+        }
+        super.onCleared()
     }
 }

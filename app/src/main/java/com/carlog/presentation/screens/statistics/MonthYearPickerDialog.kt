@@ -76,7 +76,7 @@ fun MonthYearPickerDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.height(240.dp)
                 ) {
-                    items(months) { month ->
+                    items(months, key = { it }) { month ->
                         val monthIndex = months.indexOf(month) + 1
                         val isSelected = monthIndex == selectedMonth
                         

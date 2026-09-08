@@ -1,5 +1,7 @@
 package com.carlog.presentation.components
 
+import com.carlog.domain.model.MaintenanceType
+
 /**
  * Запчасть, добавляемая внутри события (обслуживание или ДТП), до сохранения самого события.
  *
@@ -11,6 +13,9 @@ package com.carlog.presentation.components
  *
  * @property showInPartsList показывать ли запись в модуле «Запчасти»: мелочь вроде прокладок
  * можно оставить только внутри события — стоимость и привязка при этом сохраняются.
+ * @property maintenanceType ремонт это или тюнинг. Тип живёт у позиции, а не у события:
+ * за один заезд в сервис могут поменять сломанный рычаг и поставить защиту картера,
+ * и деньги должны разойтись по разным категориям статистики.
  * @property partId id уже сохранённой записи (при редактировании события); null — ещё не создана.
  * @property photosPaths файлы уже скопированы в хранилище, поэтому при отказе от события
  * их нужно чистить — см. [orphanPhotosToDelete].
@@ -23,6 +28,7 @@ data class EventPart(
     val notes: String = "",
     val photosPaths: List<String> = emptyList(),
     val showInPartsList: Boolean = true,
+    val maintenanceType: MaintenanceType = MaintenanceType.REPAIR,
     val partId: Long? = null
 )
 
@@ -40,3 +46,21 @@ fun orphanPhotosToDelete(
     touchedPhotos: Set<String>,
     referencedPhotos: Set<String>
 ): List<String> = (touchedPhotos - referencedPhotos).toList()
+
+/**
+ * Вложения, на которые событие ссылается после сохранения — вторая половина пары
+ * к [orphanPhotosToDelete].
+ *
+ * @param keepsParts сохраняются ли сами позиции. `false` — событие уходит с **общей суммой**
+ * запчастей: список в БД не попадает, а прежние записи удаляются, поэтому их фото больше
+ * никому не принадлежат. Раньше они всё равно считались нужными и оставались в хранилище
+ * навсегда, попадая в каждый бэкап.
+ */
+fun referencedEventPhotos(
+    eventPhotos: List<String>,
+    parts: List<EventPart>,
+    keepsParts: Boolean
+): Set<String> = buildSet {
+    addAll(eventPhotos)
+    if (keepsParts) parts.forEach { addAll(it.photosPaths) }
+}

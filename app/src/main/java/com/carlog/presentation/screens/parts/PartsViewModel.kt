@@ -20,6 +20,13 @@ sealed class PartFilter {
     object WithoutAccident : PartFilter()
     object Repair : PartFilter()
     object Tuning : PartFilter()
+
+    /**
+     * Скрытые позиции — единственная вкладка, где они видны. Без неё вернуть мелочь
+     * вроде прокладки в общий список можно было только через её событие,
+     * а из модуля «Запчасти» она пропадала целиком (см. фильтрацию ниже)
+     */
+    object Hidden : PartFilter()
 }
 
 sealed class PartSortOrder {
@@ -96,10 +103,16 @@ class PartsViewModel @Inject constructor(
                         PartFilter.Tuning -> partRepository.getPartsByCarId(carId).map { parts ->
                             parts.filter { it.maintenanceType == "MODIFICATION" }
                         }
+                        PartFilter.Hidden -> partRepository.getPartsByCarId(carId)
                     }.map { parts ->
                         // Позиции, скрытые в форме события (мелочь вроде прокладок), в модуле
-                        // не показываем: их стоимость всё равно учтена в стоимости события
-                        parts.filter { it.showInPartsList }
+                        // не показываем: их стоимость всё равно учтена в стоимости события.
+                        // Вкладка «Скрытые» — наоборот, показывает только их
+                        if (filter == PartFilter.Hidden) {
+                            parts.filterNot { it.showInPartsList }
+                        } else {
+                            parts.filter { it.showInPartsList }
+                        }
                     }.map { parts ->
                         val sortedParts = when (sort) {
                             PartSortOrder.ByInstallDate -> {
