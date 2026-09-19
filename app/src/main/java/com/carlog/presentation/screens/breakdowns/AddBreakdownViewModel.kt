@@ -10,6 +10,7 @@ import com.carlog.data.repository.ConsumableRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.domain.model.Breakdown
+import com.carlog.domain.model.BreakdownFormRules
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableChainRepair
 import com.carlog.domain.model.ConsumableCategories
@@ -23,6 +24,8 @@ import com.carlog.presentation.components.EventPart
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.presentation.components.referencedEventPhotos
 import com.carlog.util.FileHelper
+import com.carlog.util.toDecimalOrNull
+import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -171,7 +174,7 @@ data class AddBreakdownState(
     /** Стоимость запчастей: списком — сумма позиций, иначе введённая общая сумма */
     val partsListCost: Double
         get() = if (useGeneralPartsCost) {
-            partsCost.replace(',', '.').toDoubleOrNull() ?: 0.0
+            partsCost.toDecimalOrNull() ?: 0.0
         } else {
             addedParts.sumOf { it.price }
         }
@@ -209,11 +212,22 @@ data class AddBreakdownState(
         get() = if (!useGeneralServiceCost) {
             workItems.totalCost()
         } else {
-            serviceCost.toDoubleOrNull()
+            serviceCost.toDecimalOrNull()
         }
     
     val isEditMode: Boolean
         get() = breakdownId != null
+
+    /**
+     * Есть ли подсвеченные поля — для подсказки у кнопки сохранения.
+     *
+     * Форма длинная, и поле с ошибкой обычно оказывается за краем экрана: нажатие
+     * на «Сохранить» выглядело как «ничего не происходит». Признак вычисляемый,
+     * поэтому подсказка исчезает сама, как только поле исправили.
+     */
+    val hasFieldErrors: Boolean
+        get() = maintenanceTypeError != null || titleError != null || descriptionError != null ||
+            breakdownMileageError != null || partsCostError != null || consumablesError != null
 }
 
 @HiltViewModel
@@ -312,7 +326,7 @@ class AddBreakdownViewModel @Inject constructor(
                         partsCost = formatResidualPartsCost(
                             breakdown.partsCost - linkedConsumables.sumOf { it.cost ?: 0.0 }
                         ),
-                        useGeneralPartsCost = breakdown.installedPartIds.isNullOrEmpty(),
+                        useGeneralPartsCost = !BreakdownFormRules.usesPartsList(linkedParts),
                         addedParts = linkedParts.map { part ->
                             EventPart(
                                 name = part.name,
@@ -602,7 +616,7 @@ class AddBreakdownViewModel @Inject constructor(
             }
         val titleError = if (currentState.title.isBlank()) "Обязательное поле" else null
         val descriptionError = if (currentState.description.isBlank()) "Обязательное поле" else null
-        val breakdownMileageError = if (currentState.breakdownMileage.isBlank()) "Обязательное поле" else null
+        val breakdownMileageError = BreakdownFormRules.mileageError(currentState.breakdownMileage)
 
         // Правило «для ТО обязателен минимум 1 расходник» больше не нужно: ТО — это и есть
         // наличие расходников. Событие без расходников просто не будет считаться ТО
@@ -635,7 +649,7 @@ class AddBreakdownViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
-                val breakdownMileage = currentState.breakdownMileage.toInt()
+                val breakdownMileage = currentState.breakdownMileage.toMileageOrNull() ?: 0
                 
                 // Расходники и запчасти складываются: событие может быть и ТО, и ремонтом сразу.
                 // В статистике эта сумма раскладывается обратно по позициям (EventComposition)
@@ -683,6 +697,11 @@ class AddBreakdownViewModel @Inject constructor(
                                 // Дата и пробег установки следуют событию — как у его запчастей
                                 installationMileage = breakdownMileage,
                                 installationDate = currentState.breakdownDate,
+                                // Связь держится в обе стороны: по linkedMaintenanceId
+                                // расходник попадает в карточку события и в его ТО-часть
+                                // в статистике (иначе те же деньги считаются ещё и «отдельными»)
+                                linkedMaintenanceId = currentState.breakdownId
+                                    ?: existing.linkedMaintenanceId,
                                 updatedAt = currentTime
                             )
                             consumableRepository.updateConsumable(updated)
@@ -706,26 +725,30 @@ class AddBreakdownViewModel @Inject constructor(
 
                             linkedConsumableIds.add(existing.id)
                         } else {
-                            // Новая позиция заменяет активную того же типа. Разовые позиции
-                            // «Другое» пропускаем: они не образуют цепочку замен, иначе новый
-                            // герметик «заменял» бы прошлые хомуты — категория-то одна
-                            if (ConsumableFormRules.supportsReminders(tempConsumable.category)) {
-                                val consumablesInCategory = consumableRepository
+                            // Куда новая позиция встаёт в цепочке категории, решает её пробег:
+                            // событие может быть и давним (заполняют пропущенное ТО), и тогда
+                            // активной остаётся более свежая установка. Разовые позиции
+                            // «Другое» цепочки не образуют — их план всегда «просто активна»
+                            val plan = ConsumableChainRepair.insertPlan(
+                                sameCategory = consumableRepository
                                     .getConsumablesByCategory(
                                         currentState.carId,
                                         tempConsumable.category
-                                    ).firstOrNull() ?: emptyList()
+                                    ).firstOrNull() ?: emptyList(),
+                                category = tempConsumable.category,
+                                installationMileage = breakdownMileage,
+                                installationDate = currentState.breakdownDate
+                            )
 
-                                consumablesInCategory.firstOrNull { it.isActive }?.let { existingActive ->
-                                    consumableRepository.updateConsumable(
-                                        existingActive.copy(
-                                            isActive = false,
-                                            replacementDate = currentState.breakdownDate,
-                                            replacementMileage = breakdownMileage,
-                                            updatedAt = currentTime
-                                        )
+                            plan.replaced.forEach { replaced ->
+                                consumableRepository.updateConsumable(
+                                    replaced.copy(
+                                        isActive = false,
+                                        replacementDate = currentState.breakdownDate,
+                                        replacementMileage = breakdownMileage,
+                                        updatedAt = currentTime
                                     )
-                                }
+                                )
                             }
 
                             val consumable = tempConsumable.toConsumable(
@@ -734,6 +757,10 @@ class AddBreakdownViewModel @Inject constructor(
                                 installationDate = currentState.breakdownDate,
                                 // Для нового ТО id ещё нет — проставляется после вставки записи
                                 linkedMaintenanceId = currentState.breakdownId
+                            ).copy(
+                                isActive = plan.isActive,
+                                replacementMileage = plan.replacementMileage,
+                                replacementDate = plan.replacementDate
                             )
                             linkedConsumableIds.add(consumableRepository.insertConsumable(consumable))
                         }
@@ -874,18 +901,8 @@ class AddBreakdownViewModel @Inject constructor(
                         updatedAt = currentTime
                     )
                     breakdownRepository.updateBreakdown(breakdown)
-                    
-                    // Обновляем linkedMaintenanceId для новых расходников
-                    if (currentState.maintenanceType == MaintenanceType.SCHEDULED_SERVICE) {
-                        linkedConsumableIds.forEach { consumableId ->
-                            val consumable = consumableRepository.getConsumableById(consumableId).firstOrNull()
-                            consumable?.let {
-                                consumableRepository.updateConsumable(
-                                    it.copy(linkedMaintenanceId = currentState.breakdownId)
-                                )
-                            }
-                        }
-                    }
+                    // linkedMaintenanceId проставлен выше, при записи самих расходников:
+                    // id события известен с самого начала
                 } else {
                     val breakdown = Breakdown(
                         carId = currentState.carId,
@@ -911,34 +928,39 @@ class AddBreakdownViewModel @Inject constructor(
                         updatedAt = currentTime
                     )
                     val newBreakdownId = breakdownRepository.insertBreakdown(breakdown)
-                    
-                    // Обновляем linkedMaintenanceId для расходников
-                    if (currentState.maintenanceType == MaintenanceType.SCHEDULED_SERVICE) {
-                        linkedConsumableIds.forEach { consumableId ->
-                            val consumable = consumableRepository.getConsumableById(consumableId).firstOrNull()
-                            consumable?.let {
-                                consumableRepository.updateConsumable(
-                                    it.copy(linkedMaintenanceId = newBreakdownId)
-                                )
-                            }
+
+                    // Привязываем расходники к событию. От типа события это больше не зависит:
+                    // с 1.2.4 тип выводится из содержимого и в форме остаётся «Ремонт», а
+                    // непривязанный расходник выпадал из карточки события и считался в
+                    // статистике «отдельным» — то есть вторым разом
+                    linkedConsumableIds.forEach { consumableId ->
+                        val consumable = consumableRepository.getConsumableById(consumableId).firstOrNull()
+                        consumable?.let {
+                            consumableRepository.updateConsumable(
+                                it.copy(linkedMaintenanceId = newBreakdownId)
+                            )
                         }
                     }
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(currentState.carId, currentState.breakdownMileage.toInt())
+                carRepository.updateCarMileageIfNeeded(currentState.carId, breakdownMileage)
 
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
                 
-                _state.value = currentState.copy(
+                // Снимок currentState сделан до сохранения: набранное за это время
+                // он бы откатил, а поля ввода во время сохранения не блокируются
+                _state.value = _state.value.copy(
                     isSaving = false,
                     isSaved = true
                 )
             } catch (e: Exception) {
+                // Сообщения у исключения может не быть — тогда экран просто замирал
+                // без единого следа, и правка выглядела потерянной
                 _state.value = currentState.copy(
                     isSaving = false,
-                    error = e.message
+                    error = e.message ?: "Не удалось сохранить запись"
                 )
             }
         }

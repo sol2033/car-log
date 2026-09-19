@@ -120,6 +120,11 @@ fun DataCheckScreen(
                             viewModel.keepSingleActiveConsumable(
                                 finding as IntegrityFinding.DuplicateActiveConsumables
                             )
+                        },
+                        onRepairActivity = {
+                            viewModel.repairConsumableActivity(
+                                finding as IntegrityFinding.StaleActiveConsumable
+                            )
                         }
                     )
                 }
@@ -217,7 +222,8 @@ private fun FindingCard(
     onApplyRepairCost: (Double) -> Unit,
     onAlignCost: () -> Unit,
     onSetPurchaseInfo: (Long, Int) -> Unit,
-    onKeepSingleActive: () -> Unit
+    onKeepSingleActive: () -> Unit,
+    onRepairActivity: () -> Unit
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -245,6 +251,9 @@ private fun FindingCard(
 
                 is IntegrityFinding.DuplicateActiveConsumables ->
                     DuplicateConsumablesBody(finding, onKeepSingleActive)
+
+                is IntegrityFinding.StaleActiveConsumable ->
+                    StaleActiveConsumableBody(finding, onRepairActivity)
             }
 
             TextButton(onClick = onIgnore) {
@@ -456,6 +465,26 @@ private fun DuplicateConsumablesBody(
     }
     Button(onClick = onKeepSingle) {
         Text(stringResource(R.string.data_check_keep_newest))
+    }
+}
+
+@Composable
+private fun StaleActiveConsumableBody(
+    finding: IntegrityFinding.StaleActiveConsumable,
+    onRepair: () -> Unit
+) {
+    FindingTitle(stringResource(R.string.data_check_stale_active_title))
+    Text(
+        text = stringResource(
+            R.string.data_check_stale_active_body,
+            finding.category,
+            finding.active.installationMileage,
+            finding.newest.installationMileage
+        ),
+        style = MaterialTheme.typography.bodyMedium
+    )
+    Button(onClick = onRepair) {
+        Text(stringResource(R.string.data_check_stale_active_fix))
     }
 }
 

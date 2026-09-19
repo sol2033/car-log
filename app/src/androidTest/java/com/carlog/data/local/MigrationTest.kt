@@ -365,4 +365,109 @@ class MigrationTest {
             assertNull(it.getString(0))
         }
     }
+
+    /**
+     * 22→23: модуль «Штрафы». Таблицы раньше не было, поэтому проверяем главное —
+     * схема совпадает с ожидаемой Room (это делает сам runMigrationsAndValidate),
+     * таблица пустая и в неё можно писать, а каскад по машине работает.
+     */
+    @Test
+    fun migrate22To23_создаётПустуюТаблицуШтрафов() {
+        helper.createDatabase(testDb, 22).apply {
+            insertCar(this, 1)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 23, true, MIGRATION_22_23)
+
+        db.query("SELECT COUNT(*) FROM fines").use {
+            it.moveToFirst()
+            assertEquals(0, it.getInt(0))
+        }
+
+        db.execSQL(
+            "INSERT INTO fines (id, carId, date, amount, violationType, isPaid, createdAt, updatedAt) " +
+                "VALUES (1, 1, 0, 500.0, 'Превышение скорости', 0, 0, 0)"
+        )
+        db.query("SELECT amount, isPaid FROM fines WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(500.0, it.getDouble(0), 0.01)
+            assertEquals(0, it.getInt(1))
+        }
+    }
+
+    /** Штрафы удалённой машины не должны пережить её: FK объявлен с ON DELETE CASCADE */
+    @Test
+    fun migrate22To23_штрафыУходятВместеСМашиной() {
+        helper.createDatabase(testDb, 22).apply {
+            insertCar(this, 1)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 23, true, MIGRATION_22_23)
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT INTO fines (id, carId, date, amount, violationType, isPaid, createdAt, updatedAt) " +
+                "VALUES (1, 1, 0, 500.0, 'Парковка и остановка', 1, 0, 0)"
+        )
+
+        db.execSQL("DELETE FROM cars WHERE id = 1")
+
+        db.query("SELECT COUNT(*) FROM fines").use {
+            it.moveToFirst()
+            assertEquals(0, it.getInt(0))
+        }
+    }
+
+    /**
+     * 23→24: компенсация пострадавшему. Главное требование — **уже заведённые ДТП
+     * не меняются**: колонка nullable и без значения по умолчанию, поэтому у старой записи
+     * там NULL («не указана»), а не ноль, который соврал бы, что компенсации не было.
+     * Стоимость ремонта и остальные поля обязаны дожить до новой версии нетронутыми.
+     */
+    @Test
+    fun migrate23To24_староеДТПпереживаетДобавлениеКомпенсации() {
+        helper.createDatabase(testDb, 23).apply {
+            insertCar(this, 1)
+            execSQL(
+                "INSERT INTO accidents (id, carId, date, mileage, damageDescription, severity, " +
+                    "isUserAtFault, osagoPayout, repairCost, createdAt, updatedAt) " +
+                    "VALUES (60, 1, 1000, 70000, 'Бампер', 'Средняя', 0, 15000.0, 40000.0, 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 24, true, MIGRATION_23_24)
+
+        db.query("SELECT repairCost, osagoPayout, compensationPaid FROM accidents WHERE id = 60").use {
+            it.moveToFirst()
+            assertEquals(40_000.0, it.getDouble(0), 0.01)
+            assertEquals(15_000.0, it.getDouble(1), 0.01)
+            assertNull("у старой записи компенсация не указана, а не равна нулю",
+                if (it.isNull(2)) null else it.getDouble(2))
+        }
+    }
+
+    /** Дозаполнение старой карточки: колонка принимает значение и читается обратно */
+    @Test
+    fun migrate23To24_компенсациюМожноДозаполнить() {
+        helper.createDatabase(testDb, 23).apply {
+            insertCar(this, 1)
+            execSQL(
+                "INSERT INTO accidents (id, carId, date, mileage, damageDescription, severity, " +
+                    "isUserAtFault, repairCost, createdAt, updatedAt) " +
+                    "VALUES (61, 1, 1000, 70000, 'Бампер', 'Средняя', 1, 0.0, 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 24, true, MIGRATION_23_24)
+        db.execSQL("UPDATE accidents SET compensationPaid = 25000.0 WHERE id = 61")
+
+        db.query("SELECT compensationPaid FROM accidents WHERE id = 61").use {
+            it.moveToFirst()
+            assertEquals(25_000.0, it.getDouble(0), 0.01)
+        }
+    }
 }
+

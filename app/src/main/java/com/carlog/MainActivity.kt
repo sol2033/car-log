@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -117,8 +118,17 @@ class MainActivity : ComponentActivity() {
 
                 CarLogTheme(darkTheme = darkTheme) {
                     CompositionLocalProvider(LocalCurrency provides currency) {
+                        // imePadding на корне вместо повтора в каждом экране.
+                        // Приложение работает edge-to-edge (enableEdgeToEdge выше), поэтому
+                        // окно под клавиатуру НЕ сжимается: без этой строки поле ввода внизу
+                        // формы (например «Заметки» с длинным текстом) уезжало под клавиатуру
+                        // и набираемый текст переставал быть виден. С отступом видимая область
+                        // укорачивается, и скролл сам подтягивает курсор — как при adjustResize.
+                        // Диалоги сюда не попадают, но у них своё окно и insets им считает система.
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .imePadding(),
                             color = MaterialTheme.colorScheme.background
                         ) {
                             NavGraph(startDestination = startDestination)

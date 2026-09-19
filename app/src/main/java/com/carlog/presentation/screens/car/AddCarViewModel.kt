@@ -9,6 +9,8 @@ import com.carlog.domain.model.Car
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.util.Attachments
 import com.carlog.util.FileHelper
+import com.carlog.domain.model.BreakdownFormRules
+import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -276,9 +278,11 @@ class AddCarViewModel @Inject constructor(
         val brandError = if (currentState.brand.isBlank()) "Обязательное поле" else null
         val modelError = if (currentState.model.isBlank()) "Обязательное поле" else null
         val fuelTypeError = if (currentState.fuelType.isBlank()) "Обязательное поле" else null
-        val mileageError = if (currentState.currentMileage.isBlank()) "Обязательное поле" else null
+        val mileageError = BreakdownFormRules.mileageError(currentState.currentMileage)
         val purchaseDateError = if (currentState.purchaseDateMillis == null) "Обязательное поле" else null
-        val purchaseMileageError = if (currentState.purchaseMileage.isBlank()) "Обязательное поле" else null
+        // Пробег покупки уходил в toIntOrNull и при нечисловом значении молча становился
+        // null — а без него статистика не может считать средний пробег в день
+        val purchaseMileageError = BreakdownFormRules.mileageError(currentState.purchaseMileage)
         
         if (brandError != null || modelError != null || fuelTypeError != null || mileageError != null || purchaseDateError != null || purchaseMileageError != null) {
             _state.value = currentState.copy(
@@ -297,6 +301,8 @@ class AddCarViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
+                val currentMileage = currentState.currentMileage.toMileageOrNull() ?: 0
+                val purchaseMileage = currentState.purchaseMileage.toMileageOrNull()
                 
                 if (currentState.carId != null) {
                     // Update existing car
@@ -316,8 +322,8 @@ class AddCarViewModel @Inject constructor(
                         fuelType = currentState.fuelType,
                         hasGasEquipment = currentState.hasGasEquipment,
                         gasType = currentState.gasType,
-                        currentMileage = currentState.currentMileage.toInt(),
-                        purchaseMileage = currentState.purchaseMileage.toIntOrNull(),
+                        currentMileage = currentMileage,
+                        purchaseMileage = purchaseMileage,
                         purchaseDate = currentState.purchaseDateMillis,
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },
@@ -346,8 +352,8 @@ class AddCarViewModel @Inject constructor(
                         fuelType = currentState.fuelType,
                         hasGasEquipment = currentState.hasGasEquipment,
                         gasType = currentState.gasType,
-                        currentMileage = currentState.currentMileage.toInt(),
-                        purchaseMileage = currentState.purchaseMileage.toIntOrNull(),
+                        currentMileage = currentMileage,
+                        purchaseMileage = purchaseMileage,
                         purchaseDate = currentState.purchaseDateMillis,
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },

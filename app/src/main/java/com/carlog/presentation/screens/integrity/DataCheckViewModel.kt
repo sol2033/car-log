@@ -100,6 +100,10 @@ class DataCheckViewModel @Inject constructor(
         checker.keepSingleActiveConsumable(carId, finding.category)
     }
 
+    fun repairConsumableActivity(finding: IntegrityFinding.StaleActiveConsumable) = fix {
+        checker.repairConsumableActivity(finding.active.carId, finding.category)
+    }
+
     /** Общая обвязка исправления: применить, уведомить бэкап, пересканировать */
     private fun fix(action: suspend () -> Unit) {
         viewModelScope.launch {

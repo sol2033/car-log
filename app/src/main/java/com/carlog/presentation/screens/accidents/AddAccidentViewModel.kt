@@ -8,11 +8,14 @@ import com.carlog.data.repository.AccidentRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Accident
+import com.carlog.domain.model.BreakdownFormRules
 import com.carlog.domain.model.Part
 import com.carlog.presentation.components.EventPart
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.presentation.components.referencedEventPhotos
 import com.carlog.util.FileHelper
+import com.carlog.util.toMileageOrNull
+import com.carlog.util.toDecimalOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +42,10 @@ data class AddAccidentState(
     val kaskoPayout: String = "",
     val hasCulpritPayout: Boolean = false,
     val culpritPayout: String = "",
+
+    // Компенсация пострадавшему — спрашивается, только когда виновник сам пользователь
+    val hasCompensationPaid: Boolean = false,
+    val compensationPaid: String = "",
     
     // Ремонт
     val usePartsForRepair: Boolean = true, // true = добавлять запчасти, false = общая стоимость
@@ -127,6 +134,7 @@ class AddAccidentViewModel @Inject constructor(
                             price = part.price,
                             notes = part.notes ?: "",
                             photosPaths = part.photosPaths ?: emptyList(),
+                            showInPartsList = part.showInPartsList,
                             partId = part.id
                         )
                     }
@@ -151,7 +159,15 @@ class AddAccidentViewModel @Inject constructor(
                         kaskoPayout = accident.kaskoPayout?.toString() ?: "",
                         hasCulpritPayout = accident.culpritPayout != null,
                         culpritPayout = accident.culpritPayout?.toString() ?: "",
-                        usePartsForRepair = accident.installedPartIds != null,
+                        // У записей, заведённых до появления поля, здесь null — форма
+                        // открывается с пустой галочкой, и дозаполнить можно в любой момент
+                        hasCompensationPaid = accident.compensationPaid != null,
+                        compensationPaid = accident.compensationPaid?.toString() ?: "",
+                        // Режим решают загруженные позиции, а не ссылки на них: повисшая
+                        // ссылка (запчасть удалили в её модуле) открывала форму со списком,
+                        // в котором пусто. Деньги при этом не теряются — сохранённая
+                        // стоимость ремонта уже разобрана в totalRepairCost ниже
+                        usePartsForRepair = addedParts.isNotEmpty(),
                         addedParts = addedParts,
                         serviceCost = serviceCost?.toString() ?: "",
                         originalPartIds = linkedParts.map { it.id },
@@ -215,7 +231,11 @@ class AddAccidentViewModel @Inject constructor(
             hasOsagoPayout = if (isAtFault) false else currentState.hasOsagoPayout,
             osagoPayout = if (isAtFault) "" else currentState.osagoPayout,
             hasCulpritPayout = if (isAtFault) false else currentState.hasCulpritPayout,
-            culpritPayout = if (isAtFault) "" else currentState.culpritPayout
+            culpritPayout = if (isAtFault) "" else currentState.culpritPayout,
+            // Компенсацию платит виновник: сменил роль на «пострадавший» — поле уходит
+            // вместе с суммой, иначе она молча сохранилась бы у чужой по смыслу записи
+            hasCompensationPaid = if (isAtFault) currentState.hasCompensationPaid else false,
+            compensationPaid = if (isAtFault) currentState.compensationPaid else ""
         )
     }
     
@@ -248,6 +268,17 @@ class AddAccidentViewModel @Inject constructor(
         )
     }
     
+    fun toggleCompensationPaid(has: Boolean) {
+        _state.value = _state.value.copy(
+            hasCompensationPaid = has,
+            compensationPaid = if (!has) "" else _state.value.compensationPaid
+        )
+    }
+
+    fun updateCompensationPaid(amount: String) {
+        _state.value = _state.value.copy(compensationPaid = amount)
+    }
+
     fun updateCulpritPayout(amount: String) {
         _state.value = _state.value.copy(culpritPayout = amount)
     }
@@ -357,7 +388,7 @@ class AddAccidentViewModel @Inject constructor(
         if (currentState.accidentId != null && !currentState.isLoaded) return
 
         // Validation
-        val mileageError = if (currentState.mileage.isBlank()) "Обязательное поле" else null
+        val mileageError = BreakdownFormRules.mileageError(currentState.mileage)
         val damageDescriptionError = if (currentState.damageDescription.isBlank()) "Обязательное поле" else null
         
         if (mileageError != null || damageDescriptionError != null) {
@@ -373,14 +404,17 @@ class AddAccidentViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
+                // Пробег разбираем один раз: раньше toInt() по сырой строке стоял
+                // в четырёх местах и ронял сохранение в catch
+                val mileage = currentState.mileage.toMileageOrNull() ?: 0
                 
                 // Рассчитываем стоимость ремонта
                 val repairCost = if (currentState.usePartsForRepair) {
                     val partsCost = currentState.addedParts.sumOf { it.price }
-                    val serviceCostValue = currentState.serviceCost.toDoubleOrNull() ?: 0.0
+                    val serviceCostValue = currentState.serviceCost.toDecimalOrNull() ?: 0.0
                     partsCost + serviceCostValue
                 } else {
-                    currentState.totalRepairCost.toDoubleOrNull()
+                    currentState.totalRepairCost.toDecimalOrNull()
                 }
                 
                 // Создаем или обновляем запчасти.
@@ -396,12 +430,13 @@ class AddAccidentViewModel @Inject constructor(
                                     manufacturer = addedPart.manufacturer.ifBlank { null },
                                     partNumber = addedPart.partNumber.ifBlank { null },
                                     installDate = currentState.date,
-                                    installMileage = currentState.mileage.toInt(),
+                                    installMileage = mileage,
                                     price = addedPart.price,
                                     photosPaths = addedPart.photosPaths.ifEmpty { null },
                                     notes = addedPart.notes.ifBlank {
                                         "Установлена после ДТП ${formatDate(currentState.date)}"
                                     },
+                                    showInPartsList = addedPart.showInPartsList,
                                     updatedAt = currentTime
                                 )
                             )
@@ -414,7 +449,7 @@ class AddAccidentViewModel @Inject constructor(
                                     manufacturer = addedPart.manufacturer.ifBlank { null },
                                     partNumber = addedPart.partNumber.ifBlank { null },
                                     installDate = currentState.date,
-                                    installMileage = currentState.mileage.toInt(),
+                                    installMileage = mileage,
                                     installationType = "ДТП",
                                     price = addedPart.price,
                                     servicePrice = null,
@@ -422,6 +457,9 @@ class AddAccidentViewModel @Inject constructor(
                                     notes = addedPart.notes.ifBlank {
                                         "Установлена после ДТП ${formatDate(currentState.date)}"
                                     },
+                                    // Мелочь вроде клипс и герметика можно не тащить в модуль
+                                    // «Запчасти»: стоимость и привязка к аварии сохраняются
+                                    showInPartsList = addedPart.showInPartsList,
                                     createdAt = currentTime,
                                     updatedAt = currentTime
                                 )
@@ -455,14 +493,21 @@ class AddAccidentViewModel @Inject constructor(
                     id = currentState.accidentId ?: 0,
                     carId = currentState.carId,
                     date = currentState.date,
-                    mileage = currentState.mileage.toInt(),
+                    mileage = mileage,
                     location = currentState.location.ifBlank { null },
                     damageDescription = currentState.damageDescription,
                     severity = currentState.severity,
                     isUserAtFault = currentState.isUserAtFault,
-                    osagoPayout = if (currentState.hasOsagoPayout) currentState.osagoPayout.toDoubleOrNull() else null,
-                    kaskoPayout = if (currentState.hasKaskoPayout) currentState.kaskoPayout.toDoubleOrNull() else null,
-                    culpritPayout = if (currentState.hasCulpritPayout) currentState.culpritPayout.toDoubleOrNull() else null,
+                    osagoPayout = if (currentState.hasOsagoPayout) currentState.osagoPayout.toDecimalOrNull() else null,
+                    kaskoPayout = if (currentState.hasKaskoPayout) currentState.kaskoPayout.toDecimalOrNull() else null,
+                    culpritPayout = if (currentState.hasCulpritPayout) currentState.culpritPayout.toDecimalOrNull() else null,
+                    // Не отмечено — null, а не ноль: «не указано» и «не платил» это разное,
+                    // и у старых записей поле обязано остаться пустым, пока его не заполнят
+                    compensationPaid = if (currentState.isUserAtFault && currentState.hasCompensationPaid) {
+                        currentState.compensationPaid.toDecimalOrNull()
+                    } else {
+                        null
+                    },
                     installedPartIds = installedPartIds,
                     repairCost = repairCost,
                     photosPaths = currentState.photosPaths.ifEmpty { null },
@@ -478,7 +523,7 @@ class AddAccidentViewModel @Inject constructor(
                     accidentRepository.insertAccident(accident)
                 }
                 
-                carRepository.updateCarMileageIfNeeded(currentState.carId, currentState.mileage.toInt())
+                carRepository.updateCarMileageIfNeeded(currentState.carId, mileage)
 
                 // PDF заменили — файл, на который ссылалась старая версия записи, больше не нужен
                 val originalDocument = currentState.originalDocumentPath
@@ -491,14 +536,17 @@ class AddAccidentViewModel @Inject constructor(
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
                 
-                _state.value = currentState.copy(
+                // Снимок currentState сделан до сохранения: набранное за это время
+                // он бы откатил, а поля ввода во время сохранения не блокируются
+                _state.value = _state.value.copy(
                     isSaving = false,
                     isSaved = true
                 )
             } catch (e: Exception) {
-                _state.value = currentState.copy(
+                // Сообщения у исключения может не быть — экран замирал молча
+                _state.value = _state.value.copy(
                     isSaving = false,
-                    error = e.message
+                    error = e.message ?: "Не удалось сохранить запись"
                 )
             }
         }

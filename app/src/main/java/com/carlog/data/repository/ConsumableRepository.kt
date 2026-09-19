@@ -23,10 +23,6 @@ class ConsumableRepository @Inject constructor(
         return consumableDao.getConsumablesByCategory(carId, category)
     }
     
-    fun getConsumablesByMaintenanceId(maintenanceId: Long): Flow<List<Consumable>> {
-        return consumableDao.getConsumablesByMaintenanceId(maintenanceId)
-    }
-
     fun getConsumableById(consumableId: Long): Flow<Consumable?> {
         return consumableDao.getConsumableById(consumableId)
     }

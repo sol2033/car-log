@@ -117,6 +117,16 @@ sealed class Screen(val route: String) {
             else "add_expense/$carId"
     }
     
+    // Fines (штрафы)
+    object Fines : Screen("fines/{carId}") {
+        fun createRoute(carId: Long) = "fines/$carId"
+    }
+    object AddFine : Screen("add_fine/{carId}?fineId={fineId}") {
+        fun createRoute(carId: Long, fineId: Long? = null) =
+            if (fineId != null) "add_fine/$carId?fineId=$fineId"
+            else "add_fine/$carId"
+    }
+
     // Documents
     object Documents : Screen("documents/{carId}") {
         fun createRoute(carId: Long) = "documents/$carId"

@@ -27,8 +27,10 @@ import com.carlog.domain.model.WorkItem
 import com.carlog.domain.model.totalCost
 import com.carlog.presentation.components.AttachmentsPicker
 import com.carlog.presentation.components.maintenanceTypeColor
+import com.carlog.presentation.components.ConfirmDeleteDialog
 import com.carlog.presentation.components.EventPartDialog
 import com.carlog.presentation.components.WorkItemDialog
+import com.carlog.util.toDecimalOrNull
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -46,6 +48,11 @@ fun AddBreakdownScreen(
     // Окно запчасти: null — закрыто, -1 — добавление новой, иначе индекс редактируемой
     var editedPartIndex by remember { mutableStateOf<Int?>(null) }
     var editedWorkIndex by remember { mutableStateOf<Int?>(null) }
+    // Подтверждение удаления позиции: корзинка стоит вплотную к карточке, и промах по ней
+    // стирал введённые данные без единого вопроса
+    var partToRemove by remember { mutableStateOf<Int?>(null) }
+    var consumableToRemove by remember { mutableStateOf<Int?>(null) }
+    var workItemToRemove by remember { mutableStateOf<Int?>(null) }
     
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -367,7 +374,7 @@ fun AddBreakdownScreen(
                                     )
                                 }
                             }
-                            IconButton(onClick = { viewModel.removePart(index) }) {
+                            IconButton(onClick = { partToRemove = index }) {
                                 Icon(
                                     Icons.Default.Delete,
                                     stringResource(R.string.delete),
@@ -447,7 +454,7 @@ fun AddBreakdownScreen(
                             }
                             
                             // Кнопка удаления (всегда доступна)
-                            IconButton(onClick = { viewModel.removeTemporaryConsumable(index) }) {
+                            IconButton(onClick = { consumableToRemove = index }) {
                                 Icon(
                                     Icons.Default.Delete,
                                     stringResource(R.string.delete),
@@ -595,7 +602,7 @@ fun AddBreakdownScreen(
                                             text = "₽%.2f".format(work.cost),
                                             style = MaterialTheme.typography.bodyMedium
                                         )
-                                        IconButton(onClick = { viewModel.removeWorkItem(index) }) {
+                                        IconButton(onClick = { workItemToRemove = index }) {
                                             Icon(
                                                 Icons.Default.Delete,
                                                 contentDescription = stringResource(R.string.delete),
@@ -762,6 +769,16 @@ fun AddBreakdownScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+
+                // Подсказка у самой кнопки: поле с ошибкой обычно выше края экрана,
+                // и нажатие выглядело как «ничего не происходит»
+                if (state.hasFieldErrors) {
+                    Text(
+                        text = stringResource(R.string.form_has_errors),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 
                 Button(
                     onClick = viewModel::saveBreakdown,
@@ -786,6 +803,43 @@ fun AddBreakdownScreen(
         }
     }
     
+    partToRemove?.let { index ->
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.delete_event_part_title),
+            text = stringResource(
+                R.string.delete_event_part_message,
+                state.addedParts.getOrNull(index)?.name.orEmpty()
+            ),
+            onConfirm = { viewModel.removePart(index) },
+            onDismiss = { partToRemove = null }
+        )
+    }
+
+    consumableToRemove?.let { index ->
+        val consumable = state.temporaryConsumables.getOrNull(index)
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.delete_event_consumable_title),
+            text = stringResource(
+                R.string.delete_event_consumable_message,
+                consumable?.customName ?: consumable?.category.orEmpty()
+            ),
+            onConfirm = { viewModel.removeTemporaryConsumable(index) },
+            onDismiss = { consumableToRemove = null }
+        )
+    }
+
+    workItemToRemove?.let { index ->
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.delete_work_item_title),
+            text = stringResource(
+                R.string.delete_work_item_message,
+                state.workItems.getOrNull(index)?.name.orEmpty()
+            ),
+            onConfirm = { viewModel.removeWorkItem(index) },
+            onDismiss = { workItemToRemove = null }
+        )
+    }
+
     // Dialog для добавления расходника
     editedPartIndex?.let { index ->
         EventPartDialog(
@@ -999,7 +1053,7 @@ private fun ConsumableDialog(
                     label = { Text(stringResource(R.string.to_consumable_cost)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
-                    isError = cost.isNotBlank() && cost.toDoubleOrNull() == null
+                    isError = cost.isNotBlank() && cost.toDecimalOrNull() == null
                 )
 
                 // Объём — только у жидкостей: у фильтра или колодок литров не бывает
@@ -1010,7 +1064,7 @@ private fun ConsumableDialog(
                         label = { Text(stringResource(R.string.to_consumable_volume)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
-                        isError = volume.isNotBlank() && volume.toDoubleOrNull() == null
+                        isError = volume.isNotBlank() && volume.toDecimalOrNull() == null
                     )
                 }
 
@@ -1058,12 +1112,12 @@ private fun ConsumableDialog(
                                 customName = customName.trim().ifBlank { null },
                                 manufacturer = manufacturer.ifBlank { null },
                                 articleNumber = articleNumber.ifBlank { null },
-                                cost = cost.toDoubleOrNull(),
+                                cost = cost.toDecimalOrNull(),
                                 // Работы сервиса у ТО общие, своих у позиции нет — иначе
                                 // их стоимость задвоилась бы со стоимостью работ события
                                 isInstalledAtService = initial?.isInstalledAtService ?: false,
                                 serviceCost = initial?.serviceCost,
-                                volume = if (needsVolume) volume.toDoubleOrNull() else null,
+                                volume = if (needsVolume) volume.toDecimalOrNull() else null,
                                 replacementIntervalMileage =
                                     if (hasReminders) replacementIntervalMileage.toIntOrNull() else null,
                                 replacementIntervalDays =

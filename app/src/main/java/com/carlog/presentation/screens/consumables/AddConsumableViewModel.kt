@@ -7,8 +7,12 @@ import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
+import com.carlog.domain.model.BreakdownFormRules
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
+import com.carlog.domain.model.ConsumableChainRepair
+import com.carlog.util.toDecimalOrNull
+import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -223,8 +227,8 @@ class AddConsumableViewModel @Inject constructor(
         if (currentState.consumableId != null && currentState.originalConsumable == null) return
 
         val categoryError = if (currentState.category.isBlank()) "Обязательное поле" else null
-        val mileageError = if (currentState.installationMileage.isBlank()) "Обязательное поле" else null
-        val costError = if (currentState.cost.isBlank() || currentState.cost.toDoubleOrNull() == null) "Обязательное поле" else null
+        val mileageError = BreakdownFormRules.mileageError(currentState.installationMileage)
+        val costError = if (currentState.cost.isBlank() || currentState.cost.toDecimalOrNull() == null) "Обязательное поле" else null
         
         if (categoryError != null || mileageError != null || costError != null) {
             _state.value = currentState.copy(
@@ -240,6 +244,7 @@ class AddConsumableViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
+                val installationMileage = currentState.installationMileage.toMileageOrNull() ?: 0
 
                 val original = currentState.originalConsumable
                 if (original != null) {
@@ -251,12 +256,12 @@ class AddConsumableViewModel @Inject constructor(
                         category = currentState.category,
                         manufacturer = currentState.manufacturer.ifBlank { null },
                         articleNumber = currentState.articleNumber.ifBlank { null },
-                        installationMileage = currentState.installationMileage.toInt(),
+                        installationMileage = installationMileage,
                         installationDate = currentState.installationDate,
-                        cost = currentState.cost.toDoubleOrNull(),
+                        cost = currentState.cost.toDecimalOrNull(),
                         isInstalledAtService = currentState.isInstalledAtService,
-                        serviceCost = currentState.serviceCost.toDoubleOrNull(),
-                        volume = currentState.volume.toDoubleOrNull(),
+                        serviceCost = currentState.serviceCost.toDecimalOrNull(),
+                        volume = currentState.volume.toDecimalOrNull(),
                         replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
                         replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
                         notes = currentState.notes.ifBlank { null },
@@ -264,55 +269,69 @@ class AddConsumableViewModel @Inject constructor(
                     )
                     consumableRepository.updateConsumable(consumable)
                 } else {
+                    // В категории активен ровно один расходник — самый свежий по пробегу.
+                    // Установку задним числом (вспомнили про пропущенную замену) активной
+                    // делать нельзя: иначе ресурс считался бы от неё, и всё становилось
+                    // красным. План вставки решает это одинаково для всех потоков
+                    val plan = ConsumableChainRepair.insertPlan(
+                        sameCategory = consumableRepository
+                            .getConsumablesByCategory(carId, currentState.category)
+                            .firstOrNull() ?: emptyList(),
+                        category = currentState.category,
+                        installationMileage = installationMileage,
+                        installationDate = currentState.installationDate
+                    )
+
+                    plan.replaced.forEach { replaced ->
+                        consumableRepository.updateConsumable(
+                            replaced.copy(
+                                isActive = false,
+                                replacementDate = currentState.installationDate,
+                                replacementMileage = installationMileage,
+                                updatedAt = currentTime
+                            )
+                        )
+                    }
+
                     val consumable = Consumable(
                         id = 0,
                         carId = carId,
                         category = currentState.category,
                         manufacturer = currentState.manufacturer.ifBlank { null },
                         articleNumber = currentState.articleNumber.ifBlank { null },
-                        installationMileage = currentState.installationMileage.toInt(),
+                        installationMileage = installationMileage,
                         installationDate = currentState.installationDate,
-                        replacementMileage = null,
-                        replacementDate = null,
-                        cost = currentState.cost.toDoubleOrNull(),
+                        replacementMileage = plan.replacementMileage,
+                        replacementDate = plan.replacementDate,
+                        cost = currentState.cost.toDecimalOrNull(),
                         isInstalledAtService = currentState.isInstalledAtService,
-                        serviceCost = currentState.serviceCost.toDoubleOrNull(),
-                        volume = currentState.volume.toDoubleOrNull(),
+                        serviceCost = currentState.serviceCost.toDecimalOrNull(),
+                        volume = currentState.volume.toDecimalOrNull(),
                         replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
                         replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
-                        isActive = true,
+                        isActive = plan.isActive,
                         notes = currentState.notes.ifBlank { null },
                         createdAt = currentTime,
                         updatedAt = currentTime
                     )
-                    // В категории должен остаться один активный расходник: прежние активные
-                    // деактивируем как заменённые этой установкой (та же логика, что в потоке ТО
-                    // и на экране деталей; раньше прямое добавление давало два активных)
-                    val consumablesInCategory = consumableRepository
-                        .getConsumablesByCategory(carId, currentState.category)
-                        .firstOrNull() ?: emptyList()
-                    consumablesInCategory.filter { it.isActive }.forEach { existing ->
-                        consumableRepository.updateConsumable(
-                            existing.copy(
-                                isActive = false,
-                                replacementDate = currentState.installationDate,
-                                replacementMileage = currentState.installationMileage.toInt(),
-                                updatedAt = currentTime
-                            )
-                        )
-                    }
                     consumableRepository.insertConsumable(consumable)
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(carId, currentState.installationMileage.toInt())
+                carRepository.updateCarMileageIfNeeded(carId, installationMileage)
                 
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()
                 
-                _state.value = currentState.copy(isSaving = false, isSaved = true)
+                // Снимок currentState сделан до сохранения: набранное за это время
+                // он бы откатил, а поля ввода во время сохранения не блокируются
+                _state.value = _state.value.copy(isSaving = false, isSaved = true)
             } catch (e: Exception) {
-                _state.value = currentState.copy(isSaving = false, error = e.message)
+                // Сообщения у исключения может не быть — без подстановки экран замирал молча
+                _state.value = currentState.copy(
+                    isSaving = false,
+                    error = e.message ?: "Не удалось сохранить расходник"
+                )
             }
         }
     }

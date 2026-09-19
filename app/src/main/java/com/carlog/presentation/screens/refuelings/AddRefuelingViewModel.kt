@@ -9,6 +9,8 @@ import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Car
 import com.carlog.domain.model.Refueling
+import com.carlog.util.toDecimalOrNull
+import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -164,14 +166,10 @@ class AddRefuelingViewModel @Inject constructor(
         _litersError.value = null
         
         // Автоматически рассчитываем стоимость, если есть цена за литр
-        if (_pricePerLiter.value.isNotEmpty()) {
-            try {
-                val price = _pricePerLiter.value.toDouble()
-                val ltr = liters.toDouble()
-                _totalCost.value = (price * ltr).toString()
-            } catch (e: Exception) {
-                // Ignore
-            }
+        val price = _pricePerLiter.value.toDecimalOrNull()
+        val ltr = liters.toDecimalOrNull()
+        if (price != null && ltr != null) {
+            _totalCost.value = (price * ltr).toString()
         }
     }
     
@@ -185,14 +183,10 @@ class AddRefuelingViewModel @Inject constructor(
         _totalCostError.value = null
         
         // Автоматически рассчитываем стоимость
-        if (_liters.value.isNotEmpty()) {
-            try {
-                val pricePerLtr = price.toDouble()
-                val ltr = _liters.value.toDouble()
-                _totalCost.value = (pricePerLtr * ltr).toString()
-            } catch (e: Exception) {
-                // Ignore
-            }
+        val pricePerLtr = price.toDecimalOrNull()
+        val ltr = _liters.value.toDecimalOrNull()
+        if (pricePerLtr != null && ltr != null) {
+            _totalCost.value = (pricePerLtr * ltr).toString()
         }
     }
     
@@ -229,8 +223,10 @@ class AddRefuelingViewModel @Inject constructor(
                 if (_refuelingId.value != null && existing == null) return@launch
 
                 // Валидация
-                val mileageValue = _mileage.value.toIntOrNull()
-                val litersValue = _liters.value.toDoubleOrNull()
+                // Разбор общий с остальными формами: «80 000» и «41,5» — ровно то,
+                // что даёт русская раскладка, и отказывать в них незачем
+                val mileageValue = _mileage.value.toMileageOrNull()
+                val litersValue = _liters.value.toDecimalOrNull()
                 
                 var hasError = false
                 
@@ -251,8 +247,8 @@ class AddRefuelingViewModel @Inject constructor(
                 }
                 
                 // Проверяем, что указана хотя бы одна стоимость
-                val hasPricePerLiter = _pricePerLiter.value.isNotBlank() && _pricePerLiter.value.toDoubleOrNull() != null
-                val hasTotalCost = _totalCost.value.isNotBlank() && _totalCost.value.toDoubleOrNull() != null
+                val hasPricePerLiter = _pricePerLiter.value.isNotBlank() && _pricePerLiter.value.toDecimalOrNull() != null
+                val hasTotalCost = _totalCost.value.isNotBlank() && _totalCost.value.toDecimalOrNull() != null
                 
                 if (!hasPricePerLiter && !hasTotalCost) {
                     _pricePerLiterError.value = "Укажите цену за литр"
@@ -275,8 +271,8 @@ class AddRefuelingViewModel @Inject constructor(
                             mileage = mileageValue!!,
                             liters = litersValue!!,
                             fuelType = _fuelType.value,
-                            pricePerLiter = _pricePerLiter.value.toDoubleOrNull(),
-                            totalCost = _totalCost.value.toDoubleOrNull(),
+                            pricePerLiter = _pricePerLiter.value.toDecimalOrNull(),
+                            totalCost = _totalCost.value.toDecimalOrNull(),
                             isFullTank = _isFullTank.value,
                             stationName = _stationName.value.ifEmpty { null },
                             fuelConsumption = null, // заполнит пересчёт ниже
@@ -294,8 +290,8 @@ class AddRefuelingViewModel @Inject constructor(
                             mileage = mileageValue!!,
                             liters = litersValue!!,
                             fuelType = _fuelType.value,
-                            pricePerLiter = _pricePerLiter.value.toDoubleOrNull(),
-                            totalCost = _totalCost.value.toDoubleOrNull(),
+                            pricePerLiter = _pricePerLiter.value.toDecimalOrNull(),
+                            totalCost = _totalCost.value.toDecimalOrNull(),
                             isFullTank = _isFullTank.value,
                             stationName = _stationName.value.ifEmpty { null },
                             fuelConsumption = null, // заполнит пересчёт ниже

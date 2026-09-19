@@ -637,12 +637,6 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="backup_battery_hint_failed">Could not open the battery settings</string>
 
     <!-- What\'s new in 1.2.3 -->
-    <string name="whats_new_attachments_title">PDFs alongside photos</string>
-    <string name="whats_new_attachments_body">a car, part, service record, accident or document can now hold a PDF as well as a photo — a scanned work order, receipt or policy. The file opens straight from the record and goes into backups just like a photo.</string>
-    <string name="whats_new_to_consumables_title">Editable service consumables</string>
-    <string name="whats_new_to_consumables_body">tap a consumable inside a saved service to change its brand, part number, cost, volume and intervals. You can add a forgotten item or drop an extra one — the service cost is recalculated and the previous consumable becomes active again.</string>
-    <string name="whats_new_breakdown_photos_title">Files on the service record</string>
-    <string name="whats_new_breakdown_photos_body">repairs, scheduled services and modifications got their own attachments block — photos used to show up on the card with no way to add them.</string>
 
     <!-- Diagnostics -->
     <string name="settings_diagnostics">Diagnostics</string>
@@ -691,14 +685,80 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="event_cost_modification_parts">Modification</string>
     <string name="event_cost_works">Labour</string>
 
-    <string name="whats_new_combined_events_title">One event instead of three</string>
-    <string name="whats_new_combined_events_body">a full service visit is now a single record: consumables, repair parts and modifications together, with labour entered as one sum for the whole visit. The event type is no longer picked by hand — it follows what you put in.</string>
-    <string name="whats_new_event_colors_title">The make-up of an event is visible</string>
-    <string name="whats_new_event_colors_body">a card in the list is coloured in equal shares by its types: a \"service + repair\" visit is half in the service colour and half in the repair one. The filter shows such an event under both — it is the same visit.</string>
 
     <!-- Скрытые запчасти: фильтр и переключатель в карточке -->
     <string name="filter_hidden">Hidden</string>
     <string name="no_hidden_parts">No hidden parts</string>
     <string name="part_show_in_list">Show in the Parts section</string>
     <string name="part_hidden_hint">The record is hidden from the list, but its cost still counts in the event and in statistics</string>
+
+    <!-- Fines -->
+    <string name="fines">Fines</string>
+    <string name="fines_section_title">Fines</string>
+    <string name="fines_section_description">Tickets, discount deadline and amounts</string>
+    <string name="fines_empty">No fines yet</string>
+    <string name="fines_count">Fines</string>
+    <string name="fines_paid_total">Paid</string>
+    <string name="fines_unpaid_summary">Unpaid: %1$d for %2$s</string>
+    <string name="add_fine">New fine</string>
+    <string name="edit_fine">Edit fine</string>
+    <string name="fine_date">Ticket date</string>
+    <string name="fine_amount">Fine amount</string>
+    <string name="fine_violation_type">Violation type</string>
+    <string name="fine_violation_custom">Custom wording</string>
+    <string name="fine_location">Location (optional)</string>
+    <string name="fine_decision_number">Ticket number (optional)</string>
+    <string name="fine_decision_number_hint">The number from the ticket — used to find it when paying</string>
+    <string name="fine_issuer">Issued by (optional)</string>
+    <string name="fine_discount_until">Discount valid until</string>
+    <string name="fine_discount_hint">30 days from the ticket date by default</string>
+    <string name="fine_is_paid">Paid</string>
+    <string name="fine_is_paid_hint">Only paid fines count towards statistics</string>
+    <string name="fine_paid_date">Payment date</string>
+    <string name="fine_paid_amount">Amount paid</string>
+    <string name="fine_paid_amount_hint">Leave empty if you paid the full amount</string>
+    <string name="fine_attachments">Ticket</string>
+    <string name="fine_attachments_hint">Photo or PDF of the ticket</string>
+    <string name="fine_status_paid">Paid</string>
+    <string name="fine_status_unpaid">Unpaid</string>
+    <string name="fine_status_discount_days">Discount: %1$d days left</string>
+    <string name="fine_status_discount_expired">Discount expired</string>
+    <string name="fine_mark_paid">Mark as paid</string>
+    <string name="fine_mark_unpaid">Mark as unpaid</string>
+    <string name="delete_fine_title">Delete fine?</string>
+    <string name="delete_fine_message">The record and its attachments will be deleted permanently.</string>
+    <string name="statistics_fines">Fines</string>
+
+    <!-- Confirmation for removing items inside forms -->
+    <string name="clear">Clear</string>
+    <string name="delete_event_part_title">Remove part?</string>
+    <string name="delete_event_part_message">The part “%1$s” will be removed from the event and its cost will no longer count.</string>
+    <string name="delete_event_consumable_title">Remove consumable?</string>
+    <string name="delete_event_consumable_message">The item “%1$s” will be removed from the event along with its cost.</string>
+    <string name="delete_work_item_title">Remove labour item?</string>
+    <string name="delete_work_item_message">The item “%1$s” will be removed and the labour cost recalculated.</string>
+    <string name="delete_accident_document_title">Detach document?</string>
+    <string name="delete_accident_document_message">The report file will be detached from the accident record.</string>
+    <string name="form_has_errors">Fill in the fields marked in red — they are higher up the form</string>
+    <string name="data_check_stale_active_title">Consumable life is counted from the wrong replacement</string>
+    <string name="data_check_stale_active_body">In the “%1$s” category the active entry is the one installed at %2$d km, although a newer one exists — at %3$d km. Until this is fixed, the replacement interval is counted from the older entry and the tile turns red too early.</string>
+    <string name="data_check_stale_active_fix">Make the newest one active</string>
+    <string name="accident_compensation_title">Compensation to the injured party</string>
+    <string name="accident_compensation_hint">If you covered the damage yourself — settled on the spot, paid on top of the insurance, or had no policy. Optional.</string>
+    <string name="accident_compensation_label">Paid to the injured party</string>
+    <string name="accident_net_cost">Out of your own pocket</string>
+    <string name="accident_net_cost_hint">Repair and compensation minus the payouts received — this is the amount that goes into expense statistics.</string>
+    <string name="accident_net_cost_covered">The payouts covered the costs — this accident adds nothing to your statistics. The %1$s surplus is not counted: the app tracks spending, not income.</string>
+    <string name="whats_new_fines_title">Fines get their own section</string>
+    <string name="whats_new_fines_body">tickets now live in their own list: amount, violation, number, discount deadline and payment status. The status light tracks the discount, not the debt — it expires by date. Only what you actually paid counts as an expense; an unpaid fine is not spending yet.</string>
+    <string name="whats_new_accident_money_title">Accident costs add up honestly</string>
+    <string name="whats_new_accident_money_body">payouts you received now reduce what the accident cost you — before they were informational, so a repair fully covered by insurance still looked like spending. If you were at fault, an optional “compensation paid” field appears. Past totals may drop: that is the fix, they used to be overstated.</string>
+    <string name="whats_new_consumables_backdated_title">Editing an old service no longer reddens consumables</string>
+    <string name="whats_new_consumables_backdated_body">an item added to a past event became the latest replacement, and the interval was counted from its mileage — the whole consumables screen turned red. The newest installation is active now, and anything already broken is repaired from Data check in one tap.</string>
+    <string name="whats_new_saving_title">Edits get saved instead of vanishing</string>
+    <string name="whats_new_saving_body">a comma in a price, a space in mileage, or a record pointing at a deleted part no longer break saving. If a field is missing, a hint appears next to the button — pressing it used to look like nothing happened.</string>
+    <string name="whats_new_event_parts_title">The event card shows what is in it</string>
+    <string name="whats_new_event_parts_body">service consumables no longer disappear from the card after an edit, and the cost is split across the actual items. In an accident you can hide a part from the Parts section — small stuff like clips does not belong in the list.</string>
+    <string name="whats_new_forms_title">Form details</string>
+    <string name="whats_new_forms_body">the input field no longer hides behind the keyboard, and deleting an item inside a form asks for confirmation — a mistap on the bin used to wipe what you had typed.</string>
 </resources>

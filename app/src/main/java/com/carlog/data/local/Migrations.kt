@@ -479,3 +479,54 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
         db.execSQL("ALTER TABLE parts ADD COLUMN showInPartsList INTEGER NOT NULL DEFAULT 1")
     }
 }
+
+/**
+ * Модуль «Штрафы»: отдельный журнал постановлений со статусом оплаты.
+ *
+ * Новая таблица `fines` — как у документов, с FK на машину и каскадным удалением, но
+ * **без пробега**: одометр на момент нарушения неизвестен, требовать его было бы выдумкой.
+ * `photosPaths` — тот же JSON-список путей, что у остальных сущностей (фото и PDF вперемешку,
+ * см. §12.1 техдока). Существующих данных миграция не касается: таблицы раньше не было.
+ */
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `fines` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`carId` INTEGER NOT NULL, " +
+                "`date` INTEGER NOT NULL, " +
+                "`amount` REAL NOT NULL, " +
+                "`violationType` TEXT NOT NULL, " +
+                "`customViolation` TEXT, " +
+                "`location` TEXT, " +
+                "`decisionNumber` TEXT, " +
+                "`issuer` TEXT, " +
+                "`discountUntil` INTEGER, " +
+                "`isPaid` INTEGER NOT NULL, " +
+                "`paidDate` INTEGER, " +
+                "`paidAmount` REAL, " +
+                "`photosPaths` TEXT, " +
+                "`notes` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_fines_carId` ON `fines` (`carId`)")
+    }
+}
+
+/**
+ * `accidents.compensationPaid` — компенсация, выплаченная пострадавшему, когда виновник
+ * сам пользователь.
+ *
+ * Колонка **nullable без значения по умолчанию**: у существующих записей остаётся NULL —
+ * «не указана». Ноль здесь соврал бы, что компенсации не было, а её просто не спрашивали.
+ * Данных миграция не трогает, и старое ДТП открывается на редактирование как раньше —
+ * поле в форме просто пустое, пока его не заполнят.
+ */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE accidents ADD COLUMN compensationPaid REAL")
+    }
+}
+

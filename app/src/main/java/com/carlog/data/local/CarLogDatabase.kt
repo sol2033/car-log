@@ -9,6 +9,7 @@ import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.ExpenseDao
+import com.carlog.data.local.dao.FineDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
 import com.carlog.domain.model.Accident
@@ -17,6 +18,7 @@ import com.carlog.domain.model.Car
 import com.carlog.domain.model.CarDocument
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.Expense
+import com.carlog.domain.model.Fine
 import com.carlog.domain.model.Part
 import com.carlog.domain.model.Refueling
 
@@ -29,9 +31,10 @@ import com.carlog.domain.model.Refueling
         Consumable::class,
         Refueling::class,
         Expense::class,
-        CarDocument::class
+        CarDocument::class,
+        Fine::class
     ],
-    version = 22,
+    version = 24,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -44,6 +47,7 @@ abstract class CarLogDatabase : RoomDatabase() {
     abstract fun refuelingDao(): RefuelingDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun carDocumentDao(): CarDocumentDao
+    abstract fun fineDao(): FineDao
     
     companion object {
         const val DATABASE_NAME = "car_log_database"

@@ -7,6 +7,7 @@ import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.ExpenseDao
+import com.carlog.data.local.dao.FineDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
 import com.carlog.data.backup.DataChangeNotifier
@@ -16,6 +17,8 @@ import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Car
 import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.Fine
+import com.carlog.domain.model.FineViolationTypes
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.MileageFilter
 import com.carlog.domain.model.Part
@@ -55,6 +58,7 @@ class StatisticsViewModelTest {
     private val refuelingDao = mockk<RefuelingDao>(relaxed = true)
     private val expenseDao = mockk<ExpenseDao>(relaxed = true)
     private val documentDao = mockk<CarDocumentDao>(relaxed = true)
+    private val fineDao = mockk<FineDao>(relaxed = true)
     private val carRepository = mockk<CarRepository>(relaxed = true)
     private val refuelingRepository = mockk<RefuelingRepository>(relaxed = true)
     private val dataChangeNotifier = mockk<DataChangeNotifier>(relaxed = true)
@@ -102,6 +106,7 @@ class StatisticsViewModelTest {
         every { refuelingDao.getRefuelingsByCarId(1) } returns flowOf(emptyList())
         every { expenseDao.getExpensesByCarId(1) } returns flowOf(emptyList())
         every { documentDao.getDocumentsByCarId(1) } returns flowOf(emptyList())
+        every { fineDao.getFinesByCarId(1) } returns flowOf(emptyList())
         every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns flowOf(emptyList())
     }
 
@@ -110,7 +115,7 @@ class StatisticsViewModelTest {
 
     private fun viewModel() = StatisticsViewModel(
         accidentDao, breakdownDao, consumableDao, carDao,
-        partDao, refuelingDao, expenseDao, documentDao,
+        partDao, refuelingDao, expenseDao, documentDao, fineDao,
         carRepository, refuelingRepository, dataChangeNotifier,
         dispatcher,
         SavedStateHandle(mapOf("carId" to 1L))
@@ -126,7 +131,13 @@ class StatisticsViewModelTest {
         price = price
     )
 
-    private fun accident(partIds: List<Long>?, repairCost: Double, mileage: Int = 90_000) = Accident(
+    private fun accident(
+        partIds: List<Long>?,
+        repairCost: Double,
+        mileage: Int = 90_000,
+        kaskoPayout: Double? = null,
+        compensationPaid: Double? = null
+    ) = Accident(
         id = 1,
         carId = 1,
         date = yesterday,
@@ -136,10 +147,11 @@ class StatisticsViewModelTest {
         severity = "Средняя",
         isUserAtFault = false,
         osagoPayout = null,
-        kaskoPayout = null,
+        kaskoPayout = kaskoPayout,
         culpritPayout = null,
         installedPartIds = partIds,
         repairCost = repairCost,
+        compensationPaid = compensationPaid,
         photosPaths = null,
         documentPath = null,
         notes = null
@@ -460,4 +472,176 @@ class StatisticsViewModelTest {
             0.01
         )
     }
+
+    // === Штрафы (§4.8 бизнес-логики) ===
+
+    private fun fine(
+        id: Long = 1,
+        amount: Double,
+        isPaid: Boolean = false,
+        paidAmount: Double? = null,
+        date: Long = yesterday
+    ) = Fine(
+        id = id,
+        carId = 1,
+        date = date,
+        amount = amount,
+        violationType = FineViolationTypes.SPEEDING,
+        isPaid = isPaid,
+        paidAmount = paidAmount
+    )
+
+    @Test
+    fun `оплаченный штраф попадает в общие расходы отдельной категорией`() = runTest(dispatcher) {
+        every { fineDao.getFinesByCarId(1) } returns flowOf(listOf(fine(amount = 1_500.0, isPaid = true)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        assertEquals(1_500.0, general.totalCost, 0.01)
+        assertEquals(listOf("Штрафы"), general.costDistribution.map { it.category })
+    }
+
+    @Test
+    fun `неоплаченный штраф в расходы не идёт`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0)))
+        every { fineDao.getFinesByCarId(1) } returns flowOf(listOf(fine(amount = 5_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        // Только запчасть: штраф выписан, но денег за него ещё не платили
+        assertEquals(1_000.0, general.totalCost, 0.01)
+        assertEquals(listOf("Ремонты"), general.costDistribution.map { it.category })
+    }
+
+    @Test
+    fun `в расходы идёт фактически уплаченная сумма, а не выписанная`() = runTest(dispatcher) {
+        every { fineDao.getFinesByCarId(1) } returns
+            flowOf(listOf(fine(amount = 5_000.0, isPaid = true, paidAmount = 2_500.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(2_500.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+    }
+
+    /** Штраф — не стоимость эксплуатации: как и ДТП, он исключён из стоимости километра */
+    @Test
+    fun `стоимость за км не включает штрафы`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0, mileage = 90_000)))
+        every { fineDao.getFinesByCarId(1) } returns
+            flowOf(listOf(fine(amount = 9_000.0, isPaid = true)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        assertEquals(10_000.0, general.totalCost, 0.01)
+        // Диапазон пробега по одной записи нулевой — сюда важно, что штраф не поднял числитель
+        assertEquals(0.0, general.costPerKm, 0.0001)
+    }
+
+    /** У штрафа нет пробега — при фильтре по пробегу он выпадает целиком, как документы */
+    @Test
+    fun `фильтр по пробегу исключает штрафы`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0, mileage = 95_000)))
+        every { fineDao.getFinesByCarId(1) } returns
+            flowOf(listOf(fine(amount = 2_000.0, isPaid = true)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertEquals(3_000.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+
+        vm.setMileageFilter(MileageFilter.Last10k)
+        advanceUntilIdle()
+
+        assertEquals(1_000.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+    }
+
+    @Test
+    fun `штраф вне выбранного периода в расходы не попадает`() = runTest(dispatcher) {
+        val longAgo = now - TimeUnit.DAYS.toMillis(200)
+        every { fineDao.getFinesByCarId(1) } returns
+            flowOf(listOf(fine(amount = 2_000.0, isPaid = true, date = longAgo)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertEquals(2_000.0, vm.uiState.value.statistics.general!!.totalCost, 0.01)
+
+        vm.setPeriod(StatisticsPeriod.MONTH)
+        advanceUntilIdle()
+
+        // Данных в периоде не осталось вовсе — блок общей статистики пуст
+        assertEquals(null, vm.uiState.value.statistics.general)
+    }
+
+    // region деньги по ДТП
+
+    @Test
+    fun `выплаченная компенсация идёт в расходы по ДТП`() = runTest(dispatcher) {
+        every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns
+            flowOf(listOf(accident(partIds = null, repairCost = 20_000.0, compensationPaid = 30_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        assertEquals(50_000.0, general.totalCost, 0.01)
+        assertEquals(listOf("ДТП"), general.costDistribution.map { it.category })
+    }
+
+    @Test
+    fun `полученная выплата уменьшает расходы по ДТП`() = runTest(dispatcher) {
+        every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns
+            flowOf(listOf(accident(partIds = null, repairCost = 50_000.0, kaskoPayout = 30_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(
+            "из кармана ушло только то, что не закрыла страховая",
+            20_000.0,
+            vm.uiState.value.statistics.general!!.totalCost,
+            0.01
+        )
+    }
+
+    /**
+     * Выплата больше ремонта не делает аварию источником дохода: иначе одно щедро
+     * закрытое ДТП уменьшало бы стоимость заправок и обслуживания.
+     */
+    @Test
+    fun `выплата больше ремонта не уводит расходы в минус`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0)))
+        every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns
+            flowOf(listOf(accident(partIds = null, repairCost = 20_000.0, kaskoPayout = 100_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        assertEquals("осталась только запчасть", 1_000.0, general.totalCost, 0.01)
+        assertEquals(listOf("Ремонты"), general.costDistribution.map { it.category })
+    }
+
+    /** ДТП не следует из пробега — как и раньше, в стоимость километра оно не входит */
+    @Test
+    fun `компенсация не попадает в стоимость за км`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 1_000.0, mileage = 90_000)))
+        every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns
+            flowOf(listOf(accident(partIds = null, repairCost = 0.0, compensationPaid = 90_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        val general = vm.uiState.value.statistics.general!!
+        assertEquals(91_000.0, general.totalCost, 0.01)
+        // Диапазон пробега по одной записи нулевой — важно, что компенсация не подняла числитель
+        assertEquals(0.0, general.costPerKm, 0.0001)
+    }
+
+    // endregion
 }

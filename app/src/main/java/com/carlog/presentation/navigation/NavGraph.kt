@@ -167,6 +167,9 @@ fun NavGraph(
                 onNavigateToExpenses = { id ->
                     navController.navigate(Screen.Expenses.createRoute(id))
                 },
+                onNavigateToFines = { id ->
+                    navController.navigate(Screen.Fines.createRoute(id))
+                },
                 onNavigateToDocuments = { id ->
                     navController.navigate(Screen.Documents.createRoute(id))
                 }
@@ -662,6 +665,40 @@ fun NavGraph(
                 onNavigateToEdit = { cId, eId ->
                     navController.navigate(Screen.AddExpense.createRoute(cId, eId))
                 }
+            )
+        }
+
+        // Fines Screen
+        composable(
+            route = Screen.Fines.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val carId = backStackEntry.arguments?.getLong("carId") ?: return@composable
+            com.carlog.presentation.screens.fines.FinesScreen(
+                carId = carId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddFine = { cId, fineId ->
+                    navController.navigate(Screen.AddFine.createRoute(cId, fineId))
+                }
+            )
+        }
+
+        // Add/Edit Fine Screen
+        composable(
+            route = Screen.AddFine.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType },
+                navArgument("fineId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { _ ->
+            com.carlog.presentation.screens.fines.AddFineScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

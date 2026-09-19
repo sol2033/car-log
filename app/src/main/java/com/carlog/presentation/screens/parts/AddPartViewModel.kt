@@ -9,6 +9,9 @@ import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.util.FileHelper
+import com.carlog.domain.model.BreakdownFormRules
+import com.carlog.util.toDecimalOrNull
+import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -202,8 +205,13 @@ class AddPartViewModel @Inject constructor(
 
         // Validation
         val nameError = if (currentState.name.isBlank()) "Обязательное поле" else null
-        val installMileageError = if (currentState.installMileage.isBlank()) "Обязательное поле" else null
-        val priceError = if (currentState.price.isBlank()) "Обязательное поле" else null
+        val installMileageError = BreakdownFormRules.mileageError(currentState.installMileage)
+        // Цена уходила в toDouble() — на русской раскладке «1250,50» роняло сохранение
+        val priceError = when {
+            currentState.price.isBlank() -> "Обязательное поле"
+            currentState.price.toDecimalOrNull() == null -> "Введите стоимость числом"
+            else -> null
+        }
         
         if (nameError != null || installMileageError != null || priceError != null) {
             _state.value = currentState.copy(
@@ -219,7 +227,9 @@ class AddPartViewModel @Inject constructor(
                 _state.value = currentState.copy(isSaving = true, error = null)
                 
                 val currentTime = System.currentTimeMillis()
-                val servicePriceValue = currentState.servicePrice.toDoubleOrNull()
+                val installMileage = currentState.installMileage.toMileageOrNull() ?: 0
+                val price = currentState.price.toDecimalOrNull() ?: 0.0
+                val servicePriceValue = currentState.servicePrice.toDecimalOrNull()
                 
                 val original = currentState.originalPart
                 if (currentState.partId != null && original != null) {
@@ -227,7 +237,6 @@ class AddPartViewModel @Inject constructor(
                     // (статус поломки, пройденный ресурс, тип обслуживания, createdAt),
                     // должны сохраниться — раньше они собирались заново и обнулялись,
                     // из-за чего редактирование «оживляло» сломанную запчасть
-                    val installMileage = currentState.installMileage.toInt()
                     val part = original.copy(
                         carId = currentState.carId,
                         name = currentState.name,
@@ -236,7 +245,7 @@ class AddPartViewModel @Inject constructor(
                         installDate = currentState.installDate,
                         installMileage = installMileage,
                         installationType = currentState.installationType,
-                        price = currentState.price.toDouble(),
+                        price = price,
                         servicePrice = servicePriceValue,
                         serviceName = currentState.serviceName.ifBlank { null },
                         serviceAddress = currentState.serviceAddress.ifBlank { null },
@@ -255,9 +264,9 @@ class AddPartViewModel @Inject constructor(
                         manufacturer = currentState.manufacturer.ifBlank { null },
                         partNumber = currentState.partNumber.ifBlank { null },
                         installDate = currentState.installDate,
-                        installMileage = currentState.installMileage.toInt(),
+                        installMileage = installMileage,
                         installationType = currentState.installationType,
-                        price = currentState.price.toDouble(),
+                        price = price,
                         servicePrice = servicePriceValue,
                         serviceName = currentState.serviceName.ifBlank { null },
                         serviceAddress = currentState.serviceAddress.ifBlank { null },
@@ -270,7 +279,7 @@ class AddPartViewModel @Inject constructor(
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(currentState.carId, currentState.installMileage.toInt())
+                carRepository.updateCarMileageIfNeeded(currentState.carId, installMileage)
 
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
@@ -284,14 +293,17 @@ class AddPartViewModel @Inject constructor(
                     )
                 )
 
-                _state.value = currentState.copy(
+                // Снимок currentState сделан до сохранения: набранное за это время
+                // он бы откатил, а поля ввода во время сохранения не блокируются
+                _state.value = _state.value.copy(
                     isSaving = false,
                     isSaved = true
                 )
             } catch (e: Exception) {
-                _state.value = currentState.copy(
+                // Сообщения у исключения может не быть — экран замирал молча
+                _state.value = _state.value.copy(
                     isSaving = false,
-                    error = e.message
+                    error = e.message ?: "Не удалось сохранить запчасть"
                 )
             }
         }

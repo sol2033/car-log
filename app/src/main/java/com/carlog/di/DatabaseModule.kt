@@ -18,12 +18,15 @@ import com.carlog.data.local.MIGRATION_18_19
 import com.carlog.data.local.MIGRATION_19_20
 import com.carlog.data.local.MIGRATION_20_21
 import com.carlog.data.local.MIGRATION_21_22
+import com.carlog.data.local.MIGRATION_22_23
+import com.carlog.data.local.MIGRATION_23_24
 import com.carlog.data.local.dao.AccidentDao
 import com.carlog.data.local.dao.BreakdownDao
 import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.ExpenseDao
+import com.carlog.data.local.dao.FineDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
 import dagger.Module
@@ -47,7 +50,7 @@ object DatabaseModule {
             CarLogDatabase::class.java,
             CarLogDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
             .build()
     }
@@ -98,5 +101,11 @@ object DatabaseModule {
     @Singleton
     fun provideCarDocumentDao(database: CarLogDatabase): CarDocumentDao {
         return database.carDocumentDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFineDao(database: CarLogDatabase): FineDao {
+        return database.fineDao()
     }
 }

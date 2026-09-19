@@ -9,7 +9,9 @@ import com.carlog.data.local.repair.EventPartLinkRepair
 import com.carlog.domain.model.Accident
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Car
+import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
+import com.carlog.domain.model.ConsumableChainRepair
 import com.carlog.domain.model.Part
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
@@ -55,6 +57,7 @@ class DataIntegrityChecker @Inject constructor(
         findings += breakdownCostMismatches(label, breakdowns, parts)
         findings += carWithoutPurchaseInfo(label, car)
         findings += duplicateActiveConsumables(label, consumables)
+        findings += staleActiveConsumables(label, consumables)
         return findings
     }
 
@@ -168,7 +171,7 @@ class DataIntegrityChecker @Inject constructor(
 
     private fun duplicateActiveConsumables(
         carLabel: String,
-        consumables: List<com.carlog.domain.model.Consumable>
+        consumables: List<Consumable>
     ): List<IntegrityFinding> = consumables
         .filter { it.isActive }
         // «Другое» — не категория, а разовые позиции ТО: их у машины законно много,
@@ -182,6 +185,28 @@ class DataIntegrityChecker @Inject constructor(
                 carLabel = carLabel,
                 category = category,
                 consumables = items.sortedByDescending { it.installationMileage }
+            )
+        }
+
+    /**
+     * Активен не самый свежий расходник категории.
+     *
+     * Правило про **несколько** активных выше ловит другой случай, поэтому пересечения нет:
+     * `ConsumableChainRepair.staleActive` срабатывает, только когда активная запись ровно одна.
+     */
+    private fun staleActiveConsumables(
+        carLabel: String,
+        consumables: List<Consumable>
+    ): List<IntegrityFinding> = consumables
+        .groupBy { it.category }
+        .mapNotNull { (category, items) ->
+            val stale = ConsumableChainRepair.staleActive(items) ?: return@mapNotNull null
+            IntegrityFinding.StaleActiveConsumable(
+                id = "stale_active_${items.first().carId}_$category",
+                carLabel = carLabel,
+                category = category,
+                active = stale.active,
+                newest = stale.newest
             )
         }
 
@@ -248,6 +273,19 @@ class DataIntegrityChecker @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
         )
+    }
+
+    /**
+     * Возвращает активность категории к инварианту «активна самая свежая установка».
+     *
+     * Правит только то, что противоречит инварианту: сохранённые даты и пробеги замены,
+     * которые возможны, остаются нетронутыми (см. `ConsumableChainRepair.repairActivity`).
+     */
+    suspend fun repairConsumableActivity(carId: Long, category: String) {
+        val inCategory = consumableDao.getConsumablesByCarId(carId).firstOrNull().orEmpty()
+            .filter { it.category == category }
+        ConsumableChainRepair.repairActivity(inCategory, System.currentTimeMillis())
+            .forEach { consumableDao.updateConsumable(it) }
     }
 
     /**

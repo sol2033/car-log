@@ -29,6 +29,9 @@ import com.carlog.R
 import com.carlog.presentation.components.AttachmentsRow
 import com.carlog.domain.model.Accident
 import com.carlog.util.FileHelper
+import com.carlog.util.formatCurrency
+import com.carlog.domain.model.netCost
+import com.carlog.domain.model.receivedPayouts
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -156,8 +159,8 @@ private fun AccidentDetailContent(
             PayoutsInfoSection(accident)
         }
         
-        // Ремонт
-        if (accident.repairCost != null) {
+        // Ремонт и деньги из своего кармана
+        if (accident.repairCost != null || accident.compensationPaid != null) {
             RepairInfoSection(accident)
         }
         
@@ -255,26 +258,20 @@ private fun PayoutsInfoSection(accident: Accident) {
         icon = Icons.Default.AccountBalance
     ) {
         accident.osagoPayout?.let {
-            InfoRow("По ОСАГО", "$it ₽", valueColor = MaterialTheme.colorScheme.primary)
+            InfoRow("По ОСАГО", formatCurrency(it), valueColor = MaterialTheme.colorScheme.primary)
         }
         accident.kaskoPayout?.let {
-            InfoRow("По КАСКО", "$it ₽", valueColor = MaterialTheme.colorScheme.primary)
+            InfoRow("По КАСКО", formatCurrency(it), valueColor = MaterialTheme.colorScheme.primary)
         }
         accident.culpritPayout?.let {
-            InfoRow("От виновника", "$it ₽", valueColor = MaterialTheme.colorScheme.primary)
+            InfoRow("От виновника", formatCurrency(it), valueColor = MaterialTheme.colorScheme.primary)
         }
-        
-        val totalPayouts = listOfNotNull(
-            accident.osagoPayout,
-            accident.kaskoPayout,
-            accident.culpritPayout
-        ).sum()
-        
-        if (totalPayouts > 0) {
+
+        if (accident.receivedPayouts > 0) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             InfoRow(
                 "Всего выплат",
-                "$totalPayouts ₽",
+                formatCurrency(accident.receivedPayouts),
                 labelWeight = FontWeight.Bold,
                 valueColor = MaterialTheme.colorScheme.primary,
                 valueWeight = FontWeight.Bold
@@ -289,17 +286,62 @@ private fun RepairInfoSection(accident: Accident) {
         title = "Стоимость ремонта",
         icon = Icons.Default.Build
     ) {
-        InfoRow(
-            "Общая стоимость",
-            "${accident.repairCost} ₽",
-            valueColor = MaterialTheme.colorScheme.error,
-            valueWeight = FontWeight.Bold
-        )
-        
+        accident.repairCost?.let {
+            InfoRow(
+                "Общая стоимость",
+                formatCurrency(it),
+                valueColor = MaterialTheme.colorScheme.error,
+                valueWeight = FontWeight.Bold
+            )
+        }
+
+        accident.compensationPaid?.let {
+            InfoRow(
+                stringResource(R.string.accident_compensation_label),
+                formatCurrency(it),
+                valueColor = MaterialTheme.colorScheme.error,
+                valueWeight = FontWeight.Bold
+            )
+        }
+
         if (!accident.installedPartIds.isNullOrEmpty()) {
             Text(
                 text = "Установлено запчастей: ${accident.installedPartIds.size}",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        // Итог «из кармана» — ровно та сумма, которой авария попадает в статистику.
+        // Показываем, только когда выплаты действительно что-то изменили: иначе строка
+        // дублировала бы стоимость ремонта
+        if (accident.receivedPayouts > 0) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Выплаты перекрыли расходы: ноль с подписью «ремонт минус выплаты» читался бы
+            // как ошибка счёта — объясняем словами, куда делся излишек
+            val surplus = accident.receivedPayouts - (accident.repairCost ?: 0.0) -
+                (accident.compensationPaid ?: 0.0)
+
+            InfoRow(
+                stringResource(R.string.accident_net_cost),
+                formatCurrency(accident.netCost),
+                labelWeight = FontWeight.Bold,
+                valueColor = if (surplus > 0) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                valueWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (surplus > 0) {
+                    stringResource(R.string.accident_net_cost_covered, formatCurrency(surplus))
+                } else {
+                    stringResource(R.string.accident_net_cost_hint)
+                },
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )

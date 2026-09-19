@@ -637,12 +637,6 @@
     <string name="backup_battery_hint_failed">Не удалось открыть настройки батареи</string>
 
     <!-- Что нового в 1.2.3 -->
-    <string name="whats_new_attachments_title">PDF рядом с фотографиями</string>
-    <string name="whats_new_attachments_body">к автомобилю, запчасти, обслуживанию, ДТП и документу теперь можно приложить не только снимок, но и PDF — скан заказ-наряда, чек или полис. Файл открывается прямо из карточки и попадает в резервные копии наравне с фото.</string>
-    <string name="whats_new_to_consumables_title">Расходники ТО можно править</string>
-    <string name="whats_new_to_consumables_body">в сохранённом ТО расходник теперь открывается по нажатию: меняются производитель, артикул, стоимость, объём и интервалы. Можно добавить забытую позицию или убрать лишнюю — стоимость ТО пересчитается сама, а прошлый расходник вернётся в активные.</string>
-    <string name="whats_new_breakdown_photos_title">Файлы в карточке обслуживания</string>
-    <string name="whats_new_breakdown_photos_body">у ремонта, ТО и тюнинга появился свой блок вложений — раньше фотографии показывались в карточке, но добавить их было негде.</string>
 
     <!-- Диагностика -->
     <string name="settings_diagnostics">Диагностика</string>
@@ -695,14 +689,80 @@
     <string name="event_cost_modification_parts">Тюнинг</string>
     <string name="event_cost_works">Работы</string>
 
-    <string name="whats_new_combined_events_title">Одно событие вместо трёх</string>
-    <string name="whats_new_combined_events_body">комплексный заезд в сервис теперь заводится одной записью: расходники, запчасти ремонта и тюнинг вместе, а стоимость работ — общей суммой за весь визит. Тип события больше не выбирается вручную, а следует за тем, что вы в него добавили.</string>
-    <string name="whats_new_event_colors_title">Видно состав события</string>
-    <string name="whats_new_event_colors_body">карточка в списке окрашена долями по своим типам: заезд «ТО + ремонт» наполовину в цвете ТО, наполовину в цвете ремонта. В фильтре такое событие видно и в «ТО», и в «Ремонт» — это один и тот же заезд.</string>
 
     <!-- Скрытые запчасти: фильтр и переключатель в карточке -->
     <string name="filter_hidden">Скрытые</string>
     <string name="no_hidden_parts">Скрытых запчастей нет</string>
     <string name="part_show_in_list">Показывать в разделе «Запчасти»</string>
     <string name="part_hidden_hint">Запись скрыта из списка, но её стоимость по-прежнему учтена в событии и в статистике</string>
+
+    <!-- Штрафы -->
+    <string name="fines">Штрафы</string>
+    <string name="fines_section_title">Штрафы</string>
+    <string name="fines_section_description">Постановления, льготный срок оплаты и суммы</string>
+    <string name="fines_empty">Штрафов пока нет</string>
+    <string name="fines_count">Штрафов</string>
+    <string name="fines_paid_total">Оплачено</string>
+    <string name="fines_unpaid_summary">Не оплачено: %1$d на %2$s</string>
+    <string name="add_fine">Новый штраф</string>
+    <string name="edit_fine">Редактировать штраф</string>
+    <string name="fine_date">Дата постановления</string>
+    <string name="fine_amount">Сумма штрафа</string>
+    <string name="fine_violation_type">Тип нарушения</string>
+    <string name="fine_violation_custom">Своя формулировка</string>
+    <string name="fine_location">Место нарушения (необязательно)</string>
+    <string name="fine_decision_number">Номер постановления (необязательно)</string>
+    <string name="fine_decision_number_hint">УИН из постановления — по нему штраф ищется в оплате</string>
+    <string name="fine_issuer">Кем выписан (необязательно)</string>
+    <string name="fine_discount_until">Скидка действует до</string>
+    <string name="fine_discount_hint">По умолчанию 30 дней с даты постановления</string>
+    <string name="fine_is_paid">Оплачен</string>
+    <string name="fine_is_paid_hint">В статистику попадают только оплаченные штрафы</string>
+    <string name="fine_paid_date">Дата оплаты</string>
+    <string name="fine_paid_amount">Сколько заплатили</string>
+    <string name="fine_paid_amount_hint">Оставьте пустым, если платили полную сумму</string>
+    <string name="fine_attachments">Постановление</string>
+    <string name="fine_attachments_hint">Фото или PDF постановления</string>
+    <string name="fine_status_paid">Оплачен</string>
+    <string name="fine_status_unpaid">Не оплачен</string>
+    <string name="fine_status_discount_days">Скидка ещё %1$d дн.</string>
+    <string name="fine_status_discount_expired">Скидка сгорела</string>
+    <string name="fine_mark_paid">Отметить оплаченным</string>
+    <string name="fine_mark_unpaid">Снять отметку об оплате</string>
+    <string name="delete_fine_title">Удалить штраф?</string>
+    <string name="delete_fine_message">Запись и её вложения будут удалены безвозвратно.</string>
+    <string name="statistics_fines">Штрафы</string>
+
+    <!-- Подтверждение удаления позиций внутри форм -->
+    <string name="clear">Очистить</string>
+    <string name="delete_event_part_title">Убрать запчасть?</string>
+    <string name="delete_event_part_message">Запчасть «%1$s» будет убрана из события, её стоимость перестанет в него входить.</string>
+    <string name="delete_event_consumable_title">Убрать расходник?</string>
+    <string name="delete_event_consumable_message">Позиция «%1$s» будет убрана из события вместе с её стоимостью.</string>
+    <string name="delete_work_item_title">Убрать работу?</string>
+    <string name="delete_work_item_message">Работа «%1$s» будет убрана, стоимость работ пересчитается.</string>
+    <string name="delete_accident_document_title">Открепить документ?</string>
+    <string name="delete_accident_document_message">Файл протокола будет откреплён от записи о ДТП.</string>
+    <string name="form_has_errors">Заполните поля, отмеченные красным — они выше по форме</string>
+    <string name="data_check_stale_active_title">Ресурс расходника считается не от той замены</string>
+    <string name="data_check_stale_active_body">В категории «%1$s» активной числится установка на %2$d км, хотя есть более свежая — на %3$d км. Пока это не исправлено, срок замены считается от старой установки, и плитка краснеет раньше времени.</string>
+    <string name="data_check_stale_active_fix">Сделать активной свежую</string>
+    <string name="accident_compensation_title">Компенсация пострадавшему</string>
+    <string name="accident_compensation_hint">Если вы возместили ущерб сами — например, урегулировали на месте, доплатили сверх ОСАГО или страховки не было. Поле необязательное.</string>
+    <string name="accident_compensation_label">Выплатил пострадавшему</string>
+    <string name="accident_net_cost">Итого из своего кармана</string>
+    <string name="accident_net_cost_hint">Ремонт и компенсация минус полученные выплаты — именно эта сумма идёт в статистику расходов.</string>
+    <string name="accident_net_cost_covered">Выплаты перекрыли расходы — в статистику это ДТП не попадает. Излишек %1$s приложение не учитывает: оно считает траты, а не доходы.</string>
+    <string name="whats_new_fines_title">Штрафы — отдельный раздел</string>
+    <string name="whats_new_fines_body">постановления теперь живут своим списком: сумма, нарушение, номер, срок льготной оплаты и отметка об оплате. Светофор следит не за долгом, а за скидкой — она сгорает по сроку. В расходы идёт фактически уплаченное, а неоплаченный штраф ещё не трата.</string>
+    <string name="whats_new_accident_money_title">Деньги по ДТП считаются честнее</string>
+    <string name="whats_new_accident_money_body">полученные выплаты (ОСАГО, КАСКО, от виновника) теперь уменьшают расходы по аварии — раньше они были справочными, и закрытый страховкой ремонт всё равно выглядел тратой. У виновника появилось необязательное поле «компенсация пострадавшему». Суммы за прошлые периоды могли уменьшиться: это исправление, раньше они были завышены.</string>
+    <string name="whats_new_consumables_backdated_title">Правка старого ТО больше не красит расходники</string>
+    <string name="whats_new_consumables_backdated_body">позиция, добавленная в давнее событие, вставала в цепочку замен последней, и ресурс начинал считаться от её пробега — весь экран расходников краснел. Теперь активна самая свежая установка, а испорченное раньше чинится в «Проверке данных» одной кнопкой.</string>
+    <string name="whats_new_saving_title">Правки сохраняются, а не пропадают молча</string>
+    <string name="whats_new_saving_body">запятая в стоимости, пробел в пробеге и запись со ссылкой на удалённую запчасть больше не ломают сохранение. Если какое-то поле не заполнено, у кнопки появляется подсказка — раньше нажатие выглядело как «ничего не происходит».</string>
+    <string name="whats_new_event_parts_title">Карточка события показывает, что в нём есть</string>
+    <string name="whats_new_event_parts_body">расходники ТО больше не пропадают из карточки после правки, а стоимость раскладывается по своим позициям. В ДТП запчасть можно скрыть из раздела «Запчасти» — мелочь вроде клипс незачем держать в списке.</string>
+    <string name="whats_new_forms_title">Мелочи форм</string>
+    <string name="whats_new_forms_body">поле ввода больше не прячется за клавиатурой, а удаление позиции внутри формы спрашивает подтверждение — промах по корзинке стирал введённое без вопроса.</string>
 </resources>

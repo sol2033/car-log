@@ -76,9 +76,22 @@ class BreakdownDetailViewModel @Inject constructor(
             try {
                 combine(
                     breakdownRepository.getBreakdownById(breakdownId),
-                    consumableRepository.getConsumablesByMaintenanceId(breakdownId),
+                    consumableRepository.getConsumablesByCarId(carId),
                     partRepository.getPartsByCarId(carId)
-                ) { breakdown, consumables, allParts ->
+                ) { breakdown, allConsumables, allParts ->
+                    // Расходники события берём по обеим сторонам связи: обычно они совпадают,
+                    // но у записей из прежних версий одна сторона бывает потеряна, и карточка
+                    // тогда показывала пустоту — правку было видно как «не сохранилось»
+                    val linkedIds = breakdown?.linkedConsumableIds.orEmpty().toSet()
+                    val consumables = if (breakdown == null) {
+                        emptyList()
+                    } else {
+                        // Сравнение с id самого события, а не с breakdown?.id: у «отдельного»
+                        // расходника связь пустая, и с null он совпал бы весь
+                        allConsumables.filter {
+                            it.linkedMaintenanceId == breakdown.id || linkedIds.contains(it.id)
+                        }
+                    }
                     // Запчасти именно этого события: у машины их может быть много,
                     // а нас интересуют только привязанные
                     val eventParts = breakdown?.installedPartIds.orEmpty()
@@ -87,8 +100,12 @@ class BreakdownDetailViewModel @Inject constructor(
                 }
                     .collect { (breakdown, consumables, eventParts) ->
                         if (breakdown != null) {
+                            // Запчасти обязаны дойти до состояния: по ним раскладывается
+                            // стоимость события, и без них ремонтная и тюнинговая части
+                            // уезжали в тип события целиком — карточка расходилась
+                            // со статистикой, которая считает запчасти правильно
                             _uiState.value =
-                                BreakdownDetailUiState.Success(breakdown, consumables)
+                                BreakdownDetailUiState.Success(breakdown, consumables, eventParts)
                         } else {
                             _uiState.value = BreakdownDetailUiState.Error("Поломка не найдена")
                         }

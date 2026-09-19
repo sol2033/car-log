@@ -20,6 +20,7 @@ import com.carlog.R
 import com.carlog.presentation.components.AttachmentsPicker
 import com.carlog.presentation.screens.accidents.AddAccidentViewModel
 import com.carlog.presentation.components.EventPart
+import com.carlog.presentation.components.ConfirmDeleteDialog
 import com.carlog.presentation.components.EventPartDialog
 
 @Composable
@@ -85,6 +86,39 @@ fun PayoutsSection(
     }
 }
 
+/**
+ * Компенсация, выплаченная пострадавшему. Показывается только виновнику: у пострадавшего
+ * такой траты быть не может. Поле необязательное — платят не всегда.
+ */
+@Composable
+fun CompensationSection(
+    hasCompensationPaid: Boolean,
+    compensationPaid: String,
+    onToggle: (Boolean) -> Unit,
+    onAmountChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(R.string.accident_compensation_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = stringResource(R.string.accident_compensation_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        PayoutItem(
+            title = stringResource(R.string.accident_compensation_label),
+            enabled = true,
+            checked = hasCompensationPaid,
+            amount = compensationPaid,
+            onCheckedChange = onToggle,
+            onAmountChange = onAmountChange
+        )
+    }
+}
+
 @Composable
 private fun PayoutItem(
     title: String,
@@ -140,6 +174,8 @@ fun RepairSection(
 ) {
     // null — окно закрыто, -1 — добавление новой запчасти, иначе индекс редактируемой
     var editedPartIndex by remember { mutableStateOf<Int?>(null) }
+    // Корзинка стоит вплотную к цене — промах стирал введённую запчасть без вопроса
+    var partToRemove by remember { mutableStateOf<Int?>(null) }
     
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -211,8 +247,12 @@ fun RepairSection(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold
                                 )
-                                IconButton(onClick = { onRemovePart(index) }) {
-                                    Icon(Icons.Default.Delete, "Удалить")
+                                IconButton(onClick = { partToRemove = index }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        stringResource(R.string.delete),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -307,6 +347,18 @@ fun RepairSection(
         }
     }
     
+    partToRemove?.let { index ->
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.delete_event_part_title),
+            text = stringResource(
+                R.string.delete_event_part_message,
+                addedParts.getOrNull(index)?.name.orEmpty()
+            ),
+            onConfirm = { onRemovePart(index) },
+            onDismiss = { partToRemove = null }
+        )
+    }
+
     editedPartIndex?.let { index ->
         EventPartDialog(
             initial = addedParts.getOrNull(index),
@@ -315,7 +367,12 @@ fun RepairSection(
                 if (index >= 0) onUpdatePart(index, part) else onAddPart(part)
                 editedPartIndex = null
             },
-            onPhotoDiscarded = onPhotoDiscarded
+            onPhotoDiscarded = onPhotoDiscarded,
+            // Мелочь после аварии (клипсы, герметик) можно не показывать в модуле
+            // «Запчасти» — как в обслуживании. Стоимость ремонта и привязка к ДТП
+            // от этого не меняются. Переключателя «Ремонт / Тюнинг» здесь по-прежнему
+            // нет: запчасть относится к аварии, а не к обслуживанию
+            showVisibilityToggle = true
         )
     }
 }
@@ -342,6 +399,8 @@ fun DocumentSection(
     documentPath: String?,
     onDocumentSelected: (String?) -> Unit
 ) {
+    // Открепление протокола — тоже потеря: файл уже выбран и скопирован в хранилище
+    var showDetachDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val documentPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -406,8 +465,12 @@ fun DocumentSection(
                         )
                     }
                     
-                    IconButton(onClick = { onDocumentSelected(null) }) {
-                        Icon(Icons.Default.Delete, "Удалить")
+                    IconButton(onClick = { showDetachDialog = true }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            stringResource(R.string.delete),
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -418,5 +481,14 @@ fun DocumentSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+
+    if (showDetachDialog) {
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.delete_accident_document_title),
+            text = stringResource(R.string.delete_accident_document_message),
+            onConfirm = { onDocumentSelected(null) },
+            onDismiss = { showDetachDialog = false }
+        )
     }
 }

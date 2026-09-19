@@ -1,5 +1,7 @@
 package com.carlog.domain.model
 
+import com.carlog.util.toDecimalOrNull
+
 /**
  * Правила формы расходника: что именно спрашивать у пользователя для конкретной категории.
  *
@@ -48,8 +50,8 @@ object ConsumableFormRules {
     ): Boolean {
         if (category.isBlank()) return false
         if (requiresCustomName(category) && customName.isBlank()) return false
-        if (cost.toDoubleOrNull() == null) return false
-        if (requiresVolume(category) && volume.toDoubleOrNull() == null) return false
+        if (cost.toDecimalOrNull() == null) return false
+        if (requiresVolume(category) && volume.toDecimalOrNull() == null) return false
         if (supportsReminders(category) &&
             intervalMileage.toIntOrNull() == null &&
             intervalDays.toIntOrNull() == null

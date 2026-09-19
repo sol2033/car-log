@@ -9,6 +9,7 @@ import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ConsumableDao
 import com.carlog.data.local.dao.CarDao
 import com.carlog.data.local.dao.ExpenseDao
+import com.carlog.data.local.dao.FineDao
 import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.RefuelingDao
 import com.carlog.data.backup.DataChangeNotifier
@@ -17,6 +18,7 @@ import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.*
 import com.carlog.di.DefaultDispatcher
 import com.carlog.util.DateUtils
+import com.carlog.domain.model.netCost
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
@@ -52,6 +54,7 @@ class StatisticsViewModel @Inject constructor(
     private val refuelingDao: RefuelingDao,
     private val expenseDao: ExpenseDao,
     private val carDocumentDao: CarDocumentDao,
+    private val fineDao: FineDao,
     private val carRepository: CarRepository,
     private val refuelingRepository: RefuelingRepository,
     private val dataChangeNotifier: DataChangeNotifier,
@@ -168,6 +171,7 @@ class StatisticsViewModel @Inject constructor(
             val refuelings = refuelingDao.getRefuelingsByCarId(carId).firstOrNull() ?: emptyList()
             val expenses = expenseDao.getExpensesByCarId(carId).firstOrNull() ?: emptyList()
             val documents = carDocumentDao.getDocumentsByCarId(carId).firstOrNull() ?: emptyList()
+            val fines = fineDao.getFinesByCarId(carId).firstOrNull() ?: emptyList()
                 
             // Фильтрация и агрегация — вне главного потока: списки могут быть большими,
             // а раньше всё считалось прямо в UI-потоке (индикатор загрузки не успевал отрисоваться)
@@ -218,6 +222,13 @@ class StatisticsViewModel @Inject constructor(
                     filterByPeriod(documents, startDate, endDate)
                 }
 
+                // Штрафы — второй модуль без пробега, правило то же, что у документов
+                val filteredFines = if (mileageFilter != MileageFilter.AllMileage) {
+                    emptyList()
+                } else {
+                    filterByPeriod(fines, startDate, endDate)
+                }
+
                 // Pre-calculate all periods once for reuse (optimization)
                 val groupingType = getGroupingType(period, specificMonth)
                 val allPeriods = generateAllPeriods(
@@ -226,14 +237,15 @@ class StatisticsViewModel @Inject constructor(
                     groupingType,
                     earliestDataDate(
                         filteredBreakdowns, filteredConsumables, filteredParts,
-                        filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments
+                        filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments,
+                        filteredFines
                     )
                 )
 
                 // Calculate statistics
                 val fuelStats = calculateFuelStatistics(filteredRefuelings, allPeriods, groupingType)
                 val generalStats = calculateGeneralStatistics(
-                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredByMileage.parts, filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments, period, allPeriods, groupingType, mileageFilter
+                    car, filteredBreakdowns, filteredConsumables, filteredParts, filteredByMileage.parts, filteredAccidents, filteredRefuelings, filteredExpenses, filteredDocuments, filteredFines, period, allPeriods, groupingType, mileageFilter
                 )
                 val repairsStats = calculateRepairsStatistics(filteredBreakdowns, filteredParts, filteredAccidents, allPeriods, groupingType)
                 val consumablesStats = calculateConsumablesStatistics(filteredConsumables)
@@ -476,7 +488,8 @@ class StatisticsViewModel @Inject constructor(
         accidents: List<Accident>,
         refuelings: List<Refueling>,
         expenses: List<Expense>,
-        documents: List<CarDocument>
+        documents: List<CarDocument>,
+        fines: List<Fine>
     ): LocalDate? {
         val timestamps = buildList {
             addAll(breakdowns.map { it.breakdownDate })
@@ -486,6 +499,7 @@ class StatisticsViewModel @Inject constructor(
             addAll(refuelings.map { it.date })
             addAll(expenses.map { it.date })
             addAll(documents.map { it.startDate ?: it.createdAt })
+            addAll(fines.map { it.date })
         }
         return timestamps.minOrNull()?.let { DateUtils.toLocalDate(it) }
     }
@@ -499,6 +513,7 @@ class StatisticsViewModel @Inject constructor(
                 is Refueling -> it.date
                 is Expense -> it.date
                 is CarDocument -> it.startDate ?: it.createdAt
+                is Fine -> it.date
                 else -> return@filter false
             }
             date in startDate..endDate
@@ -540,6 +555,7 @@ class StatisticsViewModel @Inject constructor(
         refuelings: List<Refueling>,
         expenses: List<Expense>,
         documents: List<CarDocument>,
+        fines: List<Fine>,
         period: StatisticsPeriod,
         allPeriods: List<LocalDate>,
         groupingType: GroupingType,
@@ -586,17 +602,24 @@ class StatisticsViewModel @Inject constructor(
         // Тюнинг = тюнинговая часть обслуживаний (БЕЗ услуг)
         val modificationsCost = eventsSplit.modification
         
-        val accidentsCost = accidents.sumOf { it.repairCost ?: 0.0 }
+        // Ремонт и выплаченная компенсация минус полученные выплаты: см. Accident.netCost.
+        // Страховая закрыла ремонт — из кармана по этой аварии не ушло ничего
+        val accidentsCost = accidents.sumOf { it.netCost }
         val fuelCost = refuelings.sumOf { it.totalCost ?: 0.0 }
         val expensesCost = expenses.sumOf { it.cost }
         val documentsCost = documents.sumOf { it.cost ?: 0.0 }
-        val totalCost = toCost + repairsCost + modificationsCost + servicesCost + accidentsCost + fuelCost + expensesCost + documentsCost
+        // Неоплаченный штраф — ещё не трата: в счёт идёт только фактически уплаченное
+        // (со скидкой оно меньше выписанного), см. §4.8 бизнес-логики
+        val finesCost = fines.sumOf { it.paidCost }
+        val totalCost = toCost + repairsCost + modificationsCost + servicesCost + accidentsCost + fuelCost + expensesCost + documentsCost + finesCost
 
-        if (totalCost == 0.0 && breakdowns.isEmpty() && consumables.isEmpty() && parts.isEmpty() && accidents.isEmpty() && refuelings.isEmpty() && expenses.isEmpty() && documents.isEmpty()) {
+        if (totalCost == 0.0 && breakdowns.isEmpty() && consumables.isEmpty() && parts.isEmpty() && accidents.isEmpty() && refuelings.isEmpty() && expenses.isEmpty() && documents.isEmpty() && fines.isEmpty()) {
             return null
         }
 
-        // Calculate cost per km (always excluding accidents)
+        // Calculate cost per km (always excluding accidents and fines)
+        // Штраф не отражает стоимость эксплуатации: это следствие поведения водителя,
+        // а не пробега — как и аварийный ремонт, из стоимости километра он исключён
         val costForKmCalculation = toCost + repairsCost + modificationsCost + servicesCost + fuelCost + expensesCost + documentsCost
         
         // Calculate actual mileage range from filtered data
@@ -646,7 +669,7 @@ class StatisticsViewModel @Inject constructor(
         val averageKmPerMonth = averageKmPerDay * 30.0
         
         // Find most expensive month
-        val mostExpensiveMonth = findMostExpensiveMonth(breakdowns, consumables, parts, accidents, refuelings, expenses, documents)
+        val mostExpensiveMonth = findMostExpensiveMonth(breakdowns, consumables, parts, accidents, refuelings, expenses, documents, fines)
         
         // Cost distribution
         val costDistribution = buildList {
@@ -699,6 +722,13 @@ class StatisticsViewModel @Inject constructor(
                     percentage = (documentsCost / totalCost * 100).toFloat()
                 ))
             }
+            if (finesCost > 0) {
+                add(CostDistributionItem(
+                    category = "Штрафы",
+                    amount = finesCost,
+                    percentage = (finesCost / totalCost * 100).toFloat()
+                ))
+            }
             if (accidentsCost > 0) {
                 add(CostDistributionItem(
                     category = "ДТП",
@@ -709,7 +739,7 @@ class StatisticsViewModel @Inject constructor(
         }
         
         // Cost trend (по месяцам)
-        val costTrend = calculateCostTrend(breakdowns, consumables, parts, accidents, refuelings, expenses, documents, period, allPeriods, groupingType)
+        val costTrend = calculateCostTrend(breakdowns, consumables, parts, accidents, refuelings, expenses, documents, fines, period, allPeriods, groupingType)
         
         // Определяем, нужно ли скрыть метрику км/день
         val shouldHideKmPerDay = when (mileageFilter) {
@@ -769,7 +799,8 @@ class StatisticsViewModel @Inject constructor(
         accidents: List<Accident>,
         refuelings: List<Refueling>,
         expenses: List<Expense>,
-        documents: List<CarDocument>
+        documents: List<CarDocument>,
+        fines: List<Fine>
     ): String? {
         // Group all costs by month
         val monthlyCosts = mutableMapOf<String, Double>()
@@ -797,7 +828,7 @@ class StatisticsViewModel @Inject constructor(
         accidents.forEach { accident ->
             val date = DateUtils.toLocalDate(accident.date)
             val monthKey = "${date.year}-${date.monthValue}"
-            monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (accident.repairCost ?: 0.0)
+            monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + accident.netCost
         }
         
         refuelings.forEach { refueling ->
@@ -818,6 +849,12 @@ class StatisticsViewModel @Inject constructor(
             monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + (document.cost ?: 0.0)
         }
 
+        fines.forEach { fine ->
+            val date = DateUtils.toLocalDate(fine.date)
+            val monthKey = "${date.year}-${date.monthValue}"
+            monthlyCosts[monthKey] = (monthlyCosts[monthKey] ?: 0.0) + fine.paidCost
+        }
+
         val maxEntry = monthlyCosts.maxByOrNull { it.value } ?: return null
         val dateParts = maxEntry.key.split("-")
         val year = dateParts[0].toInt()
@@ -833,7 +870,11 @@ class StatisticsViewModel @Inject constructor(
         consumables: List<Consumable>,
         parts: List<Part>,
         accidents: List<Accident>,
-        refuelings: List<Refueling>,        expenses: List<Expense>,        documents: List<CarDocument>,        @Suppress("UNUSED_PARAMETER") period: StatisticsPeriod,
+        refuelings: List<Refueling>,
+        expenses: List<Expense>,
+        documents: List<CarDocument>,
+        fines: List<Fine>,
+        @Suppress("UNUSED_PARAMETER") period: StatisticsPeriod,
         allPeriods: List<LocalDate>,
         groupingType: GroupingType
     ): List<CostTrendItem> {
@@ -861,7 +902,7 @@ class StatisticsViewModel @Inject constructor(
         accidents.forEach { accident ->
             val date = DateUtils.toLocalDate(accident.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
-            periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (accident.repairCost ?: 0.0)
+            periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + accident.netCost
         }
         
         refuelings.forEach { refueling ->
@@ -880,6 +921,12 @@ class StatisticsViewModel @Inject constructor(
             val date = DateUtils.toLocalDate(document.startDate ?: document.createdAt)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
             periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + (document.cost ?: 0.0)
+        }
+
+        fines.forEach { fine ->
+            val date = DateUtils.toLocalDate(fine.date)
+            val groupKey = getGroupKey(date, groupingType, allPeriods)
+            periodCosts[groupKey] = (periodCosts[groupKey] ?: 0.0) + fine.paidCost
         }
 
         // Заполняем пустые периоды
@@ -907,7 +954,7 @@ class StatisticsViewModel @Inject constructor(
         val breakdownsCost = breakdowns.sumOf { it.totalCost }
         // Standalone parts only (not included in breakdowns)
         val partsCost = parts.sumOf { it.price + (it.servicePrice ?: 0.0) }
-        val accidentsCost = accidents.sumOf { it.repairCost ?: 0.0 }
+        val accidentsCost = accidents.sumOf { it.netCost }
         val totalRepairsCost = breakdownsCost + partsCost + accidentsCost
         val repairsCount = breakdowns.size + parts.size + accidents.size
         val averageRepairCost = if (repairsCount > 0) totalRepairsCost / repairsCount else 0.0
@@ -930,7 +977,7 @@ class StatisticsViewModel @Inject constructor(
         accidents.forEach { accident ->
             val date = DateUtils.toLocalDate(accident.date)
             val groupKey = getGroupKey(date, groupingType, allPeriods)
-            periodRepairCosts[groupKey] = (periodRepairCosts[groupKey] ?: 0.0) + (accident.repairCost ?: 0.0)
+            periodRepairCosts[groupKey] = (periodRepairCosts[groupKey] ?: 0.0) + accident.netCost
         }
         
         // Заполняем пустые периоды

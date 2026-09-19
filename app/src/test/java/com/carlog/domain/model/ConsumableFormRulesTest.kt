@@ -87,4 +87,21 @@ class ConsumableFormRulesTest {
         assertFalse(canAdd("Фильтр масляный", cost = "не число"))
         assertFalse(canAdd(category = ""))
     }
+
+    /**
+     * Русская раскладка даёт запятую, и `toDoubleOrNull()` на ней возвращал null:
+     * кнопка «Сохранить» в диалоге расходника гасла без единого объяснения,
+     * и правка ТО выглядела как «изменения не сохранились».
+     */
+    @Test
+    fun `стоимость с запятой принимается`() {
+        assertTrue(canAdd("Фильтр масляный", cost = "1250,50"))
+        assertTrue(canAdd("Масло в двигателе", cost = "4200", volume = "4,5"))
+    }
+
+    @Test
+    fun `нечисловая стоимость по-прежнему не принимается`() {
+        assertFalse(canAdd("Фильтр масляный", cost = "дорого"))
+        assertFalse(canAdd("Фильтр масляный", cost = ""))
+    }
 }

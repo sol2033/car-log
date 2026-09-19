@@ -28,6 +28,7 @@ import com.carlog.R
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.util.ConsumableStatus
+import com.carlog.util.toDecimalOrNull
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -521,9 +522,9 @@ fun ConsumableDetailScreen(
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.replaceSameConsumable(
-                        newCost = cost.toDoubleOrNull(),
+                        newCost = cost.toDecimalOrNull(),
                         isInstalledAtService = isService,
-                        serviceCost = if (isService) serviceCost.toDoubleOrNull() else null,
+                        serviceCost = if (isService) serviceCost.toDecimalOrNull() else null,
                         replacementDate = replacementDate,
                         onReplaced = { onNavigateBack() }
                     )

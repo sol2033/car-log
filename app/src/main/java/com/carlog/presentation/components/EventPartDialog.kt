@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.carlog.R
 import com.carlog.domain.model.MaintenanceType
+import com.carlog.util.toDecimalOrNull
 
 /**
  * Окно добавления или редактирования запчасти внутри события (обслуживание, ДТП).
@@ -27,7 +28,8 @@ import com.carlog.domain.model.MaintenanceType
  * @param showTypeToggle показывать ли выбор «Ремонт / Тюнинг». В ДТП не показывается: там
  * запчасти относятся к аварии, а не к обслуживанию.
  * @param showVisibilityToggle показывать ли галочку «Показывать в разделе „Запчасти"».
- * Для ДТП не показывается: там запчасти всегда идут в раздел.
+ * Включена и в обслуживании, и в ДТП: мелочь вроде клипс и герметика незачем тащить
+ * в модуль «Запчасти», а стоимость события и привязка к нему от этого не меняются.
  * @param initial редактируемая позиция; null — добавление новой.
  * @param onPhotoDiscarded фото убрали из этого окна — файл больше не нужен, если он не
  * принадлежит уже сохранённой записи.
@@ -56,7 +58,7 @@ fun EventPartDialog(
     var nameTouched by remember { mutableStateOf(false) }
     var priceTouched by remember { mutableStateOf(false) }
 
-    val priceValue = price.replace(',', '.').toDoubleOrNull()
+    val priceValue = price.toDecimalOrNull()
     val nameError = nameTouched && name.isBlank()
     val priceError = priceTouched && (priceValue == null || priceValue <= 0)
     val canConfirm = name.isNotBlank() && priceValue != null && priceValue > 0

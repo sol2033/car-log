@@ -74,4 +74,15 @@ class ServiceCostTest {
     fun `пустой список работ даёт ноль, а не мусор`() {
         assertEquals(0.0, state(workItems = emptyList()).calculatedServiceCost!!, 0.0001)
     }
+
+    /**
+     * Регрессия: стоимость работ с запятой (русская раскладка) не разбиралась
+     * и молча сохранялась как «не указана».
+     */
+    @Test
+    fun `стоимость работ с запятой не теряется`() {
+        val value = state(useGeneralServiceCost = true, serviceCost = "3500,50").calculatedServiceCost
+
+        assertEquals(3_500.5, value!!, 0.0001)
+    }
 }

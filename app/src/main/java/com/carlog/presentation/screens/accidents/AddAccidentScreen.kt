@@ -132,6 +132,18 @@ fun AddAccidentScreen(
                 onToggleCulprit = viewModel::toggleCulpritPayout,
                 onCulpritAmountChange = viewModel::updateCulpritPayout
             )
+
+            // Компенсация пострадавшему — только у виновника
+            if (state.isUserAtFault) {
+                HorizontalDivider()
+
+                CompensationSection(
+                    hasCompensationPaid = state.hasCompensationPaid,
+                    compensationPaid = state.compensationPaid,
+                    onToggle = viewModel::toggleCompensationPaid,
+                    onAmountChange = viewModel::updateCompensationPaid
+                )
+            }
             
             HorizontalDivider()
             

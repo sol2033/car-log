@@ -40,6 +40,7 @@ fun CarDetailScreen(
     onNavigateToRefuelings: ((Long) -> Unit)? = null,
     onNavigateToExpenses: ((Long) -> Unit)? = null,
     onNavigateToDocuments: ((Long) -> Unit)? = null,
+    onNavigateToFines: ((Long) -> Unit)? = null,
     viewModel: CarDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -101,6 +102,7 @@ fun CarDetailScreen(
                     onNavigateToRefuelings = onNavigateToRefuelings,
                     onNavigateToExpenses = onNavigateToExpenses,
                     onNavigateToDocuments = onNavigateToDocuments,
+                    onNavigateToFines = onNavigateToFines,
                     onUpdateMileageClick = { viewModel.showUpdateMileageDialog() },
                     modifier = Modifier
                         .fillMaxSize()
@@ -273,6 +275,7 @@ fun CarDetailContent(
     onNavigateToRefuelings: ((Long) -> Unit)? = null,
     onNavigateToExpenses: ((Long) -> Unit)? = null,
     onNavigateToDocuments: ((Long) -> Unit)? = null,
+    onNavigateToFines: ((Long) -> Unit)? = null,
     onUpdateMileageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -656,6 +659,39 @@ fun CarDetailContent(
                             )
                             Text(
                                 text = stringResource(R.string.documents_section_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
+
+            // Штрафы
+            if (onNavigateToFines != null) {
+                OutlinedCard(
+                    onClick = { onNavigateToFines(car.id) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = stringResource(R.string.fines_section_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.fines_section_description),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

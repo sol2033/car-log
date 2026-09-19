@@ -75,4 +75,19 @@ sealed interface IntegrityFinding {
         val category: String,
         val consumables: List<Consumable>
     ) : IntegrityFinding
+
+    /**
+     * Активен не самый свежий расходник категории: ресурс считается от старой установки,
+     * и плитка горит красным раньше времени. След правки события задним числом —
+     * до исправления любая добавленная позиция объявляла себя последней заменой.
+     */
+    data class StaleActiveConsumable(
+        override val id: String,
+        override val carLabel: String,
+        val category: String,
+        /** Запись, которая числится активной сейчас */
+        val active: Consumable,
+        /** Самая свежая установка категории — она и должна быть активной */
+        val newest: Consumable
+    ) : IntegrityFinding
 }

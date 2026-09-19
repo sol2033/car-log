@@ -55,36 +55,43 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
             ) {
                 Text(
                     item(
-                        stringResource(R.string.whats_new_combined_events_title),
-                        stringResource(R.string.whats_new_combined_events_body)
+                        stringResource(R.string.whats_new_fines_title),
+                        stringResource(R.string.whats_new_fines_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_event_colors_title),
-                        stringResource(R.string.whats_new_event_colors_body)
+                        stringResource(R.string.whats_new_accident_money_title),
+                        stringResource(R.string.whats_new_accident_money_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_attachments_title),
-                        stringResource(R.string.whats_new_attachments_body)
+                        stringResource(R.string.whats_new_consumables_backdated_title),
+                        stringResource(R.string.whats_new_consumables_backdated_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_to_consumables_title),
-                        stringResource(R.string.whats_new_to_consumables_body)
+                        stringResource(R.string.whats_new_saving_title),
+                        stringResource(R.string.whats_new_saving_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_breakdown_photos_title),
-                        stringResource(R.string.whats_new_breakdown_photos_body)
+                        stringResource(R.string.whats_new_event_parts_title),
+                        stringResource(R.string.whats_new_event_parts_body)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    item(
+                        stringResource(R.string.whats_new_forms_title),
+                        stringResource(R.string.whats_new_forms_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )

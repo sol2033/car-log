@@ -12,11 +12,14 @@ import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.Part
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -122,17 +125,28 @@ class DataIntegrityCheckerTest {
         notes = null
     )
 
-    private fun consumable(id: Long, category: String, isActive: Boolean, mileage: Int = 80_000) = Consumable(
+    private fun consumable(
+        id: Long,
+        category: String,
+        isActive: Boolean,
+        mileage: Int = 80_000,
+        installationDate: Long = 1_000,
+        replacementMileage: Int? = null,
+        replacementDate: Long? = null,
+        linkedMaintenanceId: Long? = null,
+        cost: Double = 1_000.0
+    ) = Consumable(
         id = id,
         carId = 1,
         category = category,
         manufacturer = null,
         articleNumber = null,
         installationMileage = mileage,
-        installationDate = 1_000,
-        replacementMileage = null,
-        replacementDate = null,
-        cost = 1_000.0,
+        installationDate = installationDate,
+        linkedMaintenanceId = linkedMaintenanceId,
+        replacementMileage = replacementMileage,
+        replacementDate = replacementDate,
+        cost = cost,
         isInstalledAtService = false,
         serviceCost = null,
         volume = null,
@@ -301,4 +315,202 @@ class DataIntegrityCheckerTest {
 
         assertEquals(first, second)
     }
+
+    @Test
+    fun `активный расходник старше заменённого — находка`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, "Масло в двигателе", isActive = true, mileage = 6_000),
+                consumable(2, "Масло в двигателе", isActive = false, mileage = 75_000)
+            )
+        )
+
+        val findings = checker.scan().filterIsInstance<IntegrityFinding.StaleActiveConsumable>()
+
+        assertEquals(1, findings.size)
+        assertEquals(6_000, findings.first().active.installationMileage)
+        assertEquals(75_000, findings.first().newest.installationMileage)
+    }
+
+    @Test
+    fun `активна самая свежая установка — находки нет`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, "Масло в двигателе", isActive = false, mileage = 6_000),
+                consumable(2, "Масло в двигателе", isActive = true, mileage = 75_000)
+            )
+        )
+
+        assertTrue(checker.scan().filterIsInstance<IntegrityFinding.StaleActiveConsumable>().isEmpty())
+    }
+
+    @Test
+    fun `разовые позиции «Другое» на активность не проверяются`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, ConsumableCategories.OTHER, isActive = true, mileage = 6_000),
+                consumable(2, ConsumableCategories.OTHER, isActive = false, mileage = 75_000)
+            )
+        )
+
+        assertTrue(checker.scan().filterIsInstance<IntegrityFinding.StaleActiveConsumable>().isEmpty())
+    }
+
+    /** Две находки на одну категорию были бы шумом: несколько активных ловит своё правило */
+    @Test
+    fun `несколько активных не дают вторую находку про перестановку`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(1, "Масло в двигателе", isActive = true, mileage = 6_000),
+                consumable(2, "Масло в двигателе", isActive = true, mileage = 75_000)
+            )
+        )
+
+        val findings = checker.scan()
+
+        assertEquals(1, findings.filterIsInstance<IntegrityFinding.DuplicateActiveConsumables>().size)
+        assertTrue(findings.filterIsInstance<IntegrityFinding.StaleActiveConsumable>().isEmpty())
+    }
+
+    // region починка активности: что реально уходит в базу
+
+    /**
+     * Данные в том виде, в каком их оставил баг: дозаполнили ТО на 6 000 км, и позиция
+     * оттуда объявила себя последней заменой, вытеснив реальную установку на 75 000.
+     */
+    private val corruptedOil = listOf(
+        consumable(
+            id = 1,
+            category = "Масло в двигателе",
+            isActive = false,
+            mileage = 75_000,
+            installationDate = 8_000,
+            replacementMileage = 6_000,
+            replacementDate = 1_000,
+            linkedMaintenanceId = 40
+        ),
+        consumable(
+            id = 2,
+            category = "Масло в двигателе",
+            isActive = true,
+            mileage = 6_000,
+            installationDate = 1_000,
+            linkedMaintenanceId = 41,
+            cost = 3_500.0
+        )
+    )
+
+    @Test
+    fun `починка возвращает активность свежей установке и закрывает вытеснившую`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(corruptedOil)
+        val saved = mutableListOf<Consumable>()
+        coEvery { consumableDao.updateConsumable(capture(saved)) } returns Unit
+
+        checker.repairConsumableActivity(carId = 1, category = "Масло в двигателе")
+
+        val real = saved.single { it.id == 1L }
+        assertTrue("активна установка на 75 000", real.isActive)
+        assertNull(real.replacementMileage)
+        assertNull(real.replacementDate)
+
+        val bogus = saved.single { it.id == 2L }
+        assertFalse(bogus.isActive)
+        assertEquals(75_000, bogus.replacementMileage)
+    }
+
+    /** Починка правит только активность: деньги и привязка к ТО обязаны уцелеть */
+    @Test
+    fun `починка не трогает стоимость и привязку к событию`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(corruptedOil)
+        val saved = mutableListOf<Consumable>()
+        coEvery { consumableDao.updateConsumable(capture(saved)) } returns Unit
+
+        checker.repairConsumableActivity(carId = 1, category = "Масло в двигателе")
+
+        val bogus = saved.single { it.id == 2L }
+        assertEquals("дозаполненная позиция остаётся в истории ТО", 41L, bogus.linkedMaintenanceId)
+        assertEquals(3_500.0, bogus.cost!!, 0.01)
+        assertEquals(6_000, bogus.installationMileage)
+        assertEquals(40L, saved.single { it.id == 1L }.linkedMaintenanceId)
+    }
+
+    /** Чужая категория в ту же машину не попадает под раздачу */
+    @Test
+    fun `починка трогает только свою категорию`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            corruptedOil + consumable(3, "Фильтр масляный", isActive = true, mileage = 70_000)
+        )
+        val saved = mutableListOf<Consumable>()
+        coEvery { consumableDao.updateConsumable(capture(saved)) } returns Unit
+
+        checker.repairConsumableActivity(carId = 1, category = "Масло в двигателе")
+
+        assertEquals(setOf(1L, 2L), saved.map { it.id }.toSet())
+    }
+
+    /** Повторное нажатие кнопки ничего не переписывает: цепочка уже здорова */
+    @Test
+    fun `починка идемпотентна`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(
+                    id = 1,
+                    category = "Масло в двигателе",
+                    isActive = false,
+                    mileage = 6_000,
+                    installationDate = 1_000,
+                    replacementMileage = 75_000,
+                    replacementDate = 8_000
+                ),
+                consumable(
+                    id = 2,
+                    category = "Масло в двигателе",
+                    isActive = true,
+                    mileage = 75_000,
+                    installationDate = 8_000
+                )
+            )
+        )
+
+        checker.repairConsumableActivity(carId = 1, category = "Масло в двигателе")
+
+        coVerify(exactly = 0) { consumableDao.updateConsumable(any()) }
+    }
+
+    /** Разовые позиции «Другое» цепочки не образуют — чинить там нечего */
+    @Test
+    fun `починка обходит категорию «Другое»`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            corruptedOil.map { it.copy(category = ConsumableCategories.OTHER) }
+        )
+
+        checker.repairConsumableActivity(carId = 1, category = ConsumableCategories.OTHER)
+
+        coVerify(exactly = 0) { consumableDao.updateConsumable(any()) }
+    }
+
+    /**
+     * Категория без активной записи (расходник удалили с его экрана) находкой не считается,
+     * и «воскрешать» историю починка не должна — иначе кнопка делала бы не то, что обещает.
+     */
+    @Test
+    fun `категория без активного расходника находкой не считается`() = runTest {
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(
+                consumable(
+                    id = 1,
+                    category = "Масло в двигателе",
+                    isActive = false,
+                    mileage = 75_000,
+                    replacementMileage = 80_000,
+                    replacementDate = 9_000
+                )
+            )
+        )
+
+        assertTrue(checker.scan().filterIsInstance<IntegrityFinding.StaleActiveConsumable>().isEmpty())
+    }
+
+    // endregion
 }
+

@@ -9,6 +9,8 @@ import com.carlog.data.repository.ExpenseRepository
 import com.carlog.domain.model.Car
 import com.carlog.domain.model.Expense
 import com.carlog.domain.model.ExpenseCategories
+import com.carlog.util.toMileageOrNull
+import com.carlog.util.toDecimalOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -170,7 +172,7 @@ class AddExpenseViewModel @Inject constructor(
                 hasError = true
             }
 
-            val mileageValue = _mileage.value.toIntOrNull()
+            val mileageValue = _mileage.value.toMileageOrNull()
             if (mileageValue == null && _mileage.value.isNotBlank()) {
                 _mileageError.value = "Введите корректное значение"
                 hasError = true
@@ -191,7 +193,7 @@ class AddExpenseViewModel @Inject constructor(
                 hasError = true
             }
 
-            val costValue = _cost.value.toDoubleOrNull()
+            val costValue = _cost.value.toDecimalOrNull()
             if (costValue == null && _cost.value.isNotBlank()) {
                 _costError.value = "Введите корректное значение"
                 hasError = true
