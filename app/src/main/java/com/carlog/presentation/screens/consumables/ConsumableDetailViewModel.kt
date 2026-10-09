@@ -5,8 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
+import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.repository.ConsumableRepository
+import com.carlog.data.repository.OilTopUpRepository
+import com.carlog.domain.model.Car
 import com.carlog.domain.model.Consumable
+import com.carlog.domain.model.OilConsumptionCalculator
+import com.carlog.domain.model.OilInterval
+import com.carlog.domain.model.OilLevelDropInput
+import com.carlog.domain.model.OilTopUp
 import com.carlog.util.ConsumableStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,7 +25,13 @@ sealed class ConsumableDetailUiState {
     data class Success(
         val consumable: Consumable,
         val statusInfo: ConsumableStatus.StatusInfo,
-        val currentMileage: Int
+        val currentMileage: Int,
+        val car: Car,
+        // Расход масла этого интервала — только у моторного масла и при включённом учёте
+        val oil: OilInterval? = null,
+        // Средний расход за всю историю (по завершённым интервалам), л/1000 км
+        val oilOverallPer1000Km: Double? = null,
+        val oilOverallIsApproximate: Boolean = false
     ) : ConsumableDetailUiState()
     data class Error(val message: String) : ConsumableDetailUiState()
 }
@@ -27,6 +40,8 @@ sealed class ConsumableDetailUiState {
 class ConsumableDetailViewModel @Inject constructor(
     private val consumableRepository: ConsumableRepository,
     private val carRepository: CarRepository,
+    private val oilTopUpRepository: OilTopUpRepository,
+    private val appPreferences: AppPreferences,
     private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -55,13 +70,23 @@ class ConsumableDetailViewModel @Inject constructor(
             try {
                 combine(
                     consumableRepository.getConsumableById(consumableId),
-                    carRepository.getCarById(carId)
-                ) { consumable, car ->
+                    carRepository.getCarById(carId),
+                    consumableRepository.getConsumablesByCategory(carId, OilConsumptionCalculator.ENGINE_OIL),
+                    oilTopUpRepository.getTopUpsByCarId(carId),
+                    appPreferences.oilConsumptionEnabled
+                ) { consumable, car, oils, topUps, oilEnabled ->
                     if (consumable != null && car != null) {
+                        val oilSummary = if (oilEnabled && OilConsumptionCalculator.isEngineOil(consumable)) {
+                            OilConsumptionCalculator.summarize(oils, topUps, car, car.currentMileage)
+                        } else null
                         ConsumableDetailUiState.Success(
                             consumable = consumable,
                             statusInfo = ConsumableStatus.calculateStatus(consumable, car.currentMileage),
-                            currentMileage = car.currentMileage
+                            currentMileage = car.currentMileage,
+                            car = car,
+                            oil = oilSummary?.intervals?.firstOrNull { it.oil.id == consumable.id },
+                            oilOverallPer1000Km = oilSummary?.overallPer1000Km,
+                            oilOverallIsApproximate = oilSummary?.overallIsApproximate == true
                         )
                     } else {
                         ConsumableDetailUiState.Error("Расходник не найден")
@@ -101,12 +126,17 @@ class ConsumableDetailViewModel @Inject constructor(
         _showReplaceSameDialog.value = false
     }
     
-    fun deleteConsumable(onDeleted: () -> Unit) {
+    /** Можно ли после удаления вернуть в активные предыдущую установку категории */
+    suspend fun deletePlan() = (_uiState.value as? ConsumableDetailUiState.Success)
+        ?.let { consumableRepository.deletePlan(it.consumable) }
+        ?: com.carlog.data.repository.ConsumableDeletePlan(removedCount = 1, restorable = emptyList())
+
+    fun deleteConsumable(restorePredecessor: Boolean = false, onDeleted: () -> Unit) {
         viewModelScope.launch {
             try {
                 val state = _uiState.value
                 if (state is ConsumableDetailUiState.Success) {
-                    consumableRepository.deleteConsumable(state.consumable)
+                    consumableRepository.deleteConsumable(state.consumable, restorePredecessor)
                     // Обновляем пробег автомобиля до максимального
                     val maxMileage = maxOf(
                         state.consumable.installationMileage,
@@ -129,6 +159,7 @@ class ConsumableDetailViewModel @Inject constructor(
         isInstalledAtService: Boolean,
         serviceCost: Double?,
         replacementDate: Long = System.currentTimeMillis(),
+        levelDrop: OilLevelDropInput? = null,
         onReplaced: () -> Unit
     ) {
         viewModelScope.launch {
@@ -144,6 +175,8 @@ class ConsumableDetailViewModel @Inject constructor(
                         isActive = false,
                         replacementMileage = state.currentMileage,
                         replacementDate = replacementDate,
+                        oilLevelDropMl = if (levelDrop != null) levelDrop.ml else oldConsumable.oilLevelDropMl,
+                        oilLevelDropFraction = if (levelDrop != null) levelDrop.fraction else oldConsumable.oilLevelDropFraction,
                         updatedAt = currentTime
                     )
                     consumableRepository.updateConsumable(updatedOld)
@@ -151,6 +184,13 @@ class ConsumableDetailViewModel @Inject constructor(
                     // Создаем новый с новыми параметрами
                     val newConsumable = oldConsumable.copy(
                         id = 0,
+                        // Новый расходник — отдельный, даже если старый ставили в ТО. Привязка
+                        // наследовалась: новый попадал в карточку старого ТО, но не в его список,
+                        // и его стоимость пропадала из статистики (не «отдельный» и не в ТО)
+                        linkedMaintenanceId = null,
+                        // Уровень относится к старому маслу — новому его не наследовать
+                        oilLevelDropMl = null,
+                        oilLevelDropFraction = null,
                         installationMileage = state.currentMileage,
                         installationDate = replacementDate,
                         cost = newCost,
@@ -179,7 +219,7 @@ class ConsumableDetailViewModel @Inject constructor(
     }
     
     // Замена на другой расходник (просто деактивация)
-    fun replaceWithDifferentConsumable(onReplaced: () -> Unit) {
+    fun replaceWithDifferentConsumable(levelDrop: OilLevelDropInput? = null, onReplaced: () -> Unit) {
         viewModelScope.launch {
             try {
                 val state = _uiState.value
@@ -189,6 +229,8 @@ class ConsumableDetailViewModel @Inject constructor(
                         isActive = false,
                         replacementMileage = state.currentMileage,
                         replacementDate = currentTime,
+                        oilLevelDropMl = if (levelDrop != null) levelDrop.ml else state.consumable.oilLevelDropMl,
+                        oilLevelDropFraction = if (levelDrop != null) levelDrop.fraction else state.consumable.oilLevelDropFraction,
                         updatedAt = currentTime
                     )
                     consumableRepository.updateConsumable(updatedConsumable)
@@ -201,6 +243,69 @@ class ConsumableDetailViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = ConsumableDetailUiState.Error(e.message ?: "Ошибка замены")
             }
+        }
+    }
+
+    // === Расход масла ===
+
+    /** Падение уровня к замене — указать или исправить на уже заменённом масле */
+    fun setOilLevelDrop(input: OilLevelDropInput) {
+        val state = _uiState.value as? ConsumableDetailUiState.Success ?: return
+        viewModelScope.launch {
+            consumableRepository.updateConsumable(
+                state.consumable.copy(
+                    oilLevelDropMl = input.ml,
+                    oilLevelDropFraction = input.fraction,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+            dataChangeNotifier.notifyDataChanged()
+        }
+    }
+
+    /**
+     * Объём между MIN и MAX щупа. «Не знаю» — 1 л с пометкой: расход по щупу тогда
+     * считается с погрешностью. Значение машины, а не масла: исправить его можно в любой
+     * момент, и все интервалы, указанные долей щупа, пересчитаются.
+     */
+    fun setDipstickVolume(volume: Double, isGuess: Boolean) {
+        viewModelScope.launch {
+            carRepository.setOilDipstickVolume(carId, volume, isGuess)
+            dataChangeNotifier.notifyDataChanged()
+        }
+    }
+
+    /** Новый долив (existing == null) или правка — через copy, как все формы (правило 1) */
+    fun saveTopUp(existing: OilTopUp?, date: Long, mileage: Int, volume: Double, cost: Double?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            if (existing == null) {
+                oilTopUpRepository.insertTopUp(
+                    OilTopUp(
+                        carId = carId,
+                        date = date,
+                        mileage = mileage,
+                        volume = volume,
+                        cost = cost,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            } else {
+                oilTopUpRepository.updateTopUp(
+                    existing.copy(date = date, mileage = mileage, volume = volume, cost = cost, updatedAt = now)
+                )
+            }
+            carRepository.updateCarMileageIfNeeded(carId, mileage)
+            dataChangeNotifier.notifyDataChanged()
+        }
+    }
+
+    fun deleteTopUp(topUp: OilTopUp) {
+        viewModelScope.launch {
+            oilTopUpRepository.deleteTopUp(topUp)
+            carRepository.updateCarMileageAfterDelete(carId, topUp.mileage)
+            dataChangeNotifier.notifyDataChanged()
         }
     }
 }

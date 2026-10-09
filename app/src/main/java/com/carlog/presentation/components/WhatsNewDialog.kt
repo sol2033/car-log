@@ -55,43 +55,57 @@ fun WhatsNewDialog(onDismiss: () -> Unit) {
             ) {
                 Text(
                     item(
-                        stringResource(R.string.whats_new_fines_title),
-                        stringResource(R.string.whats_new_fines_body)
+                        stringResource(R.string.whats_new_fuel_title),
+                        stringResource(R.string.whats_new_fuel_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_accident_money_title),
-                        stringResource(R.string.whats_new_accident_money_body)
+                        stringResource(R.string.whats_new_tank_title),
+                        stringResource(R.string.whats_new_tank_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_consumables_backdated_title),
-                        stringResource(R.string.whats_new_consumables_backdated_body)
+                        stringResource(R.string.whats_new_oil_title),
+                        stringResource(R.string.whats_new_oil_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_saving_title),
-                        stringResource(R.string.whats_new_saving_body)
+                        stringResource(R.string.whats_new_volume_title),
+                        stringResource(R.string.whats_new_volume_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_event_parts_title),
-                        stringResource(R.string.whats_new_event_parts_body)
+                        stringResource(R.string.whats_new_tolls_title),
+                        stringResource(R.string.whats_new_tolls_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     item(
-                        stringResource(R.string.whats_new_forms_title),
-                        stringResource(R.string.whats_new_forms_body)
+                        stringResource(R.string.whats_new_suggestions_title),
+                        stringResource(R.string.whats_new_suggestions_body)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    item(
+                        stringResource(R.string.whats_new_delete_title),
+                        stringResource(R.string.whats_new_delete_body)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    item(
+                        stringResource(R.string.whats_new_fixes_title),
+                        stringResource(R.string.whats_new_fixes_body)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )

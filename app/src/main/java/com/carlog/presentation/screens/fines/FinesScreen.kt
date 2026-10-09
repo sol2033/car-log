@@ -13,10 +13,12 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,22 +32,26 @@ import com.carlog.util.formatCurrency
 import java.text.SimpleDateFormat
 import java.util.*
 
+/** Вкладки раздела: «Все» намеренно нет — штрафы и платные дороги по смыслу не смешиваются */
+private enum class FinesTab { FINES, TOLLS }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinesScreen(
     carId: Long,
     onNavigateBack: () -> Unit,
     onNavigateToAddFine: (Long, Long?) -> Unit,
-    viewModel: FinesViewModel = hiltViewModel()
+    onNavigateToAddTollPayment: (Long, Long?) -> Unit,
+    viewModel: FinesViewModel = hiltViewModel(),
+    tollViewModel: TollPaymentsViewModel = hiltViewModel()
 ) {
     LaunchedEffect(carId) {
         viewModel.setCarId(carId)
+        tollViewModel.setCarId(carId)
     }
 
-    val fines by viewModel.fines.collectAsState()
-    val totalPaid by viewModel.totalPaid.collectAsState()
-    val totalUnpaid by viewModel.totalUnpaid.collectAsState()
-    val unpaidCount by viewModel.unpaidCount.collectAsState()
+    // rememberSaveable: после возврата из формы открыта та же вкладка, с которой уходили
+    var selectedTab by rememberSaveable { mutableStateOf(FinesTab.FINES) }
 
     Scaffold(
         topBar = {
@@ -59,7 +65,15 @@ fun FinesScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { onNavigateToAddFine(carId, null) }) {
+            // Добавляет запись того типа, чья вкладка открыта
+            FloatingActionButton(
+                onClick = {
+                    when (selectedTab) {
+                        FinesTab.FINES -> onNavigateToAddFine(carId, null)
+                        FinesTab.TOLLS -> onNavigateToAddTollPayment(carId, null)
+                    }
+                }
+            ) {
                 Icon(Icons.Default.Add, stringResource(R.string.add))
             }
         }
@@ -69,54 +83,96 @@ fun FinesScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (fines.isNotEmpty()) {
-                FinesSummaryCard(
-                    count = fines.size,
-                    unpaidCount = unpaidCount,
-                    totalPaid = totalPaid ?: 0.0,
-                    totalUnpaid = totalUnpaid ?: 0.0
+            TabRow(selectedTabIndex = selectedTab.ordinal) {
+                Tab(
+                    selected = selectedTab == FinesTab.FINES,
+                    onClick = { selectedTab = FinesTab.FINES },
+                    text = { Text(stringResource(R.string.tab_fines)) }
+                )
+                Tab(
+                    selected = selectedTab == FinesTab.TOLLS,
+                    onClick = { selectedTab = FinesTab.TOLLS },
+                    text = { Text(stringResource(R.string.tab_toll_roads)) }
                 )
             }
 
-            if (fines.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Gavel,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = stringResource(R.string.fines_empty),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(fines, key = { it.id }) { fine ->
-                        FineCard(
-                            fine = fine,
-                            onClick = { onNavigateToAddFine(carId, fine.id) },
-                            onTogglePaid = {
-                                if (fine.isPaid) viewModel.markAsUnpaid(fine)
-                                else viewModel.markAsPaid(fine)
-                            },
-                            onDelete = { viewModel.deleteFine(fine) }
-                        )
-                    }
+            when (selectedTab) {
+                FinesTab.FINES -> FinesTabContent(
+                    viewModel = viewModel,
+                    onOpenFine = { onNavigateToAddFine(carId, it) }
+                )
+                FinesTab.TOLLS -> TollPaymentsTabContent(
+                    viewModel = tollViewModel,
+                    onOpenPayment = { onNavigateToAddTollPayment(carId, it) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FinesTabContent(
+    viewModel: FinesViewModel,
+    onOpenFine: (Long) -> Unit
+) {
+    val fines by viewModel.fines.collectAsState()
+    val totalPaid by viewModel.totalPaid.collectAsState()
+    val totalUnpaid by viewModel.totalUnpaid.collectAsState()
+    val unpaidCount by viewModel.unpaidCount.collectAsState()
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (fines.isNotEmpty()) {
+            FinesSummaryCard(
+                count = fines.size,
+                unpaidCount = unpaidCount,
+                totalPaid = totalPaid ?: 0.0,
+                totalUnpaid = totalUnpaid ?: 0.0
+            )
+        }
+
+        if (fines.isEmpty()) {
+            EmptyState(icon = Icons.Default.Gavel, text = stringResource(R.string.fines_empty))
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(fines, key = { it.id }) { fine ->
+                    FineCard(
+                        fine = fine,
+                        onClick = { onOpenFine(fine.id) },
+                        onTogglePaid = {
+                            if (fine.isPaid) viewModel.markAsUnpaid(fine)
+                            else viewModel.markAsPaid(fine)
+                        },
+                        onDelete = { viewModel.deleteFine(fine) }
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun EmptyState(icon: ImageVector, text: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.outline
+            )
         }
     }
 }
@@ -188,7 +244,7 @@ private fun FinesSummaryCard(
 }
 
 @Composable
-private fun SummaryItem(label: String, value: String) {
+internal fun SummaryItem(label: String, value: String) {
     Column {
         Text(
             text = label,

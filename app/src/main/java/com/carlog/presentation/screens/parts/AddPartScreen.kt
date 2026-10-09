@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.util.PickerDates
+import com.carlog.util.toDecimalOrNull
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
 import com.carlog.presentation.components.AttachmentsPicker
+import com.carlog.presentation.components.NameSuggestionChips
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,6 +32,7 @@ fun AddPartScreen(
     viewModel: AddPartViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val serviceNameSuggestions by viewModel.serviceNameSuggestions.collectAsState()
     
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -133,7 +137,7 @@ fun AddPartScreen(
                 
                 if (showDatePicker) {
                     val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = state.installDate
+                        initialSelectedDateMillis = PickerDates.toPicker(state.installDate)
                     )
                     DatePickerDialog(
                         onDismissRequest = { showDatePicker = false },
@@ -141,7 +145,7 @@ fun AddPartScreen(
                             TextButton(
                                 onClick = {
                                     datePickerState.selectedDateMillis?.let { millis ->
-                                        viewModel.updateInstallDate(millis)
+                                        viewModel.updateInstallDate(PickerDates.fromPicker(millis, state.installDate))
                                     }
                                     showDatePicker = false
                                 }
@@ -216,15 +220,23 @@ fun AddPartScreen(
                         onValueChange = viewModel::updateServicePrice,
                         label = { Text(stringResource(R.string.service_price)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = state.servicePriceError != null,
+                        supportingText = state.servicePriceError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                     
-                    OutlinedTextField(
-                        value = state.serviceName,
-                        onValueChange = viewModel::updateServiceName,
-                        label = { Text(stringResource(R.string.service_name)) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = state.serviceName,
+                            onValueChange = viewModel::updateServiceName,
+                            label = { Text(stringResource(R.string.service_name)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        NameSuggestionChips(
+                            suggestions = serviceNameSuggestions,
+                            onPick = viewModel::pickServiceNameSuggestion
+                        )
+                    }
                     
                     OutlinedTextField(
                         value = state.serviceAddress,
@@ -234,8 +246,8 @@ fun AddPartScreen(
                     )
                 }
                 
-                val totalCost = (state.price.toDoubleOrNull() ?: 0.0) +
-                        (state.servicePrice.toDoubleOrNull() ?: 0.0)
+                val totalCost = (state.price.toDecimalOrNull() ?: 0.0) +
+                        (state.servicePrice.toDecimalOrNull() ?: 0.0)
                 
                 if (totalCost > 0) {
                     Card(

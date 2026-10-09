@@ -156,6 +156,7 @@ fun StatisticsScreen(
                             )
                             4 -> ConsumablesStatisticsTab(
                                 statistics = uiState.statistics.consumables,
+                                oil = uiState.statistics.oil,
                                 onNavigateToConsumables = onNavigateToConsumables,
                                 modifier = Modifier.fillMaxSize()
                             )

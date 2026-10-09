@@ -117,7 +117,7 @@ sealed class Screen(val route: String) {
             else "add_expense/$carId"
     }
     
-    // Fines (штрафы)
+    // Fines (штрафы и платные дороги)
     object Fines : Screen("fines/{carId}") {
         fun createRoute(carId: Long) = "fines/$carId"
     }
@@ -125,6 +125,12 @@ sealed class Screen(val route: String) {
         fun createRoute(carId: Long, fineId: Long? = null) =
             if (fineId != null) "add_fine/$carId?fineId=$fineId"
             else "add_fine/$carId"
+    }
+    // Платные дороги — вторая вкладка раздела штрафов, форма своя
+    object AddTollPayment : Screen("add_toll_payment/{carId}?tollPaymentId={tollPaymentId}") {
+        fun createRoute(carId: Long, tollPaymentId: Long? = null) =
+            if (tollPaymentId != null) "add_toll_payment/$carId?tollPaymentId=$tollPaymentId"
+            else "add_toll_payment/$carId"
     }
 
     // Documents

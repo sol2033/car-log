@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.documents
 
+import kotlinx.coroutines.CancellationException
+import com.carlog.util.toDecimalOrNull
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -184,12 +186,50 @@ class AddDocumentViewModel @Inject constructor(
 
     // === Сохранение ===
 
+    /**
+     * Идёт сохранение. Ставится синхронно, до запуска корутины: два быстрых тапа (галочка
+     * в шапке и кнопка внизу) иначе оба проходили проверки и вставляли две записи.
+     * После успеха не сбрасывается — экран вот-вот закроется.
+     */
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
+
+    /**
+     * Ошибка сохранения (сбой базы). Раньше исключение уходило из корутины необработанным,
+     * и приложение падало вместе с набранной формой. Теперь форма остаётся на месте,
+     * а пользователь видит, что запись не сохранена, и может попробовать ещё раз.
+     */
+    private val _saveError = MutableStateFlow<String?>(null)
+    val saveError: StateFlow<String?> = _saveError.asStateFlow()
+
+    fun dismissSaveError() {
+        _saveError.value = null
+    }
+
     fun saveDocument() {
+        if (_isSaving.value) return
+        _isSaving.value = true
+        _saveError.value = null
         viewModelScope.launch {
+            try {
+                saveDocumentInternal()
+            } catch (e: CancellationException) {
+                // Уход с экрана во время сохранения — не ошибка, отмену не глотаем
+                throw e
+            } catch (e: Exception) {
+                _saveError.value = e.message ?: "Не удалось сохранить документ"
+            } finally {
+                if (!_saveSuccess.value) _isSaving.value = false
+            }
+        }
+    }
+
+    private suspend fun saveDocumentInternal() {
+        run {
             // Запись ещё не догрузилась — сохранять нельзя. Раньше в этот момент id уходил
             // в 0, updateDocument не находил строку, и правка молча пропадала: экран
             // закрывался с признаком успеха, а в базе ничего не менялось
-            if (isEditMode && _document.value == null) return@launch
+            if (isEditMode && _document.value == null) return
 
             var hasError = false
 
@@ -203,13 +243,13 @@ class AddDocumentViewModel @Inject constructor(
                 hasError = true
             }
 
-            val costValue = _cost.value.toDoubleOrNull()
+            val costValue = _cost.value.toDecimalOrNull()
             if (costValue == null && _cost.value.isNotBlank()) {
                 _costError.value = "Введите корректное значение"
                 hasError = true
             }
 
-            if (hasError) return@launch
+            if (hasError) return
 
             // Для налога пользователь вводит дату ПОСЛЕДНЕГО начисления,
             // а храним дату следующего (+1 год) — светофор отсчитывает дни до него

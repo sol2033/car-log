@@ -1,5 +1,6 @@
 package com.carlog.di
 
+import com.carlog.data.local.dao.FineDao
 import com.carlog.data.local.dao.*
 import com.carlog.data.repository.CarRepository
 import dagger.Module
@@ -22,11 +23,13 @@ object RepositoryModule {
         partDao: PartDao,
         accidentDao: AccidentDao,
         expenseDao: ExpenseDao,
-        carDocumentDao: CarDocumentDao
+        carDocumentDao: CarDocumentDao,
+        oilTopUpDao: OilTopUpDao,
+        fineDao: FineDao
     ): CarRepository {
         return CarRepository(
             carDao, breakdownDao, refuelingDao, consumableDao,
-            partDao, accidentDao, expenseDao, carDocumentDao
+            partDao, accidentDao, expenseDao, carDocumentDao, oilTopUpDao, fineDao
         )
     }
 }

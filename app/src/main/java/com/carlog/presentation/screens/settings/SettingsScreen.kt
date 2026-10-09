@@ -36,6 +36,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val currency by viewModel.currency.collectAsState()
     val language by viewModel.language.collectAsState()
+    val oilConsumptionEnabled by viewModel.oilConsumptionEnabled.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -88,6 +89,25 @@ fun SettingsScreen(
             CurrencySettingItem(
                 selectedCurrency = currency,
                 onCurrencySelected = { viewModel.setCurrency(it) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // === Функции ===
+            SettingsSection(title = stringResource(R.string.settings_features_section))
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_oil_consumption)) },
+                supportingContent = { Text(stringResource(R.string.settings_oil_consumption_subtitle)) },
+                trailingContent = {
+                    Switch(
+                        checked = oilConsumptionEnabled,
+                        onCheckedChange = viewModel::setOilConsumptionEnabled
+                    )
+                },
+                modifier = Modifier.clickable {
+                    viewModel.setOilConsumptionEnabled(!oilConsumptionEnabled)
+                }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

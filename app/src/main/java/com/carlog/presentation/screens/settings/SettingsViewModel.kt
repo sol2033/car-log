@@ -162,6 +162,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { appPreferences.setCurrency(currency) }
     }
 
+    // Учёт расхода масла: выключение прячет интерфейс, данные остаются
+    val oilConsumptionEnabled: StateFlow<Boolean> = appPreferences.oilConsumptionEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setOilConsumptionEnabled(enabled: Boolean) {
+        viewModelScope.launch { appPreferences.setOilConsumptionEnabled(enabled) }
+    }
+
     // === Язык ===
 
     val language: StateFlow<String> = appPreferences.language

@@ -36,6 +36,24 @@ class AppPreferences @Inject constructor(
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val IS_FIRST_LAUNCH_KEY = booleanPreferencesKey("is_first_launch")
         private val WHATS_NEW_SHOWN_FOR_KEY = stringPreferencesKey("whats_new_shown_for")
+        private val OIL_CONSUMPTION_ENABLED_KEY = booleanPreferencesKey("oil_consumption_enabled")
+    }
+
+    // === Учёт расхода масла ===
+
+    /**
+     * Включён ли учёт расхода масла (доливы, падение уровня, блок в статистике).
+     * По умолчанию включён. Выключение только прячет интерфейс: записи не удаляются,
+     * а деньги за доливы остаются в статистике — это реальные траты.
+     */
+    val oilConsumptionEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[OIL_CONSUMPTION_ENABLED_KEY] ?: true
+    }
+
+    suspend fun setOilConsumptionEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[OIL_CONSUMPTION_ENABLED_KEY] = enabled
+        }
     }
 
     // === Окно «Что нового» ===

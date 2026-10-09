@@ -118,19 +118,11 @@ data class FuelStatistics(
  */
 data class FuelTypeStatistics(
     val fuelType: String,                       // Тип топлива (Бензин, Газ, Дизель, Электро)
-    val averageConsumption: Double,             // Средний расход (л/100км)
+    // Средний расход и пробег на баке — тем же расчётом, что на экране заправок
+    val summary: FuelGroupConsumption,
     val totalCost: Double,                      // Стоимость этого типа топлива
-    val totalLiters: Double,                    // Общее количество литров/кВт·ч
-    val consumptionTrend: List<ConsumptionTrendItem>, // Тренд расхода для этого типа (л/100км)
-    val monthlyLiters: List<MonthlyCostItem>    // Расход в литрах по месяцам
-)
-
-/**
- * Элемент тренда расхода топлива (для линейного графика)
- */
-data class ConsumptionTrendItem(
-    val date: LocalDate,        // Дата заправки
-    val consumption: Double     // Расход (л/100км)
+    val totalLiters: Double,                    // Общее количество литров/м³/кВт·ч
+    val monthlyLiters: List<MonthlyCostItem>    // Объём по периодам
 )
 
 /**
@@ -201,5 +193,8 @@ data class CarStatistics(
     val repairs: RepairsStatistics?,
     val expenses: ExpensesStatistics?,
     val consumables: ConsumablesStatistics?,
+    // Расход масла — за всю историю, без фильтров периода: интервал масла длиннее любого
+    // периода. null — учёт выключен в настройках или моторного масла в журнале нет
+    val oil: OilConsumptionSummary? = null,
     val isEmpty: Boolean = general == null && fuel == null && repairs == null && expenses == null && consumables == null
 )

@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.presentation.components.ConsumableDeleteDialog
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,6 +44,18 @@ fun AddConsumableScreen(
     val state by viewModel.state.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
     
+    // Новое масло закрывает старое — тот же вопрос об уровне, что и при замене с экрана масла
+    state.oilLevelQuestion?.let { question ->
+        com.carlog.presentation.screens.consumables.OilLevelDropDialog(
+            initialMl = question.oldOil.oilLevelDropMl,
+            initialFraction = question.oldOil.oilLevelDropFraction,
+            car = question.car,
+            confirmLabel = stringResource(R.string.save),
+            onDismiss = viewModel::dismissOilLevelQuestion,
+            onConfirm = viewModel::answerOilLevel
+        )
+    }
+
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
             onNavigateBack()
@@ -187,7 +201,7 @@ fun AddConsumableScreen(
                 
                 if (showDatePicker) {
                     val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = state.installationDate
+                        initialSelectedDateMillis = PickerDates.toPicker(state.installationDate)
                     )
                     DatePickerDialog(
                         onDismissRequest = { showDatePicker = false },
@@ -195,7 +209,7 @@ fun AddConsumableScreen(
                             TextButton(
                                 onClick = {
                                     datePickerState.selectedDateMillis?.let { millis ->
-                                        viewModel.updateInstallationDate(millis)
+                                        viewModel.updateInstallationDate(PickerDates.fromPicker(millis, state.installationDate))
                                     }
                                     showDatePicker = false
                                 }
@@ -241,6 +255,8 @@ fun AddConsumableScreen(
                         onValueChange = viewModel::updateServiceCost,
                         label = { Text(stringResource(R.string.service_cost_consumable)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = state.serviceCostError != null,
+                        supportingText = state.serviceCostError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -251,6 +267,8 @@ fun AddConsumableScreen(
                         onValueChange = viewModel::updateVolume,
                         label = { Text(stringResource(R.string.volume_liters)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = state.volumeError != null,
+                        supportingText = state.volumeError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -268,6 +286,8 @@ fun AddConsumableScreen(
                     onValueChange = viewModel::updateReplacementIntervalMileage,
                     label = { Text(stringResource(R.string.mileage_interval_km)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = state.intervalMileageError != null,
+                    supportingText = state.intervalMileageError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -276,6 +296,8 @@ fun AddConsumableScreen(
                     onValueChange = viewModel::updateReplacementIntervalDays,
                     label = { Text(stringResource(R.string.days_interval_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = state.intervalDaysError != null,
+                    supportingText = state.intervalDaysError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -328,6 +350,13 @@ fun ConsumableDetailScreen(
     val showDeleteDialog by viewModel.showDeleteDialog.collectAsState()
     val showReplaceDialog by viewModel.showReplaceDialog.collectAsState()
     val showReplaceSameDialog by viewModel.showReplaceSameDialog.collectAsState()
+    // Расход масла: окно долива (editingTopUp == null — новый), правка падения уровня,
+    // объём щупа и вопрос об уровне при замене «на другой расходник»
+    var showTopUpDialog by remember { mutableStateOf(false) }
+    var editingTopUp by remember { mutableStateOf<com.carlog.domain.model.OilTopUp?>(null) }
+    var showLevelDropEdit by remember { mutableStateOf(false) }
+    var showDipstickDialog by remember { mutableStateOf(false) }
+    var showLevelDropBeforeDifferent by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -370,7 +399,22 @@ fun ConsumableDetailScreen(
                     onReplaceClick = { viewModel.showReplaceDialog() },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues)
+                        .padding(paddingValues),
+                    oilContent = state.oil?.let { interval ->
+                        {
+                            OilConsumptionCard(
+                                interval = interval,
+                                overallPer1000Km = state.oilOverallPer1000Km,
+                                overallIsApproximate = state.oilOverallIsApproximate,
+                                car = state.car,
+                                onAddTopUp = { editingTopUp = null; showTopUpDialog = true },
+                                onEditTopUp = { editingTopUp = it; showTopUpDialog = true },
+                                onDeleteTopUp = viewModel::deleteTopUp,
+                                onEditLevelDrop = { showLevelDropEdit = true },
+                                onEditDipstickVolume = { showDipstickDialog = true }
+                            )
+                        }
+                    }
                 )
             }
             is ConsumableDetailUiState.Error -> {
@@ -388,22 +432,12 @@ fun ConsumableDetailScreen(
     
     // Delete Dialog
     if (showDeleteDialog && uiState is ConsumableDetailUiState.Success) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissDeleteDialog() },
-            title = { Text(stringResource(R.string.delete_consumable_title)) },
-            text = { Text(stringResource(R.string.delete_consumable_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteConsumable { onNavigateBack() }
-                }) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissDeleteDialog() }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+        ConsumableDeleteDialog(
+            title = stringResource(R.string.delete_consumable_title),
+            message = stringResource(R.string.delete_consumable_message),
+            loadPlan = { viewModel.deletePlan() },
+            onDelete = { restore -> viewModel.deleteConsumable(restore) { onNavigateBack() } },
+            onDismiss = { viewModel.dismissDeleteDialog() }
         )
     }
     
@@ -427,8 +461,12 @@ fun ConsumableDetailScreen(
                         viewModel.dismissReplaceDialog()
                         val state = uiState
                         if (state is ConsumableDetailUiState.Success) {
-                            viewModel.replaceWithDifferentConsumable {
-                                onNavigateToAddConsumable(carId, state.consumable.category)
+                            if (state.oil != null) {
+                                showLevelDropBeforeDifferent = true
+                            } else {
+                                viewModel.replaceWithDifferentConsumable {
+                                    onNavigateToAddConsumable(carId, state.consumable.category)
+                                }
                             }
                         }
                     }) {
@@ -450,6 +488,14 @@ fun ConsumableDetailScreen(
         var serviceCost by remember { mutableStateOf(currentState.consumable.serviceCost?.toString() ?: "") }
         var replacementDate by remember { mutableStateOf(System.currentTimeMillis()) }
         var showReplacementDatePicker by remember { mutableStateOf(false) }
+        // Моторное масло: насколько упал уровень на старом — без доливов угар иначе не виден
+        val levelDraft = if (currentState.oil != null) {
+            rememberOilLevelDropDraft(
+                currentState.consumable.oilLevelDropMl,
+                currentState.consumable.oilLevelDropFraction,
+                currentState.car
+            )
+        } else null
         
         AlertDialog(
             onDismissRequest = { viewModel.dismissReplaceSameDialog() },
@@ -517,15 +563,27 @@ fun ConsumableDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
+                    levelDraft?.let {
+                        HorizontalDivider()
+                        OilLevelDropSection(it, currentState.car)
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
+                    val levelDrop = levelDraft?.let { draft ->
+                        draft.toInput() ?: return@TextButton
+                    }
+                    levelDraft?.dipstickVolumeToSave()?.let { (volume, guess) ->
+                        viewModel.setDipstickVolume(volume, guess)
+                    }
                     viewModel.replaceSameConsumable(
                         newCost = cost.toDecimalOrNull(),
                         isInstalledAtService = isService,
                         serviceCost = if (isService) serviceCost.toDecimalOrNull() else null,
                         replacementDate = replacementDate,
+                        levelDrop = levelDrop,
                         onReplaced = { onNavigateBack() }
                     )
                     viewModel.dismissReplaceSameDialog()
@@ -542,7 +600,7 @@ fun ConsumableDetailScreen(
         
         if (showReplacementDatePicker) {
             val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = replacementDate
+                initialSelectedDateMillis = PickerDates.toPicker(replacementDate)
             )
             DatePickerDialog(
                 onDismissRequest = { showReplacementDatePicker = false },
@@ -550,7 +608,7 @@ fun ConsumableDetailScreen(
                     TextButton(
                         onClick = {
                             datePickerState.selectedDateMillis?.let { millis ->
-                                replacementDate = millis
+                                replacementDate = PickerDates.fromPicker(millis, replacementDate)
                             }
                             showReplacementDatePicker = false
                         }
@@ -568,6 +626,62 @@ fun ConsumableDetailScreen(
             }
         }
     }
+
+    val oilState = uiState as? ConsumableDetailUiState.Success
+    if (oilState != null) {
+        if (showTopUpDialog) {
+            val existing = editingTopUp
+            OilTopUpDialog(
+                existing = existing,
+                defaultMileage = oilState.currentMileage,
+                onDismiss = { showTopUpDialog = false },
+                onSave = { date, mileage, volume, cost ->
+                    viewModel.saveTopUp(existing, date, mileage, volume, cost)
+                    showTopUpDialog = false
+                }
+            )
+        }
+        if (showLevelDropEdit) {
+            OilLevelDropDialog(
+                initialMl = oilState.consumable.oilLevelDropMl,
+                initialFraction = oilState.consumable.oilLevelDropFraction,
+                car = oilState.car,
+                confirmLabel = stringResource(R.string.save),
+                onDismiss = { showLevelDropEdit = false },
+                onConfirm = { input, dipstick ->
+                    dipstick?.let { (volume, guess) -> viewModel.setDipstickVolume(volume, guess) }
+                    viewModel.setOilLevelDrop(input)
+                    showLevelDropEdit = false
+                }
+            )
+        }
+        if (showLevelDropBeforeDifferent) {
+            OilLevelDropDialog(
+                initialMl = oilState.consumable.oilLevelDropMl,
+                initialFraction = oilState.consumable.oilLevelDropFraction,
+                car = oilState.car,
+                confirmLabel = stringResource(R.string.replace_button),
+                onDismiss = { showLevelDropBeforeDifferent = false },
+                onConfirm = { input, dipstick ->
+                    dipstick?.let { (volume, guess) -> viewModel.setDipstickVolume(volume, guess) }
+                    showLevelDropBeforeDifferent = false
+                    viewModel.replaceWithDifferentConsumable(input) {
+                        onNavigateToAddConsumable(carId, oilState.consumable.category)
+                    }
+                }
+            )
+        }
+        if (showDipstickDialog) {
+            DipstickVolumeDialog(
+                car = oilState.car,
+                onDismiss = { showDipstickDialog = false },
+                onSave = { volume, guess ->
+                    viewModel.setDipstickVolume(volume, guess)
+                    showDipstickDialog = false
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -576,7 +690,9 @@ fun ConsumableDetailContent(
     statusInfo: ConsumableStatus.StatusInfo,
     currentMileage: Int,
     onReplaceClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Расход масла — только у моторного масла при включённом учёте
+    oilContent: (@Composable () -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -631,6 +747,8 @@ fun ConsumableDetailContent(
             }
         }
         
+        oilContent?.invoke()
+
         // Main Info
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(

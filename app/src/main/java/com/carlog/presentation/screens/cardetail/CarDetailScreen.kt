@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.cardetail
 
+import com.carlog.util.toMileageOrNull
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -203,7 +204,8 @@ fun CarDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val mileageValue = newMileage.toIntOrNull()
+                        // «80 000» с пробелом — так пробег показан в самом приложении
+                        val mileageValue = newMileage.toMileageOrNull()
                         when {
                             mileageValue == null || mileageValue < 0 -> {
                                 errorMessage = "Введите корректное число"

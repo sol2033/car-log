@@ -3,11 +3,17 @@ package com.carlog.presentation.screens.consumables
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
+import com.carlog.data.repository.OilTopUpRepository
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
+import com.carlog.domain.model.OilConsumptionCalculator
+import com.carlog.domain.model.OilInterval
+import com.carlog.domain.model.OilTopUp
 import com.carlog.util.ConsumableStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -17,7 +23,9 @@ import javax.inject.Inject
 data class ConsumableWithStatus(
     val category: String,
     val consumable: Consumable?,
-    val statusInfo: ConsumableStatus.StatusInfo?
+    val statusInfo: ConsumableStatus.StatusInfo?,
+    // Текущее моторное масло при включённом учёте расхода: сколько долито и расход
+    val oil: OilInterval? = null
 )
 
 sealed class ConsumablesUiState {
@@ -34,6 +42,9 @@ class ConsumablesViewModel @Inject constructor(
     private val consumableRepository: ConsumableRepository,
     private val carRepository: CarRepository,
     private val preferences: ConsumablePreferences,
+    private val oilTopUpRepository: OilTopUpRepository,
+    private val appPreferences: AppPreferences,
+    private val dataChangeNotifier: DataChangeNotifier,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -76,8 +87,10 @@ class ConsumablesViewModel @Inject constructor(
                 combine(
                     consumableRepository.getActiveConsumablesByCarId(carId),
                     carRepository.getCarById(carId),
-                    preferences.selectedCategories
-                ) { consumables, car, selectedCategories ->
+                    preferences.selectedCategories,
+                    consumableRepository.getConsumablesByCategory(carId, OilConsumptionCalculator.ENGINE_OIL),
+                    combine(oilTopUpRepository.getTopUpsByCarId(carId), appPreferences.oilConsumptionEnabled, ::Pair)
+                ) { consumables, car, selectedCategories, oils, (topUps, oilEnabled) ->
                     val currentMileage = car?.currentMileage ?: 0
                     // distinct обязателен: selectedCategories может содержать стандартную
                     // категорию, и тогда на экране рисовались две одинаковые карточки
@@ -86,6 +99,9 @@ class ConsumablesViewModel @Inject constructor(
                     
                     // Группируем расходники по категориям
                     val consumablesByCategory = consumables.groupBy { it.category }
+                    val oilIntervals = if (oilEnabled) {
+                        OilConsumptionCalculator.intervals(oils, topUps, car, currentMileage)
+                    } else emptyList()
                     
                     // Создаем карточки для всех категорий
                     val consumablesWithStatus = allCategories.map { category ->
@@ -95,7 +111,8 @@ class ConsumablesViewModel @Inject constructor(
                             consumable = consumable,
                             statusInfo = consumable?.let { 
                                 ConsumableStatus.calculateStatus(it, currentMileage)
-                            }
+                            },
+                            oil = consumable?.let { c -> oilIntervals.firstOrNull { it.oil.id == c.id } }
                         )
                     }
                     
@@ -111,6 +128,30 @@ class ConsumablesViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = ConsumablesUiState.Error(e.message ?: "Ошибка загрузки")
             }
+        }
+    }
+
+    /**
+     * Долив прямо с плитки масла, без захода на экран масла. Шаги те же, что у
+     * `ConsumableDetailViewModel.saveTopUp`: запись, пробег машины (долив мог быть на
+     * пробеге выше текущего) и уведомление для авто-бэкапа (правило 5).
+     */
+    fun addTopUp(date: Long, mileage: Int, volume: Double, cost: Double?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            oilTopUpRepository.insertTopUp(
+                OilTopUp(
+                    carId = carId,
+                    date = date,
+                    mileage = mileage,
+                    volume = volume,
+                    cost = cost,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+            carRepository.updateCarMileageIfNeeded(carId, mileage)
+            dataChangeNotifier.notifyDataChanged()
         }
     }
 }

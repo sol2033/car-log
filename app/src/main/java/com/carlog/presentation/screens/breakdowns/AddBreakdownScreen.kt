@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,7 @@ import com.carlog.presentation.components.AttachmentsPicker
 import com.carlog.presentation.components.maintenanceTypeColor
 import com.carlog.presentation.components.ConfirmDeleteDialog
 import com.carlog.presentation.components.EventPartDialog
+import com.carlog.presentation.components.NameSuggestionChips
 import com.carlog.presentation.components.WorkItemDialog
 import com.carlog.util.toDecimalOrNull
 import java.text.SimpleDateFormat
@@ -41,6 +43,7 @@ fun AddBreakdownScreen(
     viewModel: AddBreakdownViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val serviceNameSuggestions by viewModel.serviceNameSuggestions.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
     val consumableDefaults by viewModel.consumableDefaults.collectAsState()
     // Окно расходника: null — закрыто, -1 — добавление нового, иначе индекс редактируемого
@@ -54,6 +57,18 @@ fun AddBreakdownScreen(
     var consumableToRemove by remember { mutableStateOf<Int?>(null) }
     var workItemToRemove by remember { mutableStateOf<Int?>(null) }
     
+    // Новое масло закрывает старое — тот же вопрос об уровне, что и при замене с экрана масла
+    state.oilLevelQuestion?.let { question ->
+        com.carlog.presentation.screens.consumables.OilLevelDropDialog(
+            initialMl = question.oldOil.oilLevelDropMl,
+            initialFraction = question.oldOil.oilLevelDropFraction,
+            car = question.car,
+            confirmLabel = stringResource(R.string.save),
+            onDismiss = viewModel::dismissOilLevelQuestion,
+            onConfirm = viewModel::answerOilLevel
+        )
+    }
+
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
             onNavigateBack()
@@ -213,7 +228,7 @@ fun AddBreakdownScreen(
                 
                 if (showDatePicker) {
                     val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = state.breakdownDate
+                        initialSelectedDateMillis = PickerDates.toPicker(state.breakdownDate)
                     )
                     DatePickerDialog(
                         onDismissRequest = { showDatePicker = false },
@@ -221,7 +236,7 @@ fun AddBreakdownScreen(
                             TextButton(
                                 onClick = {
                                     datePickerState.selectedDateMillis?.let { millis ->
-                                        viewModel.updateBreakdownDate(millis)
+                                        viewModel.updateBreakdownDate(PickerDates.fromPicker(millis, state.breakdownDate))
                                     }
                                     showDatePicker = false
                                 }
@@ -558,6 +573,8 @@ fun AddBreakdownScreen(
                                 onValueChange = viewModel::updateServiceCost,
                                 label = { Text(stringResource(R.string.service_cost_label)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                isError = state.serviceCostError != null,
+                                supportingText = state.serviceCostError?.let { { Text(it) } },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
@@ -659,12 +676,18 @@ fun AddBreakdownScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     
-                    OutlinedTextField(
-                        value = state.serviceName,
-                        onValueChange = viewModel::updateServiceName,
-                        label = { Text(stringResource(R.string.service_name)) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = state.serviceName,
+                            onValueChange = viewModel::updateServiceName,
+                            label = { Text(stringResource(R.string.service_name)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        NameSuggestionChips(
+                            suggestions = serviceNameSuggestions,
+                            onPick = viewModel::pickServiceNameSuggestion
+                        )
+                    }
                     
                     OutlinedTextField(
                         value = state.serviceAddress,
@@ -1119,9 +1142,9 @@ private fun ConsumableDialog(
                                 serviceCost = initial?.serviceCost,
                                 volume = if (needsVolume) volume.toDecimalOrNull() else null,
                                 replacementIntervalMileage =
-                                    if (hasReminders) replacementIntervalMileage.toIntOrNull() else null,
+                                    if (hasReminders) ConsumableFormRules.parseInterval(replacementIntervalMileage) else null,
                                 replacementIntervalDays =
-                                    if (hasReminders) replacementIntervalDays.toIntOrNull() else null,
+                                    if (hasReminders) ConsumableFormRules.parseInterval(replacementIntervalDays) else null,
                                 notes = notes.ifBlank { null },
                                 consumableId = initial?.consumableId
                             )

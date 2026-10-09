@@ -1,5 +1,6 @@
 package com.carlog.domain.model
 
+import com.carlog.util.toMileageOrNull
 import com.carlog.util.toDecimalOrNull
 
 /**
@@ -53,9 +54,37 @@ object ConsumableFormRules {
         if (cost.toDecimalOrNull() == null) return false
         if (requiresVolume(category) && volume.toDecimalOrNull() == null) return false
         if (supportsReminders(category) &&
-            intervalMileage.toIntOrNull() == null &&
-            intervalDays.toIntOrNull() == null
+            parseInterval(intervalMileage) == null &&
+            parseInterval(intervalDays) == null
         ) return false
         return true
+    }
+
+    /**
+     * Интервал замены (км или дни): пробелы-разделители допустимы («10 000»), ноль — нет.
+     * Раньше разбор шёл через `toIntOrNull`, и «10 000» или «10.000» молча превращались
+     * в «интервала нет» — напоминание о замене пропадало без единого слова.
+     */
+    fun parseInterval(raw: String): Int? = raw.toMileageOrNull()?.takeIf { it > 0 }
+
+    /** Ошибка необязательного поля интервала: пусто — можно, иначе целое число больше нуля */
+    fun intervalError(raw: String): String? =
+        if (raw.isBlank() || parseInterval(raw) != null) null else "Введите целое число больше нуля"
+
+    /**
+     * Объём, который подставить в новую карточку жидкости: из последней карточки той же
+     * категории этой машины, а если её нет — из настроек категории. Пользователь всё равно
+     * может его поправить. null — подставлять нечего (или категория не жидкость).
+     */
+    fun defaultVolume(
+        category: String,
+        sameCategoryHistory: List<Consumable>,
+        settingsVolume: Double?
+    ): Double? {
+        if (!requiresVolume(category)) return null
+        val previous = sameCategoryHistory
+            .filter { it.category == category && (it.volume ?: 0.0) > 0 }
+            .maxWithOrNull(compareBy({ it.installationMileage }, { it.installationDate }, { it.id }))
+        return previous?.volume ?: settingsVolume
     }
 }

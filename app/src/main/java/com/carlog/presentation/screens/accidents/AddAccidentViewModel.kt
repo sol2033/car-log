@@ -16,6 +16,7 @@ import com.carlog.presentation.components.referencedEventPhotos
 import com.carlog.util.FileHelper
 import com.carlog.util.toMileageOrNull
 import com.carlog.util.toDecimalOrNull
+import com.carlog.util.moneyInputError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +76,13 @@ data class AddAccidentState(
     // Validation errors
     val mileageError: String? = null,
     val damageDescriptionError: String? = null,
+    // Денежные поля: раньше неразобранный ввод («15к», «15 000») молча сохранялся как «не указано»
+    val osagoPayoutError: String? = null,
+    val kaskoPayoutError: String? = null,
+    val culpritPayoutError: String? = null,
+    val compensationPaidError: String? = null,
+    val serviceCostError: String? = null,
+    val totalRepairCostError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -247,7 +255,7 @@ class AddAccidentViewModel @Inject constructor(
     }
     
     fun updateOsagoPayout(amount: String) {
-        _state.value = _state.value.copy(osagoPayout = amount)
+        _state.value = _state.value.copy(osagoPayout = amount, osagoPayoutError = null)
     }
     
     fun toggleKaskoPayout(has: Boolean) {
@@ -258,7 +266,7 @@ class AddAccidentViewModel @Inject constructor(
     }
     
     fun updateKaskoPayout(amount: String) {
-        _state.value = _state.value.copy(kaskoPayout = amount)
+        _state.value = _state.value.copy(kaskoPayout = amount, kaskoPayoutError = null)
     }
     
     fun toggleCulpritPayout(has: Boolean) {
@@ -276,11 +284,11 @@ class AddAccidentViewModel @Inject constructor(
     }
 
     fun updateCompensationPaid(amount: String) {
-        _state.value = _state.value.copy(compensationPaid = amount)
+        _state.value = _state.value.copy(compensationPaid = amount, compensationPaidError = null)
     }
 
     fun updateCulpritPayout(amount: String) {
-        _state.value = _state.value.copy(culpritPayout = amount)
+        _state.value = _state.value.copy(culpritPayout = amount, culpritPayoutError = null)
     }
     
     fun toggleRepairMethod(usePartsForRepair: Boolean) {
@@ -321,11 +329,11 @@ class AddAccidentViewModel @Inject constructor(
     }
     
     fun updateServiceCost(cost: String) {
-        _state.value = _state.value.copy(serviceCost = cost)
+        _state.value = _state.value.copy(serviceCost = cost, serviceCostError = null)
     }
     
     fun updateTotalRepairCost(cost: String) {
-        _state.value = _state.value.copy(totalRepairCost = cost)
+        _state.value = _state.value.copy(totalRepairCost = cost, totalRepairCostError = null)
     }
     
     fun addPhoto(photoPath: String) {
@@ -390,11 +398,30 @@ class AddAccidentViewModel @Inject constructor(
         // Validation
         val mileageError = BreakdownFormRules.mileageError(currentState.mileage)
         val damageDescriptionError = if (currentState.damageDescription.isBlank()) "Обязательное поле" else null
-        
-        if (mileageError != null || damageDescriptionError != null) {
+        // Проверяем только видимые поля: скрытые (галочка снята, другой способ ремонта)
+        // при сохранении всё равно не пишутся
+        val osagoPayoutError = if (currentState.hasOsagoPayout) moneyInputError(currentState.osagoPayout) else null
+        val kaskoPayoutError = if (currentState.hasKaskoPayout) moneyInputError(currentState.kaskoPayout) else null
+        val culpritPayoutError = if (currentState.hasCulpritPayout) moneyInputError(currentState.culpritPayout) else null
+        val compensationPaidError = if (currentState.isUserAtFault && currentState.hasCompensationPaid) {
+            moneyInputError(currentState.compensationPaid)
+        } else null
+        val serviceCostError = if (currentState.usePartsForRepair) moneyInputError(currentState.serviceCost) else null
+        val totalRepairCostError = if (!currentState.usePartsForRepair) moneyInputError(currentState.totalRepairCost) else null
+
+        if (mileageError != null || damageDescriptionError != null ||
+            osagoPayoutError != null || kaskoPayoutError != null || culpritPayoutError != null ||
+            compensationPaidError != null || serviceCostError != null || totalRepairCostError != null
+        ) {
             _state.value = currentState.copy(
                 mileageError = mileageError,
-                damageDescriptionError = damageDescriptionError
+                damageDescriptionError = damageDescriptionError,
+                osagoPayoutError = osagoPayoutError,
+                kaskoPayoutError = kaskoPayoutError,
+                culpritPayoutError = culpritPayoutError,
+                compensationPaidError = compensationPaidError,
+                serviceCostError = serviceCostError,
+                totalRepairCostError = totalRepairCostError
             )
             return
         }

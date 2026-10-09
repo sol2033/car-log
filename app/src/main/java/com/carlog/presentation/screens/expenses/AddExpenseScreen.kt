@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.expenses
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.presentation.components.NameSuggestionChips
 import com.carlog.domain.model.ExpenseCategories
 import java.text.SimpleDateFormat
 import java.util.*
@@ -36,7 +38,10 @@ fun AddExpenseScreen(
     val cost by viewModel.cost.collectAsState()
     val costError by viewModel.costError.collectAsState()
     val serviceName by viewModel.serviceName.collectAsState()
+    val serviceNameSuggestions by viewModel.serviceNameSuggestions.collectAsState()
     val serviceAddress by viewModel.serviceAddress.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
+    val saveError by viewModel.saveError.collectAsState()
     val notes by viewModel.notes.collectAsState()
     val saveSuccess by viewModel.saveSuccess.collectAsState()
     
@@ -61,7 +66,7 @@ fun AddExpenseScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.saveExpense() }) {
+                    IconButton(onClick = { viewModel.saveExpense() }, enabled = !isSaving) {
                         Icon(Icons.Default.Check, stringResource(R.string.save))
                     }
                 }
@@ -194,16 +199,22 @@ fun AddExpenseScreen(
             )
             
             // Название сервиса
-            OutlinedTextField(
-                value = serviceName,
-                onValueChange = { viewModel.updateServiceName(it) },
-                label = { Text(stringResource(R.string.service_name)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.Store, null)
-                }
-            )
+            Column {
+                OutlinedTextField(
+                    value = serviceName,
+                    onValueChange = { viewModel.updateServiceName(it) },
+                    label = { Text(stringResource(R.string.service_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(Icons.Default.Store, null)
+                    }
+                )
+                NameSuggestionChips(
+                    suggestions = serviceNameSuggestions,
+                    onPick = viewModel::pickServiceNameSuggestion
+                )
+            }
             
             // Адрес сервиса
             OutlinedTextField(
@@ -232,6 +243,7 @@ fun AddExpenseScreen(
             // Кнопка сохранения (дублирует галочку в AppBar)
             Button(
                 onClick = { viewModel.saveExpense() },
+                enabled = !isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -248,7 +260,7 @@ fun AddExpenseScreen(
     // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = date
+            initialSelectedDateMillis = PickerDates.toPicker(date)
         )
         
         DatePickerDialog(
@@ -257,7 +269,7 @@ fun AddExpenseScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate ->
-                            viewModel.updateDate(selectedDate)
+                            viewModel.updateDate(PickerDates.fromPicker(selectedDate, date))
                         }
                         showDatePicker = false
                     }
@@ -273,5 +285,18 @@ fun AddExpenseScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    saveError?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissSaveError,
+            title = { Text(stringResource(R.string.save_error_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissSaveError) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
     }
 }

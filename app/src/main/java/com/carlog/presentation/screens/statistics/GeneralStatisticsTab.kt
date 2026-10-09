@@ -301,9 +301,11 @@ private fun getColorForCategory(index: Int): Color {
         Color(0xFF00BCD4), // Cyan
         Color(0xFFFF9800), // Orange
         // Категорий стало девять (добавились «Штрафы»), и без этих двух цветов
-        // последние доли повторяли бы цвет первых — на круге их не различить
+        // последние доли повторяли бы цвет первых — на круге их не различить.
+        // Десятая категория — «Платные дороги» (1.4.0), ей свой цвет по той же причине
         Color(0xFF795548), // Brown
-        Color(0xFF607D8B)  // Blue Grey
+        Color(0xFF607D8B), // Blue Grey
+        Color(0xFFE91E63)  // Pink
     )
     return colors[index % colors.size]
 }

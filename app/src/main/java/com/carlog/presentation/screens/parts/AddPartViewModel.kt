@@ -1,9 +1,11 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.util.moneyInputError
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.repository.NameSuggestionRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.PartRepository
 import com.carlog.domain.model.Part
@@ -14,9 +16,13 @@ import com.carlog.util.toDecimalOrNull
 import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,6 +53,7 @@ data class AddPartState(
     val nameError: String? = null,
     val installMileageError: String? = null,
     val priceError: String? = null,
+    val servicePriceError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -59,11 +66,17 @@ class AddPartViewModel @Inject constructor(
     private val partRepository: PartRepository,
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
+    private val nameSuggestionRepository: NameSuggestionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(AddPartState())
     val state: StateFlow<AddPartState> = _state.asStateFlow()
+
+    /** Подсказки к полю «Название сервиса» — сервисы из прошлых записей, см. [NameSuggestionRepository] */
+    val serviceNameSuggestions: StateFlow<List<String>> = nameSuggestionRepository
+        .serviceNameSuggestions(_state.map { it.serviceName }.distinctUntilChanged())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     init {
         val carId = savedStateHandle.get<Long>("carId") ?: 0L
@@ -155,7 +168,14 @@ class AddPartViewModel @Inject constructor(
     }
     
     fun updateInstallationType(type: String) {
-        _state.value = _state.value.copy(installationType = type)
+        // Стоимость установки видна только при «Сервис». Переключили на «Самостоятельно» —
+        // сумма уходит вместе с полем: иначе она сохранялась скрытой и попадала
+        // в «Услуги сервисов» статистики, хотя за установку никто не платил
+        _state.value = _state.value.copy(
+            installationType = type,
+            servicePrice = if (type == "Сервис") _state.value.servicePrice else "",
+            servicePriceError = null
+        )
     }
     
     fun updatePrice(price: String) {
@@ -166,7 +186,7 @@ class AddPartViewModel @Inject constructor(
     }
     
     fun updateServicePrice(price: String) {
-        _state.value = _state.value.copy(servicePrice = price)
+        _state.value = _state.value.copy(servicePrice = price, servicePriceError = null)
     }
     
     fun updateServiceName(name: String) {
@@ -175,6 +195,22 @@ class AddPartViewModel @Inject constructor(
     
     fun updateServiceAddress(address: String) {
         _state.value = _state.value.copy(serviceAddress = address)
+    }
+
+    /**
+     * Сервис выбран из подсказок: подставляем и его адрес из прошлой записи — но только
+     * в пустое поле, введённый адрес не перетираем. Пока адрес ищется, пользователь мог
+     * начать его набирать, поэтому пустота проверяется ещё раз перед записью.
+     */
+    fun pickServiceNameSuggestion(name: String) {
+        updateServiceName(name)
+        if (_state.value.serviceAddress.isNotBlank()) return
+        viewModelScope.launch {
+            val address = nameSuggestionRepository.lastServiceAddress(name) ?: return@launch
+            if (_state.value.serviceAddress.isBlank() && _state.value.serviceName == name) {
+                _state.value = _state.value.copy(serviceAddress = address)
+            }
+        }
     }
     
     fun addPhoto(photoPath: String) {
@@ -213,11 +249,17 @@ class AddPartViewModel @Inject constructor(
             else -> null
         }
         
-        if (nameError != null || installMileageError != null || priceError != null) {
+        // Стоимость установки необязательна, но введённый мусор раньше молча становился «не указано»
+        val servicePriceError = if (currentState.installationType == "Сервис") {
+            moneyInputError(currentState.servicePrice)
+        } else null
+
+        if (nameError != null || installMileageError != null || priceError != null || servicePriceError != null) {
             _state.value = currentState.copy(
                 nameError = nameError,
                 installMileageError = installMileageError,
-                priceError = priceError
+                priceError = priceError,
+                servicePriceError = servicePriceError
             )
             return
         }

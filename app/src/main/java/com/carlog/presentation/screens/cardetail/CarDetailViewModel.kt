@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
-import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Car
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +15,6 @@ import javax.inject.Inject
 @HiltViewModel
 class CarDetailViewModel @Inject constructor(
     private val carRepository: CarRepository,
-    private val refuelingRepository: RefuelingRepository,
     private val dataChangeNotifier: DataChangeNotifier
 ) : ViewModel() {
 
@@ -115,7 +113,6 @@ class CarDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 carRepository.lowerMileageWithRecords(confirmation.carId, confirmation.newMileage)
-                refuelingRepository.recalculateFuelConsumption(confirmation.carId)
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()
                 _lowerMileageConfirmation.value = null

@@ -10,15 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.carlog.domain.model.ConsumablesStatistics
+import com.carlog.domain.model.OilConsumptionSummary
 import com.carlog.presentation.screens.statistics.charts.*
 
 @Composable
 fun ConsumablesStatisticsTab(
     statistics: ConsumablesStatistics?,
+    oil: OilConsumptionSummary?,
     onNavigateToConsumables: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (statistics == null) {
+    if (statistics == null && oil == null) {
         EmptyTabContent(
             message = "Нет данных по расходникам",
             modifier = modifier
@@ -32,6 +34,11 @@ fun ConsumablesStatisticsTab(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Расход масла — за всю историю: интервал масла длиннее любого периода статистики
+        oil?.let { OilConsumptionStatisticsCard(it) }
+
+        if (statistics == null) return@Column
+
         // Category Spending Bar Chart
         if (statistics.categorySpending.isNotEmpty()) {
             Card(

@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.refuelings
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.presentation.components.NameSuggestionChips
+import com.carlog.domain.model.FuelConsumptionCalculator
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -57,8 +60,11 @@ fun AddRefuelingScreen(
     val pricePerLiterError by viewModel.pricePerLiterError
     val totalCost by viewModel.totalCost
     val totalCostError by viewModel.totalCostError
-    val isFullTank by viewModel.isFullTank
+    val fuelDistance by viewModel.fuelDistance
+    val fuelDistanceError by viewModel.fuelDistanceError
     val stationName by viewModel.stationName
+    val stationNameSuggestions by viewModel.stationNameSuggestions.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
     val notes by viewModel.notes
     val availableFuelTypes by viewModel.availableFuelTypes.collectAsState()
     val saveError by viewModel.saveError
@@ -78,6 +84,8 @@ fun AddRefuelingScreen(
     }
 
     val isElectric = car?.fuelType == "Электро"
+    // Метан заправляют в м³, электричество — в кВт·ч: подписи следуют выбранному топливу
+    val unit = FuelConsumptionCalculator.volumeUnit(fuelType.ifEmpty { car?.fuelType ?: "" })
     val title = if (refuelingId == null) {
         if (isElectric) "Добавить зарядку" else "Добавить заправку"
     } else {
@@ -102,7 +110,8 @@ fun AddRefuelingScreen(
                             viewModel.saveRefueling {
                                 onNavigateBack()
                             }
-                        }
+                        },
+                        enabled = !isSaving
                     ) {
                         Icon(Icons.Default.Check, stringResource(R.string.save))
                     }
@@ -165,7 +174,7 @@ fun AddRefuelingScreen(
             OutlinedTextField(
                 value = liters,
                 onValueChange = viewModel::onLitersChanged,
-                label = { Text(if (isElectric) "Количество (кВт·ч) *" else "Количество (л) *") },
+                label = { Text(stringResource(R.string.refueling_amount_label, unit)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -255,7 +264,7 @@ fun AddRefuelingScreen(
             OutlinedTextField(
                 value = pricePerLiter,
                 onValueChange = viewModel::onPricePerLiterChanged,
-                label = { Text(if (isElectric) "Цена за кВт·ч (₽)" else "Цена за литр (₽)") },
+                label = { Text(stringResource(R.string.refueling_price_per_unit_label, unit)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -292,41 +301,38 @@ fun AddRefuelingScreen(
                 }
             )
             
-            // Полный бак (только для не-электро)
-            if (!isElectric) {
-                Row(
+            // Км на этом топливе: у машины с ГБО общий пробег делится между газом и бензином,
+            // и без этого расход каждого топлива считается только приблизительно
+            if (car?.hasGasEquipment == true) {
+                OutlinedTextField(
+                    value = fuelDistance,
+                    onValueChange = viewModel::onFuelDistanceChanged,
+                    label = { Text(stringResource(R.string.refueling_fuel_distance_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Полный бак",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Switch(
-                        checked = isFullTank,
-                        onCheckedChange = viewModel::onIsFullTankChanged
-                    )
-                }
-                
-                if (isFullTank) {
-                    Text(
-                        text = "Будет рассчитан расход топлива для этой заправки (расстояние от предыдущей заправки)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
+                    isError = fuelDistanceError != null,
+                    supportingText = {
+                        Text(fuelDistanceError ?: stringResource(R.string.refueling_fuel_distance_hint))
+                    }
+                )
             }
             
             // Название заправки
-            OutlinedTextField(
-                value = stationName,
-                onValueChange = viewModel::onStationNameChanged,
-                label = { Text(if (isElectric) "Название зарядной станции" else "Название заправки") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text("Опционально") }
-            )
+            Column {
+                OutlinedTextField(
+                    value = stationName,
+                    onValueChange = viewModel::onStationNameChanged,
+                    label = { Text(if (isElectric) "Название зарядной станции" else "Название заправки") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = { Text("Опционально") }
+                )
+                NameSuggestionChips(
+                    suggestions = stationNameSuggestions,
+                    onPick = viewModel::onStationNameChanged
+                )
+            }
             
             // Заметки
             OutlinedTextField(
@@ -348,6 +354,7 @@ fun AddRefuelingScreen(
                         onNavigateBack()
                     }
                 },
+                enabled = !isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -361,7 +368,7 @@ fun AddRefuelingScreen(
     // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = date
+            initialSelectedDateMillis = PickerDates.toPicker(date)
         )
         
         DatePickerDialog(
@@ -370,7 +377,7 @@ fun AddRefuelingScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate ->
-                            viewModel.onDateChanged(selectedDate)
+                            viewModel.onDateChanged(PickerDates.fromPicker(selectedDate, date))
                         }
                         showDatePicker = false
                     }

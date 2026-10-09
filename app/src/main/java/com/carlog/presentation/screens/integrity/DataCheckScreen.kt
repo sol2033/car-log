@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.integrity
 
+import com.carlog.util.PickerDates
+import com.carlog.util.toDecimalOrNull
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -344,11 +346,11 @@ private fun AccidentRepairCostBody(
         modifier = Modifier.fillMaxWidth()
     )
 
-    Button(onClick = { onApply(serviceCost.replace(',', '.').toDoubleOrNull() ?: 0.0) }) {
+    Button(onClick = { onApply(serviceCost.toDecimalOrNull() ?: 0.0) }) {
         Text(
             stringResource(
                 R.string.data_check_apply_repair_cost,
-                finding.linkedPartsSum + (serviceCost.replace(',', '.').toDoubleOrNull() ?: 0.0)
+                finding.linkedPartsSum + (serviceCost.toDecimalOrNull() ?: 0.0)
             )
         )
     }
@@ -422,12 +424,12 @@ private fun PurchaseInfoBody(
     }
 
     if (showDatePicker) {
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = date)
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = PickerDates.toPicker(date))
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { date = it }
+                    pickerState.selectedDateMillis?.let { date = PickerDates.fromPicker(it, date) }
                     showDatePicker = false
                 }) { Text(stringResource(R.string.ok)) }
             },

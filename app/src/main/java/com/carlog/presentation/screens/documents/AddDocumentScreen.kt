@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.documents
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +43,8 @@ fun AddDocumentScreen(
     val photoPath by viewModel.photoPath.collectAsState()
     val notes by viewModel.notes.collectAsState()
     val saveSuccess by viewModel.saveSuccess.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
+    val saveError by viewModel.saveError.collectAsState()
 
     val screenTitle = when {
         viewModel.isEditMode -> stringResource(R.string.edit_document)
@@ -71,7 +74,7 @@ fun AddDocumentScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.saveDocument() }) {
+                    IconButton(onClick = { viewModel.saveDocument() }, enabled = !isSaving) {
                         Icon(Icons.Default.Check, stringResource(R.string.save))
                     }
                 }
@@ -296,6 +299,7 @@ fun AddDocumentScreen(
             // Кнопка сохранения (дублирует галочку в AppBar)
             Button(
                 onClick = { viewModel.saveDocument() },
+                enabled = !isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -311,7 +315,7 @@ fun AddDocumentScreen(
 
     if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = startDate ?: System.currentTimeMillis()
+            initialSelectedDateMillis = PickerDates.toPicker(startDate ?: System.currentTimeMillis())
         )
 
         DatePickerDialog(
@@ -320,7 +324,7 @@ fun AddDocumentScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate ->
-                            viewModel.updateStartDate(selectedDate)
+                            viewModel.updateStartDate(PickerDates.fromPicker(selectedDate, startDate ?: System.currentTimeMillis()))
                         }
                         showStartDatePicker = false
                     }
@@ -340,7 +344,7 @@ fun AddDocumentScreen(
 
     if (showExpiryDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = expiryDate ?: System.currentTimeMillis()
+            initialSelectedDateMillis = PickerDates.toPicker(expiryDate ?: System.currentTimeMillis())
         )
 
         DatePickerDialog(
@@ -349,7 +353,7 @@ fun AddDocumentScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { selectedDate ->
-                            viewModel.updateExpiryDate(selectedDate)
+                            viewModel.updateExpiryDate(PickerDates.fromPicker(selectedDate, expiryDate ?: System.currentTimeMillis()))
                         }
                         showExpiryDatePicker = false
                     }
@@ -365,5 +369,18 @@ fun AddDocumentScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    saveError?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissSaveError,
+            title = { Text(stringResource(R.string.save_error_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissSaveError) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
     }
 }

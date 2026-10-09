@@ -1,5 +1,8 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.presentation.components.consumablesRemovedNote
+import com.carlog.data.repository.ConsumableDeletePlan
+import com.carlog.presentation.components.ConsumableDeleteDialog
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import com.carlog.presentation.components.eventTypeBrush
@@ -161,7 +164,8 @@ fun BreakdownsScreen(
                                 breakdown = breakdown,
                                 types = uiState.typesOf(breakdown),
                                 onBreakdownClick = { onNavigateToBreakdownDetail(carId, breakdown.id) },
-                                onDeleteClick = { viewModel.deleteBreakdown(breakdown) }
+                                onDelete = { restore -> viewModel.deleteBreakdown(breakdown, restore) },
+                                loadDeletePlan = { viewModel.deletePlan(breakdown) }
                             )
                         }
                     }
@@ -176,7 +180,8 @@ private fun BreakdownCard(
     breakdown: Breakdown,
     types: List<MaintenanceType>,
     onBreakdownClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDelete: (restorePredecessors: Boolean) -> Unit,
+    loadDeletePlan: suspend () -> ConsumableDeletePlan
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     
@@ -376,25 +381,13 @@ private fun BreakdownCard(
     }
     
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(R.string.delete_breakdown_dialog_title)) },
-            text = { Text(stringResource(R.string.delete_breakdown_dialog_message, breakdown.title)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteClick()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+        ConsumableDeleteDialog(
+            title = stringResource(R.string.delete_breakdown_dialog_title),
+            message = stringResource(R.string.delete_breakdown_dialog_message, breakdown.title),
+            removedNote = consumablesRemovedNote(),
+            loadPlan = loadDeletePlan,
+            onDelete = onDelete,
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }

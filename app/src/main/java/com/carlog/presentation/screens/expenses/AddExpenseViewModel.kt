@@ -1,9 +1,11 @@
 package com.carlog.presentation.screens.expenses
 
+import kotlinx.coroutines.CancellationException
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.repository.NameSuggestionRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ExpenseRepository
 import com.carlog.domain.model.Car
@@ -24,6 +26,7 @@ class AddExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
+    private val nameSuggestionRepository: NameSuggestionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -57,6 +60,11 @@ class AddExpenseViewModel @Inject constructor(
 
     private val _serviceName = MutableStateFlow("")
     val serviceName: StateFlow<String> = _serviceName.asStateFlow()
+
+    /** Подсказки к полю «Название сервиса» — сервисы из прошлых записей, см. [NameSuggestionRepository] */
+    val serviceNameSuggestions: StateFlow<List<String>> = nameSuggestionRepository
+        .serviceNameSuggestions(_serviceName)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _serviceAddress = MutableStateFlow("")
     val serviceAddress: StateFlow<String> = _serviceAddress.asStateFlow()
@@ -152,17 +160,71 @@ class AddExpenseViewModel @Inject constructor(
         _serviceAddress.value = newAddress
     }
 
+    /**
+     * Сервис выбран из подсказок: подставляем и его адрес из прошлой записи — но только
+     * в пустое поле, введённый адрес не перетираем. Пока адрес ищется, пользователь мог
+     * начать его набирать, поэтому пустота проверяется ещё раз перед записью.
+     */
+    fun pickServiceNameSuggestion(name: String) {
+        updateServiceName(name)
+        if (_serviceAddress.value.isNotBlank()) return
+        viewModelScope.launch {
+            val address = nameSuggestionRepository.lastServiceAddress(name) ?: return@launch
+            if (_serviceAddress.value.isBlank() && _serviceName.value == name) {
+                _serviceAddress.value = address
+            }
+        }
+    }
+
     fun updateNotes(newNotes: String) {
         _notes.value = newNotes
     }
 
     // === Сохранение ===
 
+    /**
+     * Идёт сохранение. Ставится синхронно, до запуска корутины: два быстрых тапа (галочка
+     * в шапке и кнопка внизу) иначе оба проходили проверки и вставляли две записи.
+     * После успеха не сбрасывается — экран вот-вот закроется.
+     */
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
+
+    /**
+     * Ошибка сохранения (сбой базы). Раньше исключение уходило из корутины необработанным,
+     * и приложение падало вместе с набранной формой. Теперь форма остаётся на месте,
+     * а пользователь видит, что запись не сохранена, и может попробовать ещё раз.
+     */
+    private val _saveError = MutableStateFlow<String?>(null)
+    val saveError: StateFlow<String?> = _saveError.asStateFlow()
+
+    fun dismissSaveError() {
+        _saveError.value = null
+    }
+
     fun saveExpense() {
+        if (_isSaving.value) return
+        _isSaving.value = true
+        _saveError.value = null
         viewModelScope.launch {
+            try {
+                saveExpenseInternal()
+            } catch (e: CancellationException) {
+                // Уход с экрана во время сохранения — не ошибка, отмену не глотаем
+                throw e
+            } catch (e: Exception) {
+                _saveError.value = e.message ?: "Не удалось сохранить расход"
+            } finally {
+                if (!_saveSuccess.value) _isSaving.value = false
+            }
+        }
+    }
+
+    private suspend fun saveExpenseInternal() {
+        run {
             // Запись ещё не догрузилась — сохранять нельзя: ниже идёт `_expense.value!!`,
             // и нажатие «Сохранить» до конца загрузки роняло приложение по NPE
-            if (isEditMode && _expense.value == null) return@launch
+            if (isEditMode && _expense.value == null) return
 
             // Валидация
             var hasError = false
@@ -199,7 +261,7 @@ class AddExpenseViewModel @Inject constructor(
                 hasError = true
             }
 
-            if (hasError) return@launch
+            if (hasError) return
 
             // Сохранение
             val expenseToSave = if (isEditMode) {

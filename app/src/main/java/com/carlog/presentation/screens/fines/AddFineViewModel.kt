@@ -10,6 +10,7 @@ import com.carlog.domain.model.FineViolationTypes
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.util.FileHelper
 import com.carlog.util.FineStatus
+import com.carlog.util.toDecimalOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -100,6 +101,14 @@ class AddFineViewModel @Inject constructor(
 
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
+
+    /**
+     * Идёт сохранение. Ставится синхронно, до запуска корутины: два быстрых тапа (галочка
+     * в шапке и кнопка внизу) иначе оба проходили проверки и вставляли две записи.
+     * После успеха не сбрасывается — экран вот-вот закроется.
+     */
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
     init {
         if (fineId != null) loadFine(fineId)
@@ -213,6 +222,8 @@ class AddFineViewModel @Inject constructor(
     // === Сохранение ===
 
     fun saveFine() {
+        if (_isSaving.value) return
+        _isSaving.value = true
         viewModelScope.launch {
             try {
                 _saveError.value = null
@@ -223,7 +234,7 @@ class AddFineViewModel @Inject constructor(
 
                 var hasError = false
 
-                val amountValue = _amount.value.toDoubleOrNull()
+                val amountValue = _amount.value.toDecimalOrNull()
                 if (_amount.value.isBlank()) {
                     _amountError.value = "Обязательное поле"
                     hasError = true
@@ -237,7 +248,7 @@ class AddFineViewModel @Inject constructor(
                     hasError = true
                 }
 
-                val paidAmountValue = _paidAmount.value.toDoubleOrNull()
+                val paidAmountValue = _paidAmount.value.toDecimalOrNull()
                 if (_paidAmount.value.isNotBlank() && paidAmountValue == null) {
                     _paidAmountError.value = "Введите корректную сумму"
                     hasError = true
@@ -300,6 +311,8 @@ class AddFineViewModel @Inject constructor(
                 _saveSuccess.value = true
             } catch (e: Exception) {
                 _saveError.value = e.message ?: "Не удалось сохранить штраф"
+            } finally {
+                if (!_saveSuccess.value) _isSaving.value = false
             }
         }
     }

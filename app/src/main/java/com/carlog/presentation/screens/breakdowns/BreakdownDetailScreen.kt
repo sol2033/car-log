@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.presentation.components.consumablesRemovedNote
+import com.carlog.presentation.components.ConsumableDeleteDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -107,26 +109,13 @@ fun BreakdownDetailScreen(
     
     if (showDeleteDialog && uiState is BreakdownDetailUiState.Success) {
         val breakdown = (uiState as BreakdownDetailUiState.Success).breakdown
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissDeleteDialog() },
-            title = { Text(stringResource(R.string.delete_breakdown_dialog_title)) },
-            text = { Text(stringResource(R.string.delete_breakdown_dialog_message, breakdown.title)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteBreakdown(breakdown) {
-                            onNavigateBack()
-                        }
-                    }
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissDeleteDialog() }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+        ConsumableDeleteDialog(
+            title = stringResource(R.string.delete_breakdown_dialog_title),
+            message = stringResource(R.string.delete_breakdown_dialog_message, breakdown.title),
+            removedNote = consumablesRemovedNote(),
+            loadPlan = { viewModel.deletePlan(breakdown) },
+            onDelete = { restore -> viewModel.deleteBreakdown(breakdown, restore) { onNavigateBack() } },
+            onDismiss = { viewModel.dismissDeleteDialog() }
         )
     }
 }

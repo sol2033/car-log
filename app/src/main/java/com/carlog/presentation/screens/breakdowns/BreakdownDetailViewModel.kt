@@ -124,10 +124,13 @@ class BreakdownDetailViewModel @Inject constructor(
         _showDeleteDialog.value = false
     }
     
-    fun deleteBreakdown(breakdown: Breakdown, onDeleted: () -> Unit) {
+    /** Сколько расходников уйдёт вместе с ТО и кого из предшественников можно вернуть */
+    suspend fun deletePlan(breakdown: Breakdown) = breakdownRepository.deletePlan(breakdown)
+
+    fun deleteBreakdown(breakdown: Breakdown, restorePredecessors: Boolean = false, onDeleted: () -> Unit) {
         viewModelScope.launch {
             try {
-                breakdownRepository.deleteBreakdown(breakdown)
+                breakdownRepository.deleteBreakdown(breakdown, restorePredecessors)
                 // Обновляем пробег автомобиля до максимального
                 carRepository.updateCarMileageAfterDelete(breakdown.carId, breakdown.breakdownMileage)
                 // Уведомляем об изменении данных для авто-бэкапа

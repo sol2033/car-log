@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.car
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -124,7 +125,7 @@ fun AddCarScreen(
             // Purchase Date Picker
             var showDatePicker by remember { mutableStateOf(false) }
             val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = state.purchaseDateMillis ?: System.currentTimeMillis()
+                initialSelectedDateMillis = PickerDates.toPicker(state.purchaseDateMillis ?: System.currentTimeMillis())
             )
             
             OutlinedTextField(
@@ -150,7 +151,11 @@ fun AddCarScreen(
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                viewModel.updatePurchaseDate(datePickerState.selectedDateMillis)
+                                viewModel.updatePurchaseDate(
+                                    datePickerState.selectedDateMillis?.let {
+                                        PickerDates.fromPicker(it, state.purchaseDateMillis ?: System.currentTimeMillis())
+                                    }
+                                )
                                 showDatePicker = false
                             }
                         ) {
@@ -272,6 +277,56 @@ fun AddCarScreen(
                 }
             }
             
+            // Объём бака (у электро — ёмкость батареи): по нему считается пробег на баке.
+            // Обязателен для новой машины; у заведённых до 1.4.0 его нет, и статистика просит указать
+            val requiredMark = if (state.carId == null) " *" else ""
+            val isElectricCar = state.fuelType == "Электро"
+            OutlinedTextField(
+                value = state.tankVolume,
+                onValueChange = viewModel::updateTankVolume,
+                label = {
+                    Text(
+                        stringResource(
+                            if (isElectricCar) R.string.car_battery_capacity_label else R.string.car_tank_volume_label
+                        ) + requiredMark
+                    )
+                },
+                isError = state.tankVolumeError != null,
+                supportingText = {
+                    Text(state.tankVolumeError ?: stringResource(R.string.car_tank_volume_hint))
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (state.hasGasEquipment) {
+                // Метан заправляют в м³; пропан заливают только до 80% баллона
+                val isMethane = state.gasType?.contains("Метан") == true
+                OutlinedTextField(
+                    value = state.gasTankVolume,
+                    onValueChange = viewModel::updateGasTankVolume,
+                    label = {
+                        Text(
+                            stringResource(
+                                if (isMethane) R.string.car_gas_tank_volume_cng_label
+                                else R.string.car_gas_tank_volume_lpg_label
+                            ) + requiredMark
+                        )
+                    },
+                    isError = state.gasTankVolumeError != null,
+                    supportingText = {
+                        Text(
+                            state.gasTankVolumeError ?: stringResource(
+                                if (isMethane) R.string.car_tank_volume_hint
+                                else R.string.car_gas_tank_volume_lpg_hint
+                            )
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             HorizontalDivider()
             
             // Optional fields section
@@ -455,8 +510,46 @@ fun AddCarScreen(
                 onValueChange = viewModel::updateEngineVolume,
                 label = { Text(stringResource(R.string.engine_volume_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = state.engineVolumeError != null,
+                supportingText = state.engineVolumeError?.let { { Text(it) } },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Объём между MIN и MAX щупа — для расхода масла, указанного «долей щупа».
+            // Не обязателен: спросим при первом таком ответе, исправить можно в любой момент
+            if (state.oilConsumptionEnabled && state.fuelType != "Электро") {
+                OutlinedTextField(
+                    value = if (state.oilDipstickVolumeUnknown) "" else state.oilDipstickVolume,
+                    onValueChange = viewModel::updateOilDipstickVolume,
+                    enabled = !state.oilDipstickVolumeUnknown,
+                    label = { Text(stringResource(R.string.oil_dipstick_volume_label)) },
+                    isError = state.oilDipstickVolumeError != null,
+                    supportingText = {
+                        Text(state.oilDipstickVolumeError ?: stringResource(R.string.oil_dipstick_volume_hint))
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.updateOilDipstickVolumeUnknown(!state.oilDipstickVolumeUnknown) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = state.oilDipstickVolumeUnknown,
+                        onCheckedChange = viewModel::updateOilDipstickVolumeUnknown
+                    )
+                    Text(stringResource(R.string.oil_dipstick_unknown))
+                }
+                if (state.oilDipstickVolumeUnknown) {
+                    Text(
+                        text = stringResource(R.string.oil_dipstick_guess_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             

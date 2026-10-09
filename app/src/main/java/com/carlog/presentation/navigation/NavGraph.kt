@@ -681,6 +681,9 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddFine = { cId, fineId ->
                     navController.navigate(Screen.AddFine.createRoute(cId, fineId))
+                },
+                onNavigateToAddTollPayment = { cId, paymentId ->
+                    navController.navigate(Screen.AddTollPayment.createRoute(cId, paymentId))
                 }
             )
         }
@@ -698,6 +701,23 @@ fun NavGraph(
             )
         ) { _ ->
             com.carlog.presentation.screens.fines.AddFineScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Add/Edit Toll Payment Screen
+        composable(
+            route = Screen.AddTollPayment.route,
+            arguments = listOf(
+                navArgument("carId") { type = NavType.LongType },
+                navArgument("tollPaymentId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { _ ->
+            com.carlog.presentation.screens.fines.AddTollPaymentScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

@@ -36,6 +36,36 @@ object ConsumableChainRepair {
             .maxWithOrNull(compareBy({ it.installationDate }, { it.id }))
     }
 
+    /** Удаляемый текущий расходник и предыдущая установка его категории, которую можно вернуть */
+    data class Restorable(val removed: Consumable, val predecessor: Consumable)
+
+    /**
+     * Что можно вернуть в активные, если удалить [removed] (расходник с его экрана или все
+     * расходники ТО вместе с ним).
+     *
+     * Вопрос имеет смысл только для **текущих** расходников: удаление уже заменённой записи из
+     * истории категорию не опустошает. Остальное — правила [reactivationTarget]: предшественник
+     * связан с удаляемым совпадением даты и пробега замены, а если в категории после удаления
+     * остаётся другой активный, возвращать некого. «Другое» цепочки не образует.
+     *
+     * @param all все расходники автомобиля (включая удаляемые)
+     */
+    fun restorableOnDelete(all: List<Consumable>, removed: List<Consumable>): List<Restorable> {
+        val removedIds = removed.map { it.id }.toSet()
+        val remaining = all.filterNot { it.id in removedIds }
+        return removed
+            .filter { it.isActive }
+            .mapNotNull { r -> reactivationTarget(remaining + r, r)?.let { Restorable(r, it) } }
+    }
+
+    /** Предшественник снова активен: замены у него больше нет */
+    fun reactivated(predecessor: Consumable, updatedAt: Long): Consumable = predecessor.copy(
+        isActive = true,
+        replacementDate = null,
+        replacementMileage = null,
+        updatedAt = updatedAt
+    )
+
     /**
      * Кому поправить дату и пробег замены, если у [consumable] сдвинулись дата и пробег
      * установки (пользователь исправил дату самого ТО).

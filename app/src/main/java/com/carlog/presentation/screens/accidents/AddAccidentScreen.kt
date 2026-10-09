@@ -1,5 +1,8 @@
 package com.carlog.presentation.screens.accidents
 
+import com.carlog.util.PickerDates
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -125,6 +128,9 @@ fun AddAccidentScreen(
                 kaskoPayout = state.kaskoPayout,
                 hasCulpritPayout = state.hasCulpritPayout,
                 culpritPayout = state.culpritPayout,
+                osagoPayoutError = state.osagoPayoutError,
+                kaskoPayoutError = state.kaskoPayoutError,
+                culpritPayoutError = state.culpritPayoutError,
                 onToggleOsago = viewModel::toggleOsagoPayout,
                 onOsagoAmountChange = viewModel::updateOsagoPayout,
                 onToggleKasko = viewModel::toggleKaskoPayout,
@@ -140,6 +146,7 @@ fun AddAccidentScreen(
                 CompensationSection(
                     hasCompensationPaid = state.hasCompensationPaid,
                     compensationPaid = state.compensationPaid,
+                    error = state.compensationPaidError,
                     onToggle = viewModel::toggleCompensationPaid,
                     onAmountChange = viewModel::updateCompensationPaid
                 )
@@ -153,6 +160,8 @@ fun AddAccidentScreen(
                 addedParts = state.addedParts,
                 serviceCost = state.serviceCost,
                 totalRepairCost = state.totalRepairCost,
+                serviceCostError = state.serviceCostError,
+                totalRepairCostError = state.totalRepairCostError,
                 onToggleRepairMethod = viewModel::toggleRepairMethod,
                 onAddPart = viewModel::addPart,
                 onUpdatePart = viewModel::updatePart,
@@ -253,17 +262,19 @@ private fun DateAndMileageSection(
             modifier = Modifier.weight(1f),
             isError = mileageError != null,
             supportingText = mileageError?.let { { Text(it) } },
-            suffix = { Text(stringResource(R.string.km)) }
+            suffix = { Text(stringResource(R.string.km)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
         )
     }
     
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date)
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = PickerDates.toPicker(date))
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let(onDateChange)
+                    datePickerState.selectedDateMillis?.let { onDateChange(PickerDates.fromPicker(it, date)) }
                     showDatePicker = false
                 }) {
                     Text("OK")

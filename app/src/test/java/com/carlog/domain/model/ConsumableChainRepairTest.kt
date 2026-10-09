@@ -478,5 +478,65 @@ class ConsumableChainRepairTest {
     }
 
     // endregion
-}
 
+    // region что можно вернуть при удалении (§4.4 бизнес-логики)
+
+    /** Масло: старое на 10 000 заменено новым на 20 000 */
+    private val oldOil = consumable(
+        id = 1, isActive = false, installationDate = 1_000, installationMileage = 10_000,
+        replacementDate = 2_000, replacementMileage = 20_000
+    )
+    private val newOil = consumable(id = 2, installationDate = 2_000, installationMileage = 20_000)
+
+    @Test
+    fun `удаление текущего расходника предлагает вернуть предыдущий`() {
+        val restorable = ConsumableChainRepair.restorableOnDelete(listOf(oldOil, newOil), listOf(newOil))
+
+        assertEquals(listOf(1L), restorable.map { it.predecessor.id })
+        assertEquals(2L, restorable.single().removed.id)
+    }
+
+    /** Удаление записи из истории категорию не опустошает — спрашивать не о чем */
+    @Test
+    fun `удаление заменённого расходника ничего не предлагает`() {
+        val older = consumable(
+            id = 0, isActive = false, installationDate = 500, installationMileage = 5_000,
+            replacementDate = 1_000, replacementMileage = 10_000
+        )
+
+        assertTrue(ConsumableChainRepair.restorableOnDelete(listOf(older, oldOil, newOil), listOf(oldOil)).isEmpty())
+    }
+
+    @Test
+    fun `первая установка категории — возвращать некого`() {
+        val only = consumable(id = 5, installationDate = 1_000, installationMileage = 10_000)
+
+        assertTrue(ConsumableChainRepair.restorableOnDelete(listOf(only), listOf(only)).isEmpty())
+    }
+
+    /** ТО с маслом и фильтром: у масла предшественник есть, у фильтра — нет */
+    @Test
+    fun `удаление ТО предлагает вернуть только тех, у кого есть предшественник`() {
+        val filter = consumable(id = 3, category = "Фильтр масляный", installationDate = 2_000, installationMileage = 20_000)
+
+        val restorable = ConsumableChainRepair.restorableOnDelete(
+            listOf(oldOil, newOil, filter),
+            listOf(newOil, filter)
+        )
+
+        assertEquals(listOf("Масло в двигателе"), restorable.map { it.removed.category })
+    }
+
+    @Test
+    fun `возвращённый предшественник активен и без замены`() {
+        val back = ConsumableChainRepair.reactivated(oldOil, updatedAt = 9_999)
+
+        assertTrue(back.isActive)
+        assertNull(back.replacementDate)
+        assertNull(back.replacementMileage)
+        assertEquals(9_999L, back.updatedAt)
+        assertEquals(oldOil.installationMileage, back.installationMileage)
+    }
+
+    // endregion
+}

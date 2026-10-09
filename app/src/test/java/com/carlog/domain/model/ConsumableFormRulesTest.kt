@@ -1,6 +1,8 @@
 package com.carlog.domain.model
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -103,5 +105,50 @@ class ConsumableFormRulesTest {
     fun `нечисловая стоимость по-прежнему не принимается`() {
         assertFalse(canAdd("Фильтр масляный", cost = "дорого"))
         assertFalse(canAdd("Фильтр масляный", cost = ""))
+    }
+
+    // --- автоподстановка объёма ---
+
+    private fun card(id: Long, mileage: Int, volume: Double?, category: String = "Масло в двигателе") = Consumable(
+        id = id, carId = 1, category = category, manufacturer = null, articleNumber = null,
+        installationMileage = mileage, installationDate = mileage.toLong(),
+        replacementMileage = null, replacementDate = null, cost = 1.0,
+        isInstalledAtService = false, serviceCost = null, volume = volume,
+        replacementIntervalMileage = null, replacementIntervalDays = null,
+        isActive = true, notes = null, createdAt = 0, updatedAt = 0
+    )
+
+    @Test
+    fun `объём берётся из последней карточки той же категории`() {
+        val volume = ConsumableFormRules.defaultVolume(
+            "Масло в двигателе",
+            listOf(card(1, 10_000, 4.0), card(2, 20_000, 4.2)),
+            settingsVolume = 5.0
+        )
+        assertEquals(4.2, volume!!, 0.0001)
+    }
+
+    @Test
+    fun `карточка без объёма пропускается`() {
+        val volume = ConsumableFormRules.defaultVolume(
+            "Масло в двигателе",
+            listOf(card(1, 10_000, 4.0), card(2, 20_000, null)),
+            settingsVolume = null
+        )
+        assertEquals(4.0, volume!!, 0.0001)
+    }
+
+    @Test
+    fun `без истории — объём из настроек`() {
+        assertEquals(3.5, ConsumableFormRules.defaultVolume("Масло в двигателе", emptyList(), 3.5)!!, 0.0001)
+    }
+
+    @Test
+    fun `у не-жидкости объём не подставляется`() {
+        assertNull(
+            ConsumableFormRules.defaultVolume(
+                "Фильтр масляный", listOf(card(1, 10_000, 4.0, category = "Фильтр масляный")), 1.0
+            )
+        )
     }
 }

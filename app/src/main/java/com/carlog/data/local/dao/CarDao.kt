@@ -39,6 +39,10 @@ interface CarDao {
     @Query("UPDATE cars SET fuelResetPending = :pending WHERE id = :carId")
     suspend fun setFuelResetPending(carId: Long, pending: Boolean)
 
+    // Объём MIN–MAX щупа для расхода масла — служебная настройка, updatedAt тоже не трогаем
+    @Query("UPDATE cars SET oilDipstickVolume = :volume, oilDipstickVolumeIsGuess = :isGuess WHERE id = :carId")
+    suspend fun setOilDipstickVolume(carId: Long, volume: Double, isGuess: Boolean)
+
     @Query("SELECT COUNT(*) FROM cars")
     suspend fun getCarsCount(): Int
 }

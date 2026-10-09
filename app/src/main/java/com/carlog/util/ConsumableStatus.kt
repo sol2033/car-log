@@ -1,7 +1,7 @@
 package com.carlog.util
 
 import com.carlog.domain.model.Consumable
-import java.util.concurrent.TimeUnit
+import java.time.temporal.ChronoUnit
 
 object ConsumableStatus {
     
@@ -20,7 +20,8 @@ object ConsumableStatus {
     
     fun calculateStatus(
         consumable: Consumable,
-        currentMileage: Int
+        currentMileage: Int,
+        now: Long = System.currentTimeMillis()
     ): StatusInfo {
         if (!consumable.isActive) {
             return StatusInfo(Status.NORMAL, 0f, null, null)
@@ -50,9 +51,11 @@ object ConsumableStatus {
         
         // Проверка по дате
         if (consumable.replacementIntervalDays != null && consumable.replacementIntervalDays > 0) {
-            val currentTime = System.currentTimeMillis()
-            val daysPassed = TimeUnit.MILLISECONDS.toDays(
-                currentTime - consumable.installationDate
+            // Календарные дни через DateUtils: вычитание миллисекунд давало UTC-сутки,
+            // и остаток зависел от времени суток, записанного в дате установки
+            val daysPassed = ChronoUnit.DAYS.between(
+                DateUtils.toLocalDate(consumable.installationDate),
+                DateUtils.toLocalDate(now)
             ).toInt()
             val dateProgress = daysPassed.toFloat() / consumable.replacementIntervalDays
             maxProgress = maxOf(maxProgress, dateProgress)

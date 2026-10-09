@@ -530,3 +530,103 @@ val MIGRATION_23_24 = object : Migration(23, 24) {
     }
 }
 
+
+/**
+ * Объём бака и расход без «полного бака» (1.4.0).
+ *
+ * `cars.tankVolume` — бак, л (у электро — батарея, кВт·ч); `cars.gasTankVolume` — газовый
+ * баллон. У существующих машин пусто: статистика попросит указать объём, а не выдумает его.
+ * `refuelings.fuelDistanceKm` — км на этом топливе (для машин с ГБО).
+ * Расход отдельных «полных баков» больше не считается — старые значения обнуляются,
+ * чтобы нигде не всплывали.
+ */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE cars ADD COLUMN tankVolume REAL")
+        db.execSQL("ALTER TABLE cars ADD COLUMN gasTankVolume REAL")
+        db.execSQL("ALTER TABLE refuelings ADD COLUMN fuelDistanceKm INTEGER")
+        db.execSQL("UPDATE refuelings SET fuelConsumption = NULL")
+    }
+}
+
+/**
+ * Расход масла (1.4.0): доливы, падение уровня перед заменой и объём MIN–MAX щупа.
+ *
+ * `oil_top_ups` — доливы моторного масла; к карточке масла не привязаны, интервал
+ * определяется по пробегу. `consumables.oilLevelDropMl/oilLevelDropFraction` — насколько
+ * упал уровень к замене; `cars.oilDipstickVolume` — литры между MIN и MAX,
+ * `oilDipstickVolumeIsGuess` — пользователь выбрал «не знаю» (подставлен 1 л).
+ */
+val MIGRATION_25_26 = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `oil_top_ups` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`carId` INTEGER NOT NULL, `date` INTEGER NOT NULL, `mileage` INTEGER NOT NULL, " +
+                "`volume` REAL NOT NULL, `cost` REAL, `notes` TEXT, `createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_oil_top_ups_carId` ON `oil_top_ups` (`carId`)")
+        db.execSQL("ALTER TABLE consumables ADD COLUMN oilLevelDropMl INTEGER")
+        db.execSQL("ALTER TABLE consumables ADD COLUMN oilLevelDropFraction REAL")
+        db.execSQL("ALTER TABLE cars ADD COLUMN oilDipstickVolume REAL")
+        db.execSQL("ALTER TABLE cars ADD COLUMN oilDipstickVolumeIsGuess INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
+ * Платные дороги (1.4.0): раздел «Штрафы, платные дороги» получил вторую вкладку.
+ *
+ * Новая таблица `toll_payments` — отдельная сущность, не колонка у штрафов: статуса оплаты
+ * и льготного срока у проезда нет. Как и штрафы, **без пробега**; FK на машину с каскадом.
+ * Существующих данных миграция не касается: таблицы раньше не было.
+ */
+val MIGRATION_26_27 = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `toll_payments` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`carId` INTEGER NOT NULL, " +
+                "`date` INTEGER NOT NULL, " +
+                "`amount` REAL NOT NULL, " +
+                "`roadName` TEXT, " +
+                "`notes` TEXT, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`carId`) REFERENCES `cars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_toll_payments_carId` ON `toll_payments` (`carId`)")
+    }
+}
+
+/**
+ * Ремонт данных (1.4.0), схема не меняется: расходники, привязанные к ТО, которого в списке
+ * этого ТО нет.
+ *
+ * Так их оставляла «замена на такой же» на экране расходника: новый расходник копировался
+ * со старого вместе с `linkedMaintenanceId`. Он показывался в карточке старого ТО, но в его
+ * `linkedConsumableIds` не попадал — и в статистике не считался нигде: не «отдельный», и не
+ * внутри стоимости ТО. После удаления ТО ссылка повисала.
+ *
+ * Список ТО авторитетен (его восстанавливали миграции 19→20 и 20→21), а все пути, которые
+ * ставят `linkedMaintenanceId`, добавляют расходник и в список. Поэтому «ссылается, но не
+ * в списке» однозначно значит ошибочную привязку: снимаем её, расходник становится
+ * отдельным, и его стоимость возвращается в статистику. Висячие ссылки на удалённые ТО
+ * попадают сюда же (у несуществующего ТО списка нет).
+ *
+ * Сравнение по подстроке `,id,`, как в 19→20: id уникальны, совпадение однозначно; пробелы
+ * в JSON-списке на всякий случай вычищаются.
+ */
+val MIGRATION_27_28 = object : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "UPDATE consumables SET linkedMaintenanceId = NULL " +
+                "WHERE linkedMaintenanceId IS NOT NULL AND NOT EXISTS (" +
+                "SELECT 1 FROM breakdowns b WHERE b.id = consumables.linkedMaintenanceId " +
+                "AND b.linkedConsumableIds IS NOT NULL " +
+                "AND (',' || replace(replace(replace(b.linkedConsumableIds, '[', ''), ']', ''), ' ', '') || ',') " +
+                "LIKE ('%,' || consumables.id || ',%'))"
+        )
+    }
+}
+

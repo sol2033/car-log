@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -632,7 +633,7 @@ private fun PartCard(
         
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = breakdownDateMillis
+                initialSelectedDateMillis = PickerDates.toPicker(breakdownDateMillis)
             )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
@@ -640,7 +641,7 @@ private fun PartCard(
                     TextButton(
                         onClick = {
                             datePickerState.selectedDateMillis?.let {
-                                breakdownDateMillis = it
+                                breakdownDateMillis = PickerDates.fromPicker(it, breakdownDateMillis)
                             }
                             showDatePicker = false
                         }

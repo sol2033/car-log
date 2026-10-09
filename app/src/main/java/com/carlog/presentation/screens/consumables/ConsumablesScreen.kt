@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -39,6 +40,7 @@ fun ConsumablesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val showFirstLaunchDialog by viewModel.showFirstLaunchDialog.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
+    var showTopUpDialog by remember { mutableStateOf(false) }
     
     // Показать диалог настроек при первом запуске
     if (showFirstLaunchDialog) {
@@ -111,8 +113,20 @@ fun ConsumablesScreen(
                             carId = carId,
                             consumables = state.activeConsumables,
                             onConsumableClick = onNavigateToConsumableDetail,
-                            onAddConsumable = onNavigateToAddConsumable
+                            onAddConsumable = onNavigateToAddConsumable,
+                            onAddTopUp = { showTopUpDialog = true }
                         )
+                        if (showTopUpDialog) {
+                            OilTopUpDialog(
+                                existing = null,
+                                defaultMileage = state.currentMileage,
+                                onDismiss = { showTopUpDialog = false },
+                                onSave = { date, mileage, volume, cost ->
+                                    viewModel.addTopUp(date, mileage, volume, cost)
+                                    showTopUpDialog = false
+                                }
+                            )
+                        }
                     }
                 }
                 is ConsumablesUiState.Error -> {
@@ -136,7 +150,8 @@ fun ActiveConsumablesGrid(
     carId: Long,
     consumables: List<ConsumableWithStatus>,
     onConsumableClick: (Long) -> Unit,
-    onAddConsumable: (Long, String?) -> Unit
+    onAddConsumable: (Long, String?) -> Unit,
+    onAddTopUp: () -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -154,7 +169,8 @@ fun ActiveConsumablesGrid(
                         // Открыть форму добавления с предзаполненной категорией
                         onAddConsumable(carId, consumableWithStatus.category)
                     }
-                }
+                },
+                onAddTopUp = onAddTopUp
             )
         }
     }
@@ -164,7 +180,8 @@ fun ActiveConsumablesGrid(
 @Composable
 fun ConsumableCard(
     consumableWithStatus: ConsumableWithStatus,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onAddTopUp: () -> Unit = {}
 ) {
     val consumable = consumableWithStatus.consumable
     val statusInfo = consumableWithStatus.statusInfo
@@ -195,13 +212,26 @@ fun ConsumableCard(
                 .padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = consumableWithStatus.category,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                textAlign = TextAlign.Start
-            )
+            // Долив — прямо с плитки текущего масла: раньше кнопка жила только на экране масла,
+            // и найти её было трудно. oil != null только у моторного масла при включённом
+            // учёте расхода; у текущего (незаменённого) масла интервал не завершён
+            val canTopUp = consumableWithStatus.oil?.isCompleted == false
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = consumableWithStatus.category,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.weight(1f)
+                )
+                if (canTopUp) {
+                    TopUpChip(onClick = onAddTopUp)
+                }
+            }
             
             if (consumable == null) {
                 // Для не добавленных расходников
@@ -222,7 +252,21 @@ fun ConsumableCard(
                         )
                     }
                     
-                    consumable.cost?.let {
+                    // У моторного масла с доливами вместо цены — сколько долито и расход:
+                    // плитка фиксированной высоты, лишняя строка в неё не влезает
+                    val oil = consumableWithStatus.oil
+                    if (oil != null && oil.topUps.isNotEmpty()) {
+                        Text(
+                            text = stringResource(
+                                R.string.oil_tile_summary,
+                                java.text.DecimalFormat("0.##").format(oil.topUpLiters)
+                            ) + (oil.per1000Km?.let { " · " + formatPer1000(it, oil.isApproximate) } ?: ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
+                        )
+                    } else consumable.cost?.let {
                         Text(
                             text = "$it ₽",
                             style = MaterialTheme.typography.bodySmall,
@@ -392,4 +436,29 @@ fun FirstLaunchDialog(
             }
         }
     )
+}
+
+/** Компактная кнопка «+ Долить»: плитка фиксированной высоты, полноразмерная кнопка в неё не влезет */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TopUpChip(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(2.dp))
+            Text(
+                text = stringResource(R.string.oil_top_up_short),
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1
+            )
+        }
+    }
 }

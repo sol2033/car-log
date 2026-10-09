@@ -1,9 +1,12 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.domain.model.CarFormRules
+import com.carlog.util.moneyInputError
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
@@ -11,6 +14,9 @@ import com.carlog.domain.model.BreakdownFormRules
 import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.ConsumableChainRepair
+import com.carlog.domain.model.ConsumableFormRules
+import com.carlog.domain.model.OilConsumptionCalculator
+import com.carlog.domain.model.OilLevelDropInput
 import com.carlog.util.toDecimalOrNull
 import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,9 +42,17 @@ data class AddConsumableState(
     // (привязка к ТО, активность, пробег/дата замены, createdAt), берутся из неё
     val originalConsumable: Consumable? = null,
 
+    // Новое моторное масло закрывает старое: ждём ответа об уровне старого
+    val oilLevelQuestion: OilLevelQuestion? = null,
+
     val categoryError: String? = null,
     val installationMileageError: String? = null,
     val costError: String? = null,
+    // Необязательные поля: раньше неразобранный ввод молча сохранялся как «не указано»
+    val serviceCostError: String? = null,
+    val volumeError: String? = null,
+    val intervalMileageError: String? = null,
+    val intervalDaysError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -53,6 +67,7 @@ class AddConsumableViewModel @Inject constructor(
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
     private val preferences: ConsumablePreferences,
+    private val appPreferences: AppPreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -61,6 +76,9 @@ class AddConsumableViewModel @Inject constructor(
     private val preSelectedCategory: String? = savedStateHandle.get<String>("category")
     
     private val _state = MutableStateFlow(AddConsumableState())
+
+    // Ответ об уровне закрываемого масла: id этого масла и сам ответ
+    private var oilLevelAnswer: Pair<Long, OilLevelDropInput>? = null
     val state: StateFlow<AddConsumableState> = _state.asStateFlow()
     
     private val _availableCategories = MutableStateFlow<List<String>>(emptyList())
@@ -138,16 +156,20 @@ class AddConsumableViewModel @Inject constructor(
                 ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.first
             val intervalDays = preferences.getIntervalDays(category).firstOrNull()
                 ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.second
-            val volume = if (ConsumableCategories.FLUID_CATEGORIES.contains(category)) {
-                preferences.getVolume(category).firstOrNull()
-            } else {
-                null
-            }
+            // Объём — из прошлой карточки той же категории этой машины, затем из настроек.
+            // Уже введённое не трогаем: подстановка асинхронная и не должна затирать ввод
+            val volume = ConsumableFormRules.defaultVolume(
+                category = category,
+                sameCategoryHistory = consumableRepository
+                    .getConsumablesByCategory(carId, category).firstOrNull().orEmpty(),
+                settingsVolume = preferences.getVolume(category).firstOrNull()
+            )
             
             _state.value = _state.value.copy(
                 replacementIntervalMileage = intervalMileage?.toString() ?: "",
                 replacementIntervalDays = intervalDays?.toString() ?: "",
-                volume = volume?.toString() ?: ""
+                volume = if (!ConsumableFormRules.requiresVolume(category)) ""
+                    else _state.value.volume.ifBlank { volume?.let(::formatLiters) ?: "" }
             )
         }
     }
@@ -200,19 +222,19 @@ class AddConsumableViewModel @Inject constructor(
     }
     
     fun updateServiceCost(value: String) {
-        _state.value = _state.value.copy(serviceCost = value)
+        _state.value = _state.value.copy(serviceCost = value, serviceCostError = null)
     }
     
     fun updateVolume(value: String) {
-        _state.value = _state.value.copy(volume = value)
+        _state.value = _state.value.copy(volume = value, volumeError = null)
     }
     
     fun updateReplacementIntervalMileage(value: String) {
-        _state.value = _state.value.copy(replacementIntervalMileage = value)
+        _state.value = _state.value.copy(replacementIntervalMileage = value, intervalMileageError = null)
     }
     
     fun updateReplacementIntervalDays(value: String) {
-        _state.value = _state.value.copy(replacementIntervalDays = value)
+        _state.value = _state.value.copy(replacementIntervalDays = value, intervalDaysError = null)
     }
     
     fun updateNotes(value: String) {
@@ -230,11 +252,25 @@ class AddConsumableViewModel @Inject constructor(
         val mileageError = BreakdownFormRules.mileageError(currentState.installationMileage)
         val costError = if (currentState.cost.isBlank() || currentState.cost.toDecimalOrNull() == null) "Обязательное поле" else null
         
-        if (categoryError != null || mileageError != null || costError != null) {
+        val serviceCostError = if (currentState.isInstalledAtService) moneyInputError(currentState.serviceCost) else null
+        val volumeError = if (ConsumableCategories.FLUID_CATEGORIES.contains(currentState.category)) {
+            CarFormRules.volumeError(currentState.volume, required = false)
+        } else null
+        val intervalMileageError = ConsumableFormRules.intervalError(currentState.replacementIntervalMileage)
+        val intervalDaysError = ConsumableFormRules.intervalError(currentState.replacementIntervalDays)
+
+        if (categoryError != null || mileageError != null || costError != null ||
+            serviceCostError != null || volumeError != null ||
+            intervalMileageError != null || intervalDaysError != null
+        ) {
             _state.value = currentState.copy(
                 categoryError = categoryError,
                 installationMileageError = mileageError,
-                costError = costError
+                costError = costError,
+                serviceCostError = serviceCostError,
+                volumeError = volumeError,
+                intervalMileageError = intervalMileageError,
+                intervalDaysError = intervalDaysError
             )
             return
         }
@@ -262,8 +298,8 @@ class AddConsumableViewModel @Inject constructor(
                         isInstalledAtService = currentState.isInstalledAtService,
                         serviceCost = currentState.serviceCost.toDecimalOrNull(),
                         volume = currentState.volume.toDecimalOrNull(),
-                        replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
-                        replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
+                        replacementIntervalMileage = ConsumableFormRules.parseInterval(currentState.replacementIntervalMileage),
+                        replacementIntervalDays = ConsumableFormRules.parseInterval(currentState.replacementIntervalDays),
                         notes = currentState.notes.ifBlank { null },
                         updatedAt = currentTime
                     )
@@ -282,9 +318,29 @@ class AddConsumableViewModel @Inject constructor(
                         installationDate = currentState.installationDate
                     )
 
+                    // Закрывается моторное масло — уровень старого спрашиваем так же,
+                    // как при замене с его экрана. Ответ приходит в answerOilLevel()
+                    val closedOil = OilConsumptionCalculator.oilClosedBy(plan.replaced)
+                    val answer = oilLevelAnswer?.takeIf { it.first == closedOil?.id }?.second
+                    if (closedOil != null && answer == null &&
+                        appPreferences.oilConsumptionEnabled.first()
+                    ) {
+                        val car = carRepository.getCarByIdOnce(carId)
+                        if (car != null) {
+                            _state.value = _state.value.copy(
+                                isSaving = false,
+                                oilLevelQuestion = OilLevelQuestion(closedOil, car)
+                            )
+                            return@launch
+                        }
+                    }
+
                     plan.replaced.forEach { replaced ->
+                        val base = if (answer != null && replaced.id == closedOil?.id) {
+                            OilConsumptionCalculator.withLevelDrop(replaced, answer)
+                        } else replaced
                         consumableRepository.updateConsumable(
-                            replaced.copy(
+                            base.copy(
                                 isActive = false,
                                 replacementDate = currentState.installationDate,
                                 replacementMileage = installationMileage,
@@ -307,8 +363,8 @@ class AddConsumableViewModel @Inject constructor(
                         isInstalledAtService = currentState.isInstalledAtService,
                         serviceCost = currentState.serviceCost.toDecimalOrNull(),
                         volume = currentState.volume.toDecimalOrNull(),
-                        replacementIntervalMileage = currentState.replacementIntervalMileage.toIntOrNull(),
-                        replacementIntervalDays = currentState.replacementIntervalDays.toIntOrNull(),
+                        replacementIntervalMileage = ConsumableFormRules.parseInterval(currentState.replacementIntervalMileage),
+                        replacementIntervalDays = ConsumableFormRules.parseInterval(currentState.replacementIntervalDays),
                         isActive = plan.isActive,
                         notes = currentState.notes.ifBlank { null },
                         createdAt = currentTime,
@@ -325,6 +381,7 @@ class AddConsumableViewModel @Inject constructor(
                 
                 // Снимок currentState сделан до сохранения: набранное за это время
                 // он бы откатил, а поля ввода во время сохранения не блокируются
+                oilLevelAnswer = null
                 _state.value = _state.value.copy(isSaving = false, isSaved = true)
             } catch (e: Exception) {
                 // Сообщения у исключения может не быть — без подстановки экран замирал молча
@@ -335,4 +392,26 @@ class AddConsumableViewModel @Inject constructor(
             }
         }
     }
+
+    /** Ответ об уровне старого масла: запоминаем и сохраняем форму заново */
+    fun answerOilLevel(input: OilLevelDropInput, dipstickVolume: Pair<Double, Boolean>?) {
+        val question = _state.value.oilLevelQuestion ?: return
+        viewModelScope.launch {
+            dipstickVolume?.let { (volume, guess) ->
+                carRepository.setOilDipstickVolume(question.car.id, volume, guess)
+            }
+            oilLevelAnswer = question.oldOil.id to input
+            _state.value = _state.value.copy(oilLevelQuestion = null)
+            saveConsumable()
+        }
+    }
+
+    /** Отмена — форма остаётся открытой, ничего не сохранено */
+    fun dismissOilLevelQuestion() {
+        _state.value = _state.value.copy(oilLevelQuestion = null)
+    }
 }
+
+/** 4.0 → «4», 4.2 → «4.2»: без хвостового «.0» в поле формы */
+private fun formatLiters(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()

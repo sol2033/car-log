@@ -1,5 +1,6 @@
 package com.carlog.presentation.components
 
+import com.carlog.util.toDecimalOrNull
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,7 +44,7 @@ fun WorkItemDialog(
     var nameTouched by remember { mutableStateOf(false) }
     var costTouched by remember { mutableStateOf(false) }
 
-    val costValue = cost.replace(',', '.').toDoubleOrNull()
+    val costValue = cost.toDecimalOrNull()
     val nameError = nameTouched && name.isBlank()
     val costError = costTouched && (costValue == null || costValue < 0)
     val canConfirm = name.isNotBlank() && costValue != null && costValue >= 0

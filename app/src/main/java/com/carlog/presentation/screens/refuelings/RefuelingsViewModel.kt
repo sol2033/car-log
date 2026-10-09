@@ -6,6 +6,8 @@ import com.carlog.data.backup.DataChangeNotifier
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.RefuelingRepository
 import com.carlog.domain.model.Car
+import com.carlog.domain.model.FuelConsumptionCalculator
+import com.carlog.domain.model.FuelGroupConsumption
 import com.carlog.domain.model.Refueling
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -63,23 +65,54 @@ class RefuelingsViewModel @Inject constructor(
         initialValue = null
     )
     
-    val averageConsumption = _carId.filterNotNull().flatMapLatest { id ->
-        refuelingRepository.getAverageConsumptionByCarId(id)
+    // Средний расход и пробег на баке по группам топлива — тем же расчётом, что в статистике.
+    // Раньше здесь усреднялся расход «полных баков», которые почти никто не отмечал,
+    // и строка со средним просто не появлялась
+    val consumption: StateFlow<List<FuelGroupConsumption>> = combine(_car.filterNotNull(), refuelings) { car, list ->
+        FuelConsumptionCalculator.summarize(list, car)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = null
+        initialValue = emptyList()
     )
+
+    val consumptionSince = refuelings.map { FuelConsumptionCalculator.consumptionSince(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
     
     fun setCarId(carId: Long) {
         _carId.value = carId
     }
     
+    /** Новый отсчёт расхода: точкой отсчёта станет следующая добавленная заправка (§4.5) */
+    fun requestConsumptionReset() = setResetPending(true)
+
+    fun cancelConsumptionReset() = setResetPending(false)
+
+    private fun setResetPending(pending: Boolean) {
+        val carId = _carId.value ?: return
+        viewModelScope.launch {
+            carRepository.setFuelResetPending(carId, pending)
+            dataChangeNotifier.notifyDataChanged()
+        }
+    }
+
+    /** Снимает точку отсчёта: расход снова считается по всей истории */
+    fun clearConsumptionReset() {
+        val carId = _carId.value ?: return
+        viewModelScope.launch {
+            refuelingRepository.clearConsumptionResetPoints(carId)
+            carRepository.setFuelResetPending(carId, false)
+            dataChangeNotifier.notifyDataChanged()
+        }
+    }
+
     fun deleteRefueling(refueling: Refueling) {
         viewModelScope.launch {
             refuelingRepository.deleteRefueling(refueling)
-            // Удаление промежуточной заправки меняет расход соседних — пересчитываем
-            refuelingRepository.recalculateFuelConsumption(refueling.carId)
             // Обновляем пробег автомобиля до максимального
             carRepository.updateCarMileageAfterDelete(refueling.carId, refueling.mileage)
             // Уведомляем о изменении данных

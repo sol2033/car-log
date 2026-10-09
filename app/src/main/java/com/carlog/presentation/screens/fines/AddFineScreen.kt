@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.fines
 
+import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -45,6 +46,7 @@ fun AddFineScreen(
     val notes by viewModel.notes.collectAsState()
     val saveError by viewModel.saveError.collectAsState()
     val saveSuccess by viewModel.saveSuccess.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
 
     var showTypeMenu by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -73,7 +75,7 @@ fun AddFineScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.saveFine() }) {
+                    IconButton(onClick = { viewModel.saveFine() }, enabled = !isSaving) {
                         Icon(Icons.Default.Check, stringResource(R.string.save))
                     }
                 }
@@ -261,6 +263,7 @@ fun AddFineScreen(
 
             Button(
                 onClick = { viewModel.saveFine() },
+                enabled = !isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -312,10 +315,10 @@ fun AddFineScreen(
     }
 }
 
-/** Поле-дата: карточка с подписью, как в форме документа */
+/** Поле-дата: карточка с подписью, как в форме документа (общее с формой платной дороги) */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateCard(
+internal fun DateCard(
     label: String,
     value: String,
     onClick: () -> Unit,
@@ -367,18 +370,18 @@ private fun DateCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FineDatePicker(
+internal fun FineDatePicker(
     initial: Long,
     onDismiss: () -> Unit,
     onSelected: (Long) -> Unit
 ) {
-    val state = rememberDatePickerState(initialSelectedDateMillis = initial)
+    val state = rememberDatePickerState(initialSelectedDateMillis = PickerDates.toPicker(initial))
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
                 onClick = {
-                    state.selectedDateMillis?.let(onSelected)
+                    state.selectedDateMillis?.let { onSelected(PickerDates.fromPicker(it, initial)) }
                     onDismiss()
                 }
             ) {

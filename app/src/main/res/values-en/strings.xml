@@ -20,7 +20,9 @@
     <string name="info_cars_content">Here you manage your cars. You can:\n\n• Add new cars with photos and detailed information (make, model, VIN, license plate, fuel type, gas equipment, etc.)\n• Edit car information\n• Delete cars (all related records will also be deleted)\n\nThe car card is the entry point to every section: parts, maintenance, accidents, consumables, refuelings, other expenses, documents and statistics.\n\nThe current mileage is maintained automatically — it always equals the maximum mileage across all records. You can update it manually with the update-mileage button on the card. If you enter a value below the current one, the app warns you and asks for confirmation: once confirmed, records with a higher mileage are lowered to the new value as well — otherwise the previous maximum would come back automatically.</string>
     
     <string name="info_consumables_title">Consumables</string>
-    <string name="info_consumables_content">Section for tracking consumable materials:\n\n• 11 standard categories are always visible: engine oil, transmission oil/fluid, brake and coolant fluids, filters (oil, air, fuel, cabin), front and rear brake pads, battery\n• About 30 more optional categories (spark plugs, belts, discs, tires, wiper blades, bulbs, etc.) can be enabled in the section settings\n• For each consumable you specify installation date, mileage, manufacturer, part number, cost (volume for fluids)\n• Replacement intervals by mileage and/or time; custom values can be set in the section settings\n• Traffic-light status on the card: green — all good, yellow — more than half of the resource used, red — replacement is due very soon or overdue\n• Replacement history for each category\n\nThe best way to replace a consumable is via its details screen (the \"Replace\" button) or via scheduled maintenance — the old consumable is archived automatically.\n\nDirect adding also works: if the category already has an active consumable, it is archived as replaced.</string>
+    <string name="info_consumables_content">Section for tracking consumable materials:\n\n• 11 standard categories are always visible: engine oil, transmission oil/fluid, brake and coolant fluids, filters (oil, air, fuel, cabin), front and rear brake pads, battery\n• About 30 more optional categories (spark plugs, belts, discs, tires, wiper blades, bulbs, etc.) can be enabled in the section settings\n• For each consumable you specify installation date, mileage, manufacturer, part number, cost (volume for fluids)\n• Replacement intervals by mileage and/or time; custom values can be set in the section settings\n• Traffic-light status on the card: green — all good, yellow — more than half of the resource used, red — replacement is due very soon or overdue\n• Replacement history for each category\n\nThe best way to replace a consumable is via its details screen (the \"Replace\" button) or via scheduled maintenance — the old consumable is archived automatically.\n\nDirect adding also works: if the category already has an active consumable, it is archived as replaced.
+
+Oil consumption: the engine oil screen has a \"Top up oil\" button, and on replacement you are asked how much the level dropped (in ml or by dipstick). Consumption in L/1000 km is calculated per oil and on average. Tracking can be turned off in settings.</string>
     
     <string name="info_parts_title">Parts</string>
     <string name="info_parts_content">Accounting for all parts and assemblies of the car:\n\n• Adding parts with indication of name, manufacturer, part number\n• Installation date and current mileage\n• Cost of the part and installation work\n• Mark about breakdown with indication of date and mileage\n• Ability to replace the part (creates a new record, the old one is marked as broken)\n• Part photos\n• Notes and comments\n\nThis allows you to keep a complete history of all installed parts and track their reliability.</string>
@@ -32,7 +34,7 @@
     <string name="info_accidents_content">Accounting for road traffic accidents:\n\n• Date, mileage and place of the accident\n• Damage description and severity (minor / medium / serious / total)\n• Your role: at fault or victim (the at-fault party can only receive a KASKO payout)\n• Insurance payouts: OSAGO, KASKO, from the culprit\n• Repair cost — as a total amount or as a list of parts (they will appear in the Parts section marked \"Accident\")\n• Photos from the scene and one PDF document (e.g. the accident report) — it can be opened from the details screen\n\nAccident expenses appear in statistics as a separate category that can be excluded from calculations.</string>
     
     <string name="info_refueling_title">Refueling</string>
-    <string name="info_refueling_content">Accounting for all car refuelings:\n\n• Date, mileage and refueling location\n• Fuel volume and type (gasoline grades, diesel, gas with LPG/CNG equipment; charges in kWh for electric cars)\n• Cost per liter or total cost (the other one is calculated automatically)\n• \"Full tank\" mark\n\nFuel consumption is calculated automatically between two full-tank refuelings: the full tank\'s liters plus all partial refuelings between them are divided by the distance driven. Partial refuelings therefore have no consumption of their own — mark full tanks to see your consumption.\n\nThe refueling list shows a summary: count, volume, total cost and average consumption.</string>
+    <string name="info_refueling_content">Accounting for all car refuelings:\n\n• Date, mileage and refueling location\n• Fuel volume and type (gasoline grades, diesel, gas with LPG/CNG equipment — CNG in m³; charges in kWh for electric cars)\n• Cost per unit or total cost (the other one is calculated automatically)\n\nAverage consumption is calculated automatically: all refuelings except the first are divided by the distance driven between them. No need to mark a \"full tank\". Gasoline grades are counted together, gas and gasoline separately. For a car with gas equipment, enter the distance driven on this fuel in each refueling — otherwise consumption is estimated from the total mileage.\n\nIf the tank (cylinder, battery) capacity is set in the car card, the range per tank is shown too.\n\nMissed a refueling? Tap \"Restart calculation\" next to the average consumption.</string>
     
     <string name="info_expenses_title">Other Expenses</string>
     <string name="info_expenses_content">Accounting for all other car expenses:\n\n• Categories: self car wash, accessories, car audio, interior detailing, wheels, tires, other\n• Date, mileage, name and amount of the expense\n• Service information (name, address)\n• Notes\n\nInsurance, technical inspection and vehicle tax are tracked separately — in the Documents section.\n\nAllows you to keep a complete record of all car expenses and analyze their structure.</string>
@@ -60,6 +62,22 @@
     <!-- What's new -->
     <string name="whats_new_title">What\'s new in %1$s</string>
     <string name="whats_new_confirm">Got it</string>
+    <string name="whats_new_fuel_title">Average consumption at a glance</string>
+    <string name="whats_new_fuel_body">no need to mark a \"full tank\" anymore: consumption is calculated from all refuelings and shown right in the refueling list, with the same restart button as in statistics. Gas and gasoline are counted separately for cars with gas equipment, CNG is in m³.</string>
+    <string name="whats_new_tank_title">Range per tank</string>
+    <string name="whats_new_tank_body">set the tank capacity in the car card (battery capacity for an electric car, gas cylinder with gas equipment) and the app will show how far you drive on a full tank.</string>
+    <string name="whats_new_oil_title">Oil consumption</string>
+    <string name="whats_new_oil_body">top up oil with the \"+ Top up\" button right on the oil tile in consumables and note how much the level dropped when replacing it — in ml or by dipstick. The app calculates consumption in L/1000 km per oil and on average, so you can see whether it has grown. Can be turned off in settings.</string>
+    <string name="whats_new_volume_title">Fluid volume filled in automatically</string>
+    <string name="whats_new_volume_body">a new oil or other fluid card takes the volume from the previous replacement; you can still change it.</string>
+    <string name="whats_new_tolls_title">Toll roads</string>
+    <string name="whats_new_tolls_body">the \"Fines\" section is now \"Fines, toll roads\": on the second tab, record the date and amount of a trip and, optionally, which road (the app suggests names from your previous entries). Spending is shown by month and as a monthly average; statistics count it as a separate category, not included in the cost per km.</string>
+    <string name="whats_new_suggestions_title">Name suggestions</string>
+    <string name="whats_new_suggestions_body">service names (in maintenance, parts and other expenses) and fuel station names you have entered before appear under the field — just tap one. The address of a chosen service is filled in automatically.</string>
+    <string name="whats_new_delete_title">Deleting services and consumables</string>
+    <string name="whats_new_delete_body">if a category would be left without a current consumable, the app offers to put the previous one back.</string>
+    <string name="whats_new_fixes_title">Fixes</string>
+    <string name="whats_new_fixes_body">statistics no longer lose a consumable after \"replace with the same\" or service work for a standalone consumable, and maintenance consumables are no longer counted twice on the chart. Accident payouts and repair costs entered with a space (\"15 000\") are no longer lost on saving.</string>
 
     <!-- Data check -->
     <string name="settings_data_section">Data</string>
@@ -370,6 +388,12 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="consumable_details">Consumable Details</string>
     <string name="delete_consumable_title">Delete consumable?</string>
     <string name="delete_consumable_message">This action cannot be undone.</string>
+    <string name="consumables_removed_with_event">Consumables deleted along with it: %1$d.</string>
+    <string name="restore_predecessors_intro">These categories will be left empty, though they have a previous installation:</string>
+    <string name="restore_predecessor_item">• %1$s — installed at %2$s km, %3$s</string>
+    <string name="restore_predecessors_question">Put the previous consumables back in their place or leave the categories empty?</string>
+    <string name="restore_predecessors_yes">Delete and restore previous</string>
+    <string name="restore_predecessors_no">Delete, leave empty</string>
     <string name="replace_consumable_title">Replace consumable</string>
     <string name="replace_consumable_message">Are you installing the same consumable or a different one?</string>
     <string name="same_consumable">Same</string>
@@ -693,9 +717,9 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="part_hidden_hint">The record is hidden from the list, but its cost still counts in the event and in statistics</string>
 
     <!-- Fines -->
-    <string name="fines">Fines</string>
-    <string name="fines_section_title">Fines</string>
-    <string name="fines_section_description">Tickets, discount deadline and amounts</string>
+    <string name="fines">Fines, toll roads</string>
+    <string name="fines_section_title">Fines, toll roads</string>
+    <string name="fines_section_description">Tickets with discount deadlines and toll road payments</string>
     <string name="fines_empty">No fines yet</string>
     <string name="fines_count">Fines</string>
     <string name="fines_paid_total">Paid</string>
@@ -728,6 +752,24 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="delete_fine_title">Delete fine?</string>
     <string name="delete_fine_message">The record and its attachments will be deleted permanently.</string>
     <string name="statistics_fines">Fines</string>
+    <string name="tab_fines">Fines</string>
+    <string name="tab_toll_roads">Toll roads</string>
+    <string name="toll_payments_empty">No toll road payments yet</string>
+    <string name="toll_payments_count">Trips</string>
+    <string name="toll_payments_total">Spent</string>
+    <string name="toll_payments_average_month">Monthly average (over %1$d mo.)</string>
+    <plurals name="toll_trips">
+        <item quantity="one">%1$d trip</item>
+        <item quantity="other">%1$d trips</item>
+    </plurals>
+    <string name="add_toll_payment">Toll road payment</string>
+    <string name="edit_toll_payment">Edit payment</string>
+    <string name="toll_payment_date">Payment date</string>
+    <string name="toll_payment_amount">Amount</string>
+    <string name="toll_road_name">Toll road (optional)</string>
+    <string name="toll_road_unnamed">Toll road</string>
+    <string name="delete_toll_payment_title">Delete payment?</string>
+    <string name="delete_toll_payment_message">The record will be deleted permanently.</string>
 
     <!-- Confirmation for removing items inside forms -->
     <string name="clear">Clear</string>
@@ -749,16 +791,72 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="accident_net_cost">Out of your own pocket</string>
     <string name="accident_net_cost_hint">Repair and compensation minus the payouts received — this is the amount that goes into expense statistics.</string>
     <string name="accident_net_cost_covered">The payouts covered the costs — this accident adds nothing to your statistics. The %1$s surplus is not counted: the app tracks spending, not income.</string>
-    <string name="whats_new_fines_title">Fines get their own section</string>
-    <string name="whats_new_fines_body">tickets now live in their own list: amount, violation, number, discount deadline and payment status. The status light tracks the discount, not the debt — it expires by date. Only what you actually paid counts as an expense; an unpaid fine is not spending yet.</string>
-    <string name="whats_new_accident_money_title">Accident costs add up honestly</string>
-    <string name="whats_new_accident_money_body">payouts you received now reduce what the accident cost you — before they were informational, so a repair fully covered by insurance still looked like spending. If you were at fault, an optional “compensation paid” field appears. Past totals may drop: that is the fix, they used to be overstated.</string>
-    <string name="whats_new_consumables_backdated_title">Editing an old service no longer reddens consumables</string>
-    <string name="whats_new_consumables_backdated_body">an item added to a past event became the latest replacement, and the interval was counted from its mileage — the whole consumables screen turned red. The newest installation is active now, and anything already broken is repaired from Data check in one tap.</string>
-    <string name="whats_new_saving_title">Edits get saved instead of vanishing</string>
-    <string name="whats_new_saving_body">a comma in a price, a space in mileage, or a record pointing at a deleted part no longer break saving. If a field is missing, a hint appears next to the button — pressing it used to look like nothing happened.</string>
-    <string name="whats_new_event_parts_title">The event card shows what is in it</string>
-    <string name="whats_new_event_parts_body">service consumables no longer disappear from the card after an edit, and the cost is split across the actual items. In an accident you can hide a part from the Parts section — small stuff like clips does not belong in the list.</string>
-    <string name="whats_new_forms_title">Form details</string>
-    <string name="whats_new_forms_body">the input field no longer hides behind the keyboard, and deleting an item inside a form asks for confirmation — a mistap on the bin used to wipe what you had typed.</string>
+
+    <!-- Расход топлива без «полного бака», объём бака (1.4.0) -->
+    <string name="refueling_amount_label">Amount (%1$s) *</string>
+    <string name="refueling_price_per_unit_label">Price per %1$s (₽)</string>
+    <string name="refueling_fuel_distance_label">Distance on this fuel, km</string>
+    <string name="refueling_fuel_distance_hint">Since the previous refueling with the same fuel — from the trip computer. Without it, gas and gasoline consumption is approximate</string>
+    <string name="fuel_average_consumption">Average consumption</string>
+    <string name="fuel_consumption_value">%1$s %2$s/100 km</string>
+    <string name="fuel_consumption_approx_gas">Estimated from total mileage: enter the distance driven on this fuel in refuelings</string>
+    <string name="fuel_range_tank">Range per tank</string>
+    <string name="fuel_range_gas_tank">Range per gas cylinder</string>
+    <string name="fuel_range_battery">Range per charge</string>
+    <string name="fuel_range_value">%1$s km</string>
+    <string name="fuel_range_need_tank">Set the tank capacity in the car card</string>
+    <string name="fuel_range_need_gas_tank">Set the gas cylinder capacity in the car card</string>
+    <string name="fuel_range_need_battery">Set the battery capacity in the car card</string>
+    <string name="car_tank_volume_label">Tank capacity (L)</string>
+    <string name="car_battery_capacity_label">Battery capacity (kWh)</string>
+    <string name="car_tank_volume_hint">Needed to calculate the range per tank</string>
+    <string name="car_gas_tank_volume_cng_label">Cylinder capacity (m³)</string>
+    <string name="car_gas_tank_volume_lpg_label">Usable cylinder volume (L)</string>
+    <string name="car_gas_tank_volume_lpg_hint">LPG is filled up to 80% — enter 80% of the nominal volume</string>
+
+    <!-- Расход масла (1.4.0) -->
+    <string name="settings_features_section">Features</string>
+    <string name="settings_oil_consumption">Oil consumption tracking</string>
+    <string name="settings_oil_consumption_subtitle">Oil top-ups and level drop, consumption in L/1000 km. Turning it off hides the section, records are kept</string>
+    <string name="oil_consumption_title">Oil consumption</string>
+    <string name="oil_consumption_this_oil">Consumption on this oil</string>
+    <string name="oil_consumption_overall">Average over history</string>
+    <string name="oil_consumption_current">On current oil</string>
+    <string name="oil_topped_up_total">Topped up</string>
+    <string name="oil_current_interval_note">This oil is still in use: when you replace it, we will ask how much the level dropped — otherwise consumption without top-ups is invisible</string>
+    <string name="oil_overall_need_replacement">Appears after the first oil change with the level specified</string>
+    <string name="oil_per_1000_value">%1$s L/1000 km</string>
+    <string name="oil_liters_value">%1$s L</string>
+    <string name="oil_ml_value">%1$d ml</string>
+    <string name="oil_tile_summary">Topped up %1$s L</string>
+    <string name="oil_top_up_action">Top up oil</string>
+    <string name="oil_top_up_short">Top up</string>
+    <string name="oil_top_up_add_title">Oil top-up</string>
+    <string name="oil_top_up_edit_title">Edit top-up</string>
+    <string name="oil_top_up_volume_label">Added, L *</string>
+    <string name="oil_top_up_cost_label">Cost, ₽ (optional)</string>
+    <string name="oil_top_up_delete_title">Delete top-up?</string>
+    <string name="oil_level_drop_title">Old oil level</string>
+    <string name="oil_level_drop_question">How much did the level drop before the change?</string>
+    <string name="oil_level_drop_hint">Oil is consumed even without top-ups. A lower level is consumption too</string>
+    <string name="oil_level_drop_short">Level at change</string>
+    <string name="oil_level_drop_not_checked">Didn\'t check</string>
+    <string name="oil_level_drop_none">No drop</string>
+    <string name="oil_level_drop_ml">In ml</string>
+    <string name="oil_level_drop_dipstick">By dipstick</string>
+    <string name="oil_level_drop_ml_label">Dropped, ml</string>
+    <string name="oil_level_drop_not_set">level not set</string>
+    <string name="oil_dipstick_volume_title">Volume between MIN and MAX</string>
+    <string name="oil_dipstick_volume_label">Volume between MIN and MAX on the dipstick, L</string>
+    <string name="oil_dipstick_volume_hint">Usually about 1 L — see the owner\'s manual. This is not the sump capacity</string>
+    <string name="oil_dipstick_volume_short">Between MIN and MAX</string>
+    <string name="oil_dipstick_volume_guess_value">1 L (unknown)</string>
+    <string name="oil_dipstick_unknown">Don\'t know — use 1 L</string>
+    <string name="oil_dipstick_approx_note">Dipstick-based consumption is approximate</string>
+    <string name="oil_dipstick_guess_warning">Volume between MIN and MAX is unknown, 1 L is used: dipstick-based consumption may differ noticeably from the real one. You can fix it at any time</string>
+    <string name="oil_chart_title">Consumption per oil, L/1000 km</string>
+    <string name="oil_interval_unnamed">Oil</string>
+    <string name="oil_interval_current">current</string>
+    <string name="oil_interval_topped_up">topped up %1$s L</string>
+    <string name="oil_interval_level_drop">level −%1$s L</string>
 </resources>

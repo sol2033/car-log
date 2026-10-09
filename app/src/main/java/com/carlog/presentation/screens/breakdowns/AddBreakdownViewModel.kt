@@ -1,13 +1,16 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.util.moneyInputError
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.repository.NameSuggestionRepository
 import com.carlog.data.repository.BreakdownRepository
 import com.carlog.data.repository.CarRepository
 import com.carlog.data.repository.ConsumableRepository
 import com.carlog.data.repository.PartRepository
+import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.preferences.ConsumablePreferences
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.BreakdownFormRules
@@ -15,6 +18,9 @@ import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableChainRepair
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.domain.model.ConsumableFormRules
+import com.carlog.domain.model.OilConsumptionCalculator
+import com.carlog.domain.model.OilLevelDropInput
+import com.carlog.presentation.screens.consumables.OilLevelQuestion
 import com.carlog.domain.model.EventComposition
 import com.carlog.domain.model.MaintenanceType
 import com.carlog.domain.model.Part
@@ -28,9 +34,14 @@ import com.carlog.util.toDecimalOrNull
 import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -160,11 +171,15 @@ data class AddBreakdownState(
     val descriptionError: String? = null,
     val breakdownMileageError: String? = null,
     val partsCostError: String? = null,
+    // Общая стоимость работ: неразобранный ввод раньше молча сохранялся как «не указано»
+    val serviceCostError: String? = null,
     val consumablesError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
+    // Новое масло в ТО закрывает старое: ждём ответа об уровне старого (§4.4.1)
+    val oilLevelQuestion: OilLevelQuestion? = null,
     val error: String? = null
 ) {
     /** Стоимость расходников события — это его ТО-часть */
@@ -227,7 +242,8 @@ data class AddBreakdownState(
      */
     val hasFieldErrors: Boolean
         get() = maintenanceTypeError != null || titleError != null || descriptionError != null ||
-            breakdownMileageError != null || partsCostError != null || consumablesError != null
+            breakdownMileageError != null || partsCostError != null || consumablesError != null ||
+            serviceCostError != null
 }
 
 @HiltViewModel
@@ -237,12 +253,22 @@ class AddBreakdownViewModel @Inject constructor(
     private val partRepository: PartRepository,
     private val consumableRepository: ConsumableRepository,
     private val consumablePreferences: ConsumablePreferences,
+    private val appPreferences: AppPreferences,
     private val dataChangeNotifier: DataChangeNotifier,
+    private val nameSuggestionRepository: NameSuggestionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(AddBreakdownState())
+
+    // Ответ об уровне закрываемого моторного масла: id этого масла и сам ответ
+    private var oilLevelAnswer: Pair<Long, OilLevelDropInput>? = null
     val state: StateFlow<AddBreakdownState> = _state.asStateFlow()
+
+    /** Подсказки к полю «Название сервиса» — сервисы из прошлых записей, см. [NameSuggestionRepository] */
+    val serviceNameSuggestions: StateFlow<List<String>> = nameSuggestionRepository
+        .serviceNameSuggestions(_state.map { it.serviceName }.distinctUntilChanged())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     private val _availableCategories = MutableStateFlow<List<String>>(emptyList())
     val availableCategories: StateFlow<List<String>> = _availableCategories.asStateFlow()
@@ -411,7 +437,7 @@ class AddBreakdownViewModel @Inject constructor(
     fun updatePartsCost(cost: String) {
         _state.value = _state.value.copy(
             partsCost = cost,
-            partsCostError = if (cost.isNotBlank()) null else _state.value.partsCostError
+            partsCostError = null
         )
     }
     
@@ -438,7 +464,7 @@ class AddBreakdownViewModel @Inject constructor(
     }
 
     fun updateServiceCost(cost: String) {
-        _state.value = _state.value.copy(serviceCost = cost)
+        _state.value = _state.value.copy(serviceCost = cost, serviceCostError = null)
     }
     
     fun updateServiceName(name: String) {
@@ -447,6 +473,22 @@ class AddBreakdownViewModel @Inject constructor(
     
     fun updateServiceAddress(address: String) {
         _state.value = _state.value.copy(serviceAddress = address)
+    }
+
+    /**
+     * Сервис выбран из подсказок: подставляем и его адрес из прошлой записи — но только
+     * в пустое поле, введённый адрес не перетираем. Пока адрес ищется, пользователь мог
+     * начать его набирать, поэтому пустота проверяется ещё раз перед записью.
+     */
+    fun pickServiceNameSuggestion(name: String) {
+        updateServiceName(name)
+        if (_state.value.serviceAddress.isNotBlank()) return
+        viewModelScope.launch {
+            val address = nameSuggestionRepository.lastServiceAddress(name) ?: return@launch
+            if (_state.value.serviceAddress.isBlank() && _state.value.serviceName == name) {
+                _state.value = _state.value.copy(serviceAddress = address)
+            }
+        }
     }
     
     fun toggleWarrantyRepair(isWarranty: Boolean) {
@@ -590,14 +632,54 @@ class AddBreakdownViewModel @Inject constructor(
                 ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.first
             val intervalDays = consumablePreferences.getIntervalDays(category).firstOrNull()
                 ?: ConsumableCategories.DEFAULT_INTERVALS[category]?.second
-            val volume = if (ConsumableFormRules.requiresVolume(category)) {
-                consumablePreferences.getVolume(category).firstOrNull()
-            } else {
-                null
-            }
+            // Объём — из прошлой карточки той же категории этой машины, затем из настроек
+            val volume = ConsumableFormRules.defaultVolume(
+                category = category,
+                sameCategoryHistory = consumableRepository
+                    .getConsumablesByCategory(_state.value.carId, category).firstOrNull().orEmpty(),
+                settingsVolume = consumablePreferences.getVolume(category).firstOrNull()
+            )
             _consumableDefaults.value =
                 ConsumableDefaults(category, intervalMileage, intervalDays, volume)
         }
+    }
+
+    /**
+     * Моторное масло, которое закроет сохранение ТО: только если в ТО добавлено новое масло,
+     * а план вставки помечает прежнее заменённым. Уже сохранённые позиции ничего не закрывают.
+     */
+    private suspend fun findClosedEngineOil(state: AddBreakdownState, breakdownMileage: Int): Consumable? {
+        val hasNewOil = state.temporaryConsumables.any {
+            it.consumableId == null && it.category == OilConsumptionCalculator.ENGINE_OIL
+        }
+        if (!hasNewOil) return null
+        val plan = ConsumableChainRepair.insertPlan(
+            sameCategory = consumableRepository
+                .getConsumablesByCategory(state.carId, OilConsumptionCalculator.ENGINE_OIL)
+                .firstOrNull() ?: emptyList(),
+            category = OilConsumptionCalculator.ENGINE_OIL,
+            installationMileage = breakdownMileage,
+            installationDate = state.breakdownDate
+        )
+        return OilConsumptionCalculator.oilClosedBy(plan.replaced)
+    }
+
+    /** Ответ об уровне старого масла: запоминаем и сохраняем ТО заново */
+    fun answerOilLevel(input: OilLevelDropInput, dipstickVolume: Pair<Double, Boolean>?) {
+        val question = _state.value.oilLevelQuestion ?: return
+        viewModelScope.launch {
+            dipstickVolume?.let { (volume, guess) ->
+                carRepository.setOilDipstickVolume(question.car.id, volume, guess)
+            }
+            oilLevelAnswer = question.oldOil.id to input
+            _state.value = _state.value.copy(oilLevelQuestion = null)
+            saveBreakdown()
+        }
+    }
+
+    /** Отмена — форма остаётся открытой, ничего не сохранено */
+    fun dismissOilLevelQuestion() {
+        _state.value = _state.value.copy(oilLevelQuestion = null)
     }
 
     fun saveBreakdown() {
@@ -627,18 +709,25 @@ class AddBreakdownViewModel @Inject constructor(
         val partsCostError =
             if (!currentState.useGeneralPartsCost && currentState.addedParts.isEmpty()) {
                 "Добавьте хотя бы одну запчасть"
+            } else if (currentState.useGeneralPartsCost) {
+                // Общая сумма необязательна, но введённый мусор молча не теряем
+                moneyInputError(currentState.partsCost)
             } else {
                 null
             }
+        val serviceCostError =
+            if (currentState.useGeneralServiceCost) moneyInputError(currentState.serviceCost) else null
         
-        if (maintenanceTypeError != null || titleError != null || descriptionError != null || 
-            breakdownMileageError != null || partsCostError != null || consumablesError != null) {
+        if (maintenanceTypeError != null || titleError != null || descriptionError != null ||
+            breakdownMileageError != null || partsCostError != null || consumablesError != null ||
+            serviceCostError != null) {
             _state.value = currentState.copy(
                 maintenanceTypeError = maintenanceTypeError,
                 titleError = titleError,
                 descriptionError = descriptionError,
                 breakdownMileageError = breakdownMileageError,
                 partsCostError = partsCostError,
+                serviceCostError = serviceCostError,
                 consumablesError = consumablesError
             )
             return
@@ -650,6 +739,23 @@ class AddBreakdownViewModel @Inject constructor(
                 
                 val currentTime = System.currentTimeMillis()
                 val breakdownMileage = currentState.breakdownMileage.toMileageOrNull() ?: 0
+
+                // Новое моторное масло в ТО закрывает старое — уровень старого спрашиваем
+                // до любых записей в базу, так же как при замене с экрана масла
+                val closedOil = findClosedEngineOil(currentState, breakdownMileage)
+                val oilAnswer = oilLevelAnswer?.takeIf { it.first == closedOil?.id }?.second
+                if (closedOil != null && oilAnswer == null &&
+                    appPreferences.oilConsumptionEnabled.first()
+                ) {
+                    val car = carRepository.getCarByIdOnce(currentState.carId)
+                    if (car != null) {
+                        _state.value = _state.value.copy(
+                            isSaving = false,
+                            oilLevelQuestion = OilLevelQuestion(closedOil, car)
+                        )
+                        return@launch
+                    }
+                }
                 
                 // Расходники и запчасти складываются: событие может быть и ТО, и ремонтом сразу.
                 // В статистике эта сумма раскладывается обратно по позициям (EventComposition)
@@ -741,8 +847,11 @@ class AddBreakdownViewModel @Inject constructor(
                             )
 
                             plan.replaced.forEach { replaced ->
+                                val base = if (oilAnswer != null && replaced.id == closedOil?.id) {
+                                    OilConsumptionCalculator.withLevelDrop(replaced, oilAnswer)
+                                } else replaced
                                 consumableRepository.updateConsumable(
-                                    replaced.copy(
+                                    base.copy(
                                         isActive = false,
                                         replacementDate = currentState.breakdownDate,
                                         replacementMileage = breakdownMileage,
@@ -951,6 +1060,7 @@ class AddBreakdownViewModel @Inject constructor(
                 
                 // Снимок currentState сделан до сохранения: набранное за это время
                 // он бы откатил, а поля ввода во время сохранения не блокируются
+                oilLevelAnswer = null
                 _state.value = _state.value.copy(
                     isSaving = false,
                     isSaved = true

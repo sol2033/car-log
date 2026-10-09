@@ -4,12 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carlog.data.backup.DataChangeNotifier
+import com.carlog.data.preferences.AppPreferences
 import com.carlog.data.repository.CarRepository
 import com.carlog.domain.model.Car
+import com.carlog.domain.model.CarFormRules
+import com.carlog.domain.model.OilConsumptionCalculator
 import com.carlog.presentation.components.orphanPhotosToDelete
 import com.carlog.util.Attachments
 import com.carlog.util.FileHelper
 import com.carlog.domain.model.BreakdownFormRules
+import com.carlog.util.toDecimalOrNull
 import com.carlog.util.toMileageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +24,9 @@ import javax.inject.Inject
 
 data class AddCarState(
     val carId: Long? = null,
+    // Исходная запись при редактировании: сохраняем через copy (правило 1), иначе всё,
+    // чего нет в форме (например, запрос нового отсчёта расхода), ушло бы в дефолт
+    val original: Car? = null,
     val brand: String = "",
     val model: String = "",
     val year: String = "",
@@ -34,6 +41,13 @@ data class AddCarState(
     val fuelType: String = "Бензин",
     val hasGasEquipment: Boolean = false,
     val gasType: String? = null,
+    // Бак, л (у электро — батарея, кВт·ч) и газовый баллон: для пробега на баке
+    val tankVolume: String = "",
+    val gasTankVolume: String = "",
+    // Объём между MIN и MAX щупа (для расхода масла) и «не знаю» — подставится 1 л
+    val oilDipstickVolume: String = "",
+    val oilDipstickVolumeUnknown: Boolean = false,
+    val oilConsumptionEnabled: Boolean = true,
     val currentMileage: String = "",
     val purchaseMileage: String = "",
     val purchaseDate: String = "",
@@ -41,8 +55,6 @@ data class AddCarState(
     val photosPaths: List<String> = emptyList(),
     val mainPhotoPath: String? = null,
     val notes: String = "",
-    // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
-    val createdAt: Long = 0L,
     /**
      * Все фото, прошедшие через экран: исходные плюс выбранные в этот заход. Файл копируется
      * в хранилище сразу при выборе, поэтому без такого учёта снимок, выбранный и затем
@@ -58,6 +70,10 @@ data class AddCarState(
     val mileageError: String? = null,
     val purchaseDateError: String? = null,
     val purchaseMileageError: String? = null,
+    val tankVolumeError: String? = null,
+    val gasTankVolumeError: String? = null,
+    val oilDipstickVolumeError: String? = null,
+    val engineVolumeError: String? = null,
     
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -69,6 +85,7 @@ data class AddCarState(
 class AddCarViewModel @Inject constructor(
     private val carRepository: CarRepository,
     private val dataChangeNotifier: DataChangeNotifier,
+    private val appPreferences: AppPreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -79,6 +96,11 @@ class AddCarViewModel @Inject constructor(
         val carId = savedStateHandle.get<Long>("carId")
         if (carId != null && carId != -1L) {
             loadCar(carId)
+        }
+        viewModelScope.launch {
+            appPreferences.oilConsumptionEnabled.collect { enabled ->
+                _state.value = _state.value.copy(oilConsumptionEnabled = enabled)
+            }
         }
     }
     
@@ -91,6 +113,7 @@ class AddCarViewModel @Inject constructor(
                     if (car != null) {
                         _state.value = AddCarState(
                             carId = car.id,
+                            original = car,
                             brand = car.brand,
                             model = car.model,
                             year = car.year?.toString() ?: "",
@@ -105,6 +128,12 @@ class AddCarViewModel @Inject constructor(
                             fuelType = car.fuelType,
                             hasGasEquipment = car.hasGasEquipment,
                             gasType = car.gasType,
+                            tankVolume = car.tankVolume?.let(::formatVolume) ?: "",
+                            gasTankVolume = car.gasTankVolume?.let(::formatVolume) ?: "",
+                            oilDipstickVolume = car.oilDipstickVolume
+                                ?.takeIf { !car.oilDipstickVolumeIsGuess }?.let(::formatVolume) ?: "",
+                            oilDipstickVolumeUnknown = car.oilDipstickVolumeIsGuess,
+                            oilConsumptionEnabled = _state.value.oilConsumptionEnabled,
                             currentMileage = car.currentMileage.toString(),
                             purchaseMileage = car.purchaseMileage?.toString() ?: "",
                             purchaseDate = car.purchaseDate?.let {
@@ -122,7 +151,6 @@ class AddCarViewModel @Inject constructor(
                             touchedPhotos = (car.photosPaths ?: emptyList()).toSet(),
                             originalPhotos = (car.photosPaths ?: emptyList()).toSet(),
                             notes = car.notes ?: "",
-                            createdAt = car.createdAt,
                             isLoading = false
                         )
                     } else {
@@ -176,7 +204,7 @@ class AddCarViewModel @Inject constructor(
     }
     
     fun updateEngineVolume(engineVolume: String) {
-        _state.value = _state.value.copy(engineVolume = engineVolume)
+        _state.value = _state.value.copy(engineVolume = engineVolume, engineVolumeError = null)
     }
     
     fun updateTransmissionType(transmissionType: String) {
@@ -209,6 +237,22 @@ class AddCarViewModel @Inject constructor(
         _state.value = _state.value.copy(gasType = gasType)
     }
     
+    fun updateTankVolume(volume: String) {
+        _state.value = _state.value.copy(tankVolume = volume, tankVolumeError = null)
+    }
+
+    fun updateGasTankVolume(volume: String) {
+        _state.value = _state.value.copy(gasTankVolume = volume, gasTankVolumeError = null)
+    }
+
+    fun updateOilDipstickVolume(volume: String) {
+        _state.value = _state.value.copy(oilDipstickVolume = volume, oilDipstickVolumeError = null)
+    }
+
+    fun updateOilDipstickVolumeUnknown(unknown: Boolean) {
+        _state.value = _state.value.copy(oilDipstickVolumeUnknown = unknown, oilDipstickVolumeError = null)
+    }
+
     fun updateCurrentMileage(mileage: String) {
         _state.value = _state.value.copy(
             currentMileage = mileage,
@@ -283,19 +327,40 @@ class AddCarViewModel @Inject constructor(
         // Пробег покупки уходил в toIntOrNull и при нечисловом значении молча становился
         // null — а без него статистика не может считать средний пробег в день
         val purchaseMileageError = BreakdownFormRules.mileageError(currentState.purchaseMileage)
-        
-        if (brandError != null || modelError != null || fuelTypeError != null || mileageError != null || purchaseDateError != null || purchaseMileageError != null) {
+        // Объём обязателен только для новой машины: у заведённых до 1.4.0 его нет,
+        // и статистика сама попросит его указать
+        val isNewCar = currentState.carId == null
+        val tankVolumeError = CarFormRules.volumeError(currentState.tankVolume, required = isNewCar)
+        val gasTankVolumeError = if (currentState.hasGasEquipment) {
+            CarFormRules.volumeError(currentState.gasTankVolume, required = isNewCar)
+        } else null
+        val oilDipstickVolumeError = if (currentState.oilDipstickVolumeUnknown) null
+            else CarFormRules.volumeError(currentState.oilDipstickVolume, required = false)
+        // Объём двигателя разбирался через toDoubleOrNull: «1,6» с русской раскладки молча
+        // сохранялся как «не указан», а при правке машины стирал уже записанный объём
+        val engineVolumeError = CarFormRules.volumeError(currentState.engineVolume, required = false)
+
+        if (brandError != null || modelError != null || fuelTypeError != null || mileageError != null || purchaseDateError != null || purchaseMileageError != null ||
+            tankVolumeError != null || gasTankVolumeError != null || oilDipstickVolumeError != null ||
+            engineVolumeError != null) {
             _state.value = currentState.copy(
                 brandError = brandError,
                 modelError = modelError,
                 fuelTypeError = fuelTypeError,
                 mileageError = mileageError,
                 purchaseDateError = purchaseDateError,
-                purchaseMileageError = purchaseMileageError
+                purchaseMileageError = purchaseMileageError,
+                tankVolumeError = tankVolumeError,
+                gasTankVolumeError = gasTankVolumeError,
+                oilDipstickVolumeError = oilDipstickVolumeError,
+                engineVolumeError = engineVolumeError
             )
             return
         }
         
+        // Запись ещё не догрузилась — сохранять нельзя (правило 1)
+        if (currentState.carId != null && currentState.original == null) return
+
         viewModelScope.launch {
             try {
                 _state.value = currentState.copy(isSaving = true, error = null)
@@ -303,11 +368,22 @@ class AddCarViewModel @Inject constructor(
                 val currentTime = System.currentTimeMillis()
                 val currentMileage = currentState.currentMileage.toMileageOrNull() ?: 0
                 val purchaseMileage = currentState.purchaseMileage.toMileageOrNull()
+                val tankVolume = currentState.tankVolume.toDecimalOrNull()
+                // Без ГБО баллона нет — не храним забытое значение
+                val gasTankVolume = if (currentState.hasGasEquipment) {
+                    currentState.gasTankVolume.toDecimalOrNull()
+                } else null
+                // «Не знаю» — 1 л с пометкой: расход по щупу тогда считается с погрешностью
+                val oilDipstickVolume = if (currentState.oilDipstickVolumeUnknown) {
+                    OilConsumptionCalculator.DEFAULT_DIPSTICK_VOLUME
+                } else currentState.oilDipstickVolume.toDecimalOrNull()
+                val oilDipstickVolumeIsGuess = currentState.oilDipstickVolumeUnknown
                 
-                if (currentState.carId != null) {
-                    // Update existing car
-                    val car = Car(
-                        id = currentState.carId,
+                val original = currentState.original
+                if (original != null) {
+                    // copy, а не новая сущность: поля вне формы (fuelResetPending,
+                    // createdAt — по нему считается возраст авто) должны уцелеть
+                    val car = original.copy(
                         brand = currentState.brand,
                         model = currentState.model,
                         year = currentState.year.toIntOrNull(),
@@ -315,23 +391,23 @@ class AddCarViewModel @Inject constructor(
                         licensePlate = currentState.licensePlate.ifBlank { null },
                         vin = currentState.vin.ifBlank { null },
                         engineModel = currentState.engineModel.ifBlank { null },
-                        engineVolume = currentState.engineVolume.toDoubleOrNull(),
+                        engineVolume = currentState.engineVolume.toDecimalOrNull(),
                         transmissionType = currentState.transmissionType.ifBlank { null },
                         driveType = currentState.driveType.ifBlank { null },
                         bodyType = currentState.bodyType.ifBlank { null },
                         fuelType = currentState.fuelType,
                         hasGasEquipment = currentState.hasGasEquipment,
                         gasType = currentState.gasType,
+                        tankVolume = tankVolume,
+                        gasTankVolume = gasTankVolume,
+                        oilDipstickVolume = oilDipstickVolume,
+                        oilDipstickVolumeIsGuess = oilDipstickVolumeIsGuess,
                         currentMileage = currentMileage,
                         purchaseMileage = purchaseMileage,
                         purchaseDate = currentState.purchaseDateMillis,
                         mainPhotoPath = currentState.mainPhotoPath,
                         photosPaths = currentState.photosPaths.ifEmpty { null },
                         notes = currentState.notes.ifBlank { null },
-                        // @Update перезаписывает строку целиком, поэтому исходное время
-                        // создания нужно передать явно: по нему считается возраст авто
-                        // в статистике, если не указана дата покупки
-                        createdAt = currentState.createdAt,
                         updatedAt = currentTime
                     )
                     carRepository.updateCar(car)
@@ -345,13 +421,17 @@ class AddCarViewModel @Inject constructor(
                         licensePlate = currentState.licensePlate.ifBlank { null },
                         vin = currentState.vin.ifBlank { null },
                         engineModel = currentState.engineModel.ifBlank { null },
-                        engineVolume = currentState.engineVolume.toDoubleOrNull(),
+                        engineVolume = currentState.engineVolume.toDecimalOrNull(),
                         transmissionType = currentState.transmissionType.ifBlank { null },
                         driveType = currentState.driveType.ifBlank { null },
                         bodyType = currentState.bodyType.ifBlank { null },
                         fuelType = currentState.fuelType,
                         hasGasEquipment = currentState.hasGasEquipment,
                         gasType = currentState.gasType,
+                        tankVolume = tankVolume,
+                        gasTankVolume = gasTankVolume,
+                        oilDipstickVolume = oilDipstickVolume,
+                        oilDipstickVolumeIsGuess = oilDipstickVolumeIsGuess,
                         currentMileage = currentMileage,
                         purchaseMileage = purchaseMileage,
                         purchaseDate = currentState.purchaseDateMillis,
@@ -402,3 +482,7 @@ class AddCarViewModel @Inject constructor(
         super.onCleared()
     }
 }
+
+/** 50.0 → «50», 42.5 → «42.5»: без хвостового «.0» в поле формы */
+private fun formatVolume(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()

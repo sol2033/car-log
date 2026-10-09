@@ -40,6 +40,10 @@ data class Consumable(
     val replacementIntervalDays: Int?, // Интервал замены по дням
     val isActive: Boolean, // Активен ли расходник
     val notes: String?, // Заметки
+    // Только моторное масло: насколько упал уровень к замене (угар без доливов).
+    // Задаётся одним из двух способов — в мл или долей щупа (0..1 от MIN–MAX); null — не указано
+    val oilLevelDropMl: Int? = null,
+    val oilLevelDropFraction: Double? = null,
     val createdAt: Long,
     val updatedAt: Long
 )

@@ -1,6 +1,6 @@
 package com.carlog.util
 
-import java.util.concurrent.TimeUnit
+import java.time.temporal.ChronoUnit
 
 /**
  * Статус-«светофор» документа по сроку действия (аналог [ConsumableStatus] для расходников)
@@ -18,9 +18,16 @@ object DocumentStatus {
         val remainingDays: Int // отрицательное значение = просрочен на N дней
     )
 
-    fun calculateStatus(expiryDate: Long): StatusInfo {
-        val remainingMillis = expiryDate - System.currentTimeMillis()
-        val remainingDays = TimeUnit.MILLISECONDS.toDays(remainingMillis).toInt()
+    /**
+     * Дни — календарные, через [DateUtils], как у штрафов. Раньше здесь вычитались
+     * миллисекунды, то есть считались UTC-сутки: результат зависел от времени суток
+     * в записи, и на границе дня светофор показывал лишний или недостающий день.
+     */
+    fun calculateStatus(expiryDate: Long, now: Long = System.currentTimeMillis()): StatusInfo {
+        val remainingDays = ChronoUnit.DAYS.between(
+            DateUtils.toLocalDate(now),
+            DateUtils.toLocalDate(expiryDate)
+        ).toInt()
 
         val status = when {
             remainingDays <= 7 -> Status.CRITICAL

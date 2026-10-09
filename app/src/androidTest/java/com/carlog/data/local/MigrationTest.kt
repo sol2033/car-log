@@ -469,5 +469,154 @@ class MigrationTest {
             assertEquals(25_000.0, it.getDouble(0), 0.01)
         }
     }
-}
 
+    /**
+     * 24→25: объём бака и расход без «полного бака». У старых машин объёма нет — статистика
+     * просит его указать; устаревший расход отдельных баков обнуляется.
+     */
+    @Test
+    fun migrate24To25_объёмБакаПустойРасходБаковОбнулён() {
+        helper.createDatabase(testDb, 24).apply {
+            insertCar(this, 1)
+            execSQL(
+                "INSERT INTO refuelings (id, carId, date, mileage, liters, fuelType, isFullTank, " +
+                    "fuelConsumption, isConsumptionResetPoint, createdAt, updatedAt) " +
+                    "VALUES (1, 1, 0, 90000, 40.0, 'АИ-95', 1, 8.5, 0, 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 25, true, MIGRATION_24_25)
+
+        db.query("SELECT tankVolume, gasTankVolume FROM cars WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(true, it.isNull(0))
+            assertEquals(true, it.isNull(1))
+        }
+        db.query("SELECT liters, fuelConsumption, fuelDistanceKm FROM refuelings WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals("сама заправка цела", 40.0, it.getDouble(0), 0.001)
+            assertEquals(true, it.isNull(1))
+            assertEquals(true, it.isNull(2))
+        }
+    }
+
+    /**
+     * 25→26: расход масла. Новая таблица доливов пуста и чистится вместе с машиной;
+     * у старых расходников и машин уровень и объём щупа не указаны.
+     */
+    @Test
+    fun migrate25To26_доливыСоздаютсяИУходятСМашиной() {
+        helper.createDatabase(testDb, 25).apply {
+            insertCar(this, 1)
+            insertConsumable(this, 10, null)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 26, true, MIGRATION_25_26)
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT INTO oil_top_ups (id, carId, date, mileage, volume, cost, createdAt, updatedAt) " +
+                "VALUES (1, 1, 0, 95000, 0.5, 450.0, 0, 0)"
+        )
+        db.query("SELECT volume FROM oil_top_ups WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(0.5, it.getDouble(0), 0.001)
+        }
+        db.query("SELECT oilLevelDropMl, oilLevelDropFraction FROM consumables WHERE id = 10").use {
+            it.moveToFirst()
+            assertEquals(true, it.isNull(0))
+            assertEquals(true, it.isNull(1))
+        }
+        db.query("SELECT oilDipstickVolume, oilDipstickVolumeIsGuess FROM cars WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(true, it.isNull(0))
+            assertEquals(0, it.getInt(1))
+        }
+
+        db.execSQL("DELETE FROM cars WHERE id = 1")
+        db.query("SELECT COUNT(*) FROM oil_top_ups").use {
+            it.moveToFirst()
+            assertEquals("доливы удалены каскадом", 0, it.getInt(0))
+        }
+    }
+
+    /**
+     * 26→27: платные дороги. Новая таблица создаётся пустой, принимает запись без названия
+     * дороги и чистится вместе с машиной; штрафы миграция не трогает.
+     */
+    @Test
+    fun migrate26To27_платныеДорогиСоздаютсяИУходятСМашиной() {
+        helper.createDatabase(testDb, 26).apply {
+            insertCar(this, 1)
+            execSQL(
+                "INSERT INTO fines (id, carId, date, amount, violationType, isPaid, createdAt, updatedAt) " +
+                    "VALUES (1, 1, 0, 500.0, 'Превышение скорости', 0, 0, 0)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 27, true, MIGRATION_26_27)
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT INTO toll_payments (id, carId, date, amount, roadName, notes, createdAt, updatedAt) " +
+                "VALUES (1, 1, 0, 450.0, NULL, NULL, 0, 0)"
+        )
+        db.query("SELECT amount, roadName FROM toll_payments WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(450.0, it.getDouble(0), 0.001)
+            assertEquals(true, it.isNull(1))
+        }
+        db.query("SELECT amount FROM fines WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals("штраф цел", 500.0, it.getDouble(0), 0.001)
+        }
+
+        db.execSQL("DELETE FROM cars WHERE id = 1")
+        db.query("SELECT COUNT(*) FROM toll_payments").use {
+            it.moveToFirst()
+            assertEquals("оплаты удалены каскадом", 0, it.getInt(0))
+        }
+    }
+
+    /**
+     * 27→28: ремонт данных. Расходник, привязанный к ТО, которого нет в списке этого ТО
+     * (след «замены на такой же», копировавшей привязку старого), становится отдельным —
+     * его стоимость возвращается в статистику. Законные позиции ТО, отдельные расходники
+     * и сами ТО не трогаются; похожий id (110 при списке [10]) за совпадение не принимается.
+     */
+    @Test
+    fun migrate27To28_снимаетУнаследованнуюПривязкуКТО() {
+        helper.createDatabase(testDb, 27).apply {
+            insertCar(this, 1)
+            insertBreakdown(this, id = 1, linkedConsumableIds = "[10]")
+            insertConsumable(this, id = 10, linkedMaintenanceId = 1)   // позиция ТО
+            insertConsumable(this, id = 12, linkedMaintenanceId = 1)   // унаследованная привязка
+            insertConsumable(this, id = 110, linkedMaintenanceId = 1)  // похожий id
+            insertConsumable(this, id = 13, linkedMaintenanceId = 99)  // ТО удалено
+            insertConsumable(this, id = 14, linkedMaintenanceId = null) // отдельный
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 28, true, MIGRATION_27_28)
+
+        val links = mutableMapOf<Long, Long?>()
+        db.query("SELECT id, linkedMaintenanceId FROM consumables").use {
+            while (it.moveToNext()) {
+                links[it.getLong(0)] = if (it.isNull(1)) null else it.getLong(1)
+            }
+        }
+        assertEquals("позиция ТО осталась в ТО", 1L, links[10])
+        assertNull("унаследованная привязка снята", links[12])
+        assertNull("похожий id не совпал со списком", links[110])
+        assertNull("висячая ссылка снята", links[13])
+        assertNull(links[14])
+        assertEquals("ни одна строка не удалена", 5, links.size)
+
+        db.query("SELECT linkedConsumableIds, partsCost FROM breakdowns WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals("[10]", it.getString(0))
+            assertEquals(5000.0, it.getDouble(1), 0.001)
+        }
+    }
+}

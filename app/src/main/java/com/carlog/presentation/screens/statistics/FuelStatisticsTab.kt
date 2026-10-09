@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.carlog.R
 import com.carlog.domain.model.FuelStatistics
 import com.carlog.domain.model.StatisticsPeriod
+import com.carlog.presentation.components.FuelConsumptionBlock
 import com.carlog.presentation.screens.statistics.charts.*
 import java.time.LocalDate
 import java.time.YearMonth
@@ -124,31 +125,6 @@ fun FuelStatisticsTab(
         
         // Statistics for each fuel type
         statistics.fuelTypes.forEach { fuelTypeStats ->
-            var showResetDialog by remember { mutableStateOf(false) }
-
-            if (showResetDialog) {
-                AlertDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = { Text(stringResource(R.string.fuel_reset_dialog_title)) },
-                    text = { Text(stringResource(R.string.fuel_reset_dialog_message)) },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                showResetDialog = false
-                                onRequestFuelReset()
-                            }
-                        ) {
-                            Text(stringResource(R.string.fuel_reset_dialog_confirm))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showResetDialog = false }) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                    }
-                )
-            }
-
             // Fuel Type Card with Metrics and Charts
             Card(
                 modifier = Modifier.fillMaxWidth()
@@ -163,48 +139,18 @@ fun FuelStatisticsTab(
                         color = MaterialTheme.colorScheme.primary
                     )
                     
-                    // Key Metrics for this fuel type
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                MetricRow(
-                                    label = "Средний расход",
-                                    value = if (fuelTypeStats.averageConsumption > 0)
-                                        "${formatNumber(fuelTypeStats.averageConsumption)} л/100км"
-                                    else "—"
-                                )
-                            }
-                            // Пропущенная заправка сбивает средний расход навсегда:
-                            // отсюда пользователь назначает новую точку отсчёта
-                            IconButton(
-                                onClick = { showResetDialog = true },
-                                modifier = Modifier
-                                    .padding(start = 4.dp)
-                                    .size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.RestartAlt,
-                                    contentDescription = stringResource(R.string.fuel_reset_action),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        FuelConsumptionResetHint(
-                            hasConsumption = fuelTypeStats.averageConsumption > 0,
-                            resetPending = fuelResetPending,
-                            consumptionSince = statistics.consumptionSince,
-                            onCancelPending = onCancelFuelReset,
-                            onClearReset = onClearFuelReset
-                        )
-                    }
+                    FuelConsumptionBlock(
+                        summary = fuelTypeStats.summary,
+                        resetPending = fuelResetPending,
+                        consumptionSince = statistics.consumptionSince,
+                        onRequestReset = onRequestFuelReset,
+                        onCancelPending = onCancelFuelReset,
+                        onClearReset = onClearFuelReset
+                    )
                     
                     MetricRow(
                         label = "Общее количество",
-                        value = "${formatNumber(fuelTypeStats.totalLiters)} ${if (fuelTypeStats.fuelType == "Электро") "кВт·ч" else "л"}"
+                        value = "${formatNumber(fuelTypeStats.totalLiters)} ${fuelTypeStats.summary.unit}"
                     )
                     
                     MetricRow(
@@ -217,7 +163,7 @@ fun FuelStatisticsTab(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "Расход ${getPeriodLabel(selectedPeriod)} (${if (fuelTypeStats.fuelType == "Электро") "кВт·ч" else "л"})",
+                            text = "Расход ${getPeriodLabel(selectedPeriod)} (${fuelTypeStats.summary.unit})",
                             style = MaterialTheme.typography.titleMedium
                         )
                         
@@ -243,32 +189,6 @@ fun FuelStatisticsTab(
                         )
                     }
                     
-                    // Consumption Trend Line Chart for this fuel type (л/100км) (скрываем для ALL_TIME)
-                    if (fuelTypeStats.consumptionTrend.isNotEmpty() && selectedPeriod != StatisticsPeriod.ALL_TIME) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Тренд расхода топлива (л/100км)",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        VicoLineChart(
-                            data = fuelTypeStats.consumptionTrend.map { item ->
-                                LineChartData(
-                                    label = DateTimeFormatter.ofPattern("dd.MM").format(item.date),
-                                    value = item.consumption.toFloat()
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            lineColor = when(fuelTypeStats.fuelType) {
-                                "Бензин" -> Color(0xFF4CAF50)
-                                "Газ" -> Color(0xFF2196F3)
-                                "Дизель" -> Color(0xFFFF9800)
-                                "Электро" -> Color(0xFF9C27B0)
-                                else -> Color(0xFF4CAF50)
-                            }
-                        )
-                    }
                 }
             }
         }
@@ -310,71 +230,5 @@ fun FuelStatisticsTab(
             }
         }
         
-    }
-}
-
-/**
- * Подсказка под средним расходом: чего не хватает для расчёта и с какого момента он идёт.
- * Точка отсчёта — общая для машины, поэтому и запрос, и отмена действуют на все типы топлива.
- */
-@Composable
-private fun FuelConsumptionResetHint(
-    hasConsumption: Boolean,
-    resetPending: Boolean,
-    consumptionSince: LocalDate?,
-    onCancelPending: () -> Unit,
-    onClearReset: () -> Unit
-) {
-    if (!hasConsumption) {
-        Text(
-            text = if (consumptionSince != null) {
-                stringResource(R.string.fuel_reset_need_more)
-            } else {
-                stringResource(R.string.fuel_need_two_refuelings)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-        )
-    }
-
-    val (hint, actionLabel, action) = when {
-        resetPending -> Triple(
-            stringResource(R.string.fuel_reset_pending),
-            stringResource(R.string.fuel_reset_pending_cancel),
-            onCancelPending
-        )
-        consumptionSince != null -> Triple(
-            stringResource(
-                R.string.fuel_reset_active,
-                consumptionSince.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-            ),
-            stringResource(R.string.fuel_reset_undo),
-            onClearReset
-        )
-        else -> return
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 4.dp, top = 2.dp)
-        )
-        TextButton(
-            onClick = action,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-        ) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
     }
 }

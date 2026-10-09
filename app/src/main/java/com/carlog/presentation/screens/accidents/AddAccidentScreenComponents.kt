@@ -1,5 +1,9 @@
 package com.carlog.presentation.screens.accidents
 
+import com.carlog.util.formatCurrency
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import com.carlog.util.toDecimalOrNull
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +36,9 @@ fun PayoutsSection(
     kaskoPayout: String,
     hasCulpritPayout: Boolean,
     culpritPayout: String,
+    osagoPayoutError: String?,
+    kaskoPayoutError: String?,
+    culpritPayoutError: String?,
     onToggleOsago: (Boolean) -> Unit,
     onOsagoAmountChange: (String) -> Unit,
     onToggleKasko: (Boolean) -> Unit,
@@ -60,6 +67,7 @@ fun PayoutsSection(
             enabled = !isUserAtFault,
             checked = hasOsagoPayout,
             amount = osagoPayout,
+            error = osagoPayoutError,
             onCheckedChange = onToggleOsago,
             onAmountChange = onOsagoAmountChange
         )
@@ -70,6 +78,7 @@ fun PayoutsSection(
             enabled = true,
             checked = hasKaskoPayout,
             amount = kaskoPayout,
+            error = kaskoPayoutError,
             onCheckedChange = onToggleKasko,
             onAmountChange = onKaskoAmountChange
         )
@@ -80,6 +89,7 @@ fun PayoutsSection(
             enabled = !isUserAtFault,
             checked = hasCulpritPayout,
             amount = culpritPayout,
+            error = culpritPayoutError,
             onCheckedChange = onToggleCulprit,
             onAmountChange = onCulpritAmountChange
         )
@@ -94,6 +104,7 @@ fun PayoutsSection(
 fun CompensationSection(
     hasCompensationPaid: Boolean,
     compensationPaid: String,
+    error: String?,
     onToggle: (Boolean) -> Unit,
     onAmountChange: (String) -> Unit
 ) {
@@ -113,6 +124,7 @@ fun CompensationSection(
             enabled = true,
             checked = hasCompensationPaid,
             amount = compensationPaid,
+            error = error,
             onCheckedChange = onToggle,
             onAmountChange = onAmountChange
         )
@@ -125,6 +137,7 @@ private fun PayoutItem(
     enabled: Boolean,
     checked: Boolean,
     amount: String,
+    error: String?,
     onCheckedChange: (Boolean) -> Unit,
     onAmountChange: (String) -> Unit
 ) {
@@ -152,7 +165,11 @@ private fun PayoutItem(
                 label = { Text(stringResource(R.string.amount_label)) },
                 modifier = Modifier.width(140.dp),
                 suffix = { Text("₽") },
-                singleLine = true
+                singleLine = true,
+                // Без цифровой клавиатуры сюда легко попадало «15к» — и сумма молча терялась
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = error != null,
+                supportingText = error?.let { { Text(it) } }
             )
         }
     }
@@ -164,6 +181,8 @@ fun RepairSection(
     addedParts: List<EventPart>,
     serviceCost: String,
     totalRepairCost: String,
+    serviceCostError: String?,
+    totalRepairCostError: String?,
     onToggleRepairMethod: (Boolean) -> Unit,
     onAddPart: (EventPart) -> Unit,
     onUpdatePart: (Int, EventPart) -> Unit,
@@ -294,6 +313,10 @@ fun RepairSection(
                 label = { Text(stringResource(R.string.labor_cost_optional)) },
                 modifier = Modifier.fillMaxWidth(),
                 suffix = { Text("₽") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = serviceCostError != null,
+                supportingText = serviceCostError?.let { { Text(it) } },
                 leadingIcon = {
                     Icon(Icons.Default.Build, contentDescription = null)
                 }
@@ -301,7 +324,7 @@ fun RepairSection(
             
             // Итоговая стоимость
             val partsTotal = addedParts.sumOf { part -> part.price }
-            val serviceTotal = serviceCost.toDoubleOrNull() ?: 0.0
+            val serviceTotal = serviceCost.toDecimalOrNull() ?: 0.0
             val total = partsTotal + serviceTotal
             
             if (total > 0) {
@@ -324,7 +347,7 @@ fun RepairSection(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "$total ₽",
+                            text = formatCurrency(total),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -340,6 +363,10 @@ fun RepairSection(
                 label = { Text(stringResource(R.string.total_repair_cost_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 suffix = { Text("₽") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = totalRepairCostError != null,
+                supportingText = totalRepairCostError?.let { { Text(it) } },
                 leadingIcon = {
                     Icon(Icons.Default.Build, contentDescription = null)
                 }

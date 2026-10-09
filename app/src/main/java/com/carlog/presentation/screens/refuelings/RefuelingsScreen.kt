@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carlog.R
+import com.carlog.domain.model.FuelConsumptionCalculator
 import com.carlog.domain.model.Refueling
+import com.carlog.presentation.components.FuelConsumptionBlock
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -41,7 +43,8 @@ fun RefuelingsScreen(
     val refuelings by viewModel.refuelings.collectAsState()
     val totalCost by viewModel.totalCost.collectAsState()
     val totalLiters by viewModel.totalLiters.collectAsState()
-    val averageConsumption by viewModel.averageConsumption.collectAsState()
+    val consumption by viewModel.consumption.collectAsState()
+    val consumptionSince by viewModel.consumptionSince.collectAsState()
     
     val isElectric = car?.fuelType == "Электро"
     val title = if (isElectric) "Зарядки" else "Заправки"
@@ -74,64 +77,6 @@ fun RefuelingsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Статистика
-            if (refuelings.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Статистика",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            StatItem(
-                                label = if (isElectric) "Зарядок" else "Заправок",
-                                value = "${refuelings.size}"
-                            )
-                            
-                            StatItem(
-                                label = "Всего ${if (isElectric) "кВт·ч" else "л"}",
-                                value = String.format("%.1f", totalLiters ?: 0.0)
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            StatItem(
-                                label = "Общая стоимость",
-                                value = String.format("%.0f ₽", totalCost ?: 0.0)
-                            )
-                            
-                            if (!isElectric && averageConsumption != null) {
-                                StatItem(
-                                    label = "Средний расход",
-                                    value = String.format("%.1f л/100км", averageConsumption)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
             // Список заправок
             if (refuelings.isEmpty()) {
                 Box(
@@ -161,6 +106,80 @@ fun RefuelingsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Сводка — первым элементом списка: с расходом по нескольким топливам
+                    // она высокая, и над списком отняла бы у него почти весь экран
+                    item(key = "summary") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(
+                                    text = "Статистика",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                        
+                                Spacer(modifier = Modifier.height(8.dp))
+                        
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    StatItem(
+                                        label = if (isElectric) "Зарядок" else "Заправок",
+                                        value = "${refuelings.size}"
+                                    )
+                            
+                                    // Литры бензина и кубометры метана не складываются
+                                    val units = consumption.map { it.unit }.distinct()
+                                    if (units.size == 1) {
+                                        StatItem(
+                                            label = "Всего ${units.single()}",
+                                            value = String.format("%.1f", totalLiters ?: 0.0)
+                                        )
+                                    }
+                                }
+                        
+                                Spacer(modifier = Modifier.height(8.dp))
+                        
+                                StatItem(
+                                    label = "Общая стоимость",
+                                    value = String.format("%.0f ₽", totalCost ?: 0.0)
+                                )
+
+                                // Расход и пробег на баке по каждой группе топлива: у машины с ГБО
+                                // газ и бензин считаются отдельно, 92-й и 95-й — вместе
+                                CompositionLocalProvider(
+                                    LocalContentColor provides MaterialTheme.colorScheme.onPrimaryContainer
+                                ) {
+                                    consumption.forEach { group ->
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        if (consumption.size > 1) {
+                                            Text(
+                                                text = group.group,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        FuelConsumptionBlock(
+                                            summary = group,
+                                            resetPending = car?.fuelResetPending == true,
+                                            consumptionSince = consumptionSince,
+                                            onRequestReset = viewModel::requestConsumptionReset,
+                                            onCancelPending = viewModel::cancelConsumptionReset,
+                                            onClearReset = viewModel::clearConsumptionReset
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     items(refuelings, key = { it.id }) { refueling ->
                         RefuelingCard(
                             refueling = refueling,
@@ -288,7 +307,7 @@ private fun RefuelingCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "${refueling.liters} ${if (isElectric) "кВт·ч" else "л"}",
+                        text = "${refueling.liters} ${FuelConsumptionCalculator.volumeUnit(refueling.fuelType)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     

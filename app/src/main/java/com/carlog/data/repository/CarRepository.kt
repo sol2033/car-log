@@ -8,6 +8,8 @@ import com.carlog.data.local.dao.PartDao
 import com.carlog.data.local.dao.AccidentDao
 import com.carlog.data.local.dao.CarDocumentDao
 import com.carlog.data.local.dao.ExpenseDao
+import com.carlog.data.local.dao.FineDao
+import com.carlog.data.local.dao.OilTopUpDao
 import com.carlog.domain.model.Car
 import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +26,9 @@ class CarRepository @Inject constructor(
     private val partDao: PartDao,
     private val accidentDao: AccidentDao,
     private val expenseDao: ExpenseDao,
-    private val carDocumentDao: CarDocumentDao
+    private val carDocumentDao: CarDocumentDao,
+    private val oilTopUpDao: OilTopUpDao,
+    private val fineDao: FineDao
 ) {
     fun getAllCars(): Flow<List<Car>> {
         return carDao.getAllCars()
@@ -66,6 +70,11 @@ class CarRepository @Inject constructor(
         carDocumentDao.getDocumentsByCarId(car.id).firstOrNull()?.forEach { document ->
             FileHelper.deleteFiles(document.photoPath?.let { listOf(it) })
         }
+        // Штрафы (с 1.3.0) сюда не добавили — фото и PDF постановлений удалённой машины
+        // оставались в хранилище навсегда. У платных дорог вложений нет
+        fineDao.getFinesByCarId(car.id).firstOrNull()?.forEach { fine ->
+            FileHelper.deleteFiles(fine.photosPaths)
+        }
 
         carDao.deleteCar(car)
     }
@@ -80,6 +89,14 @@ class CarRepository @Inject constructor(
      */
     suspend fun setFuelResetPending(carId: Long, pending: Boolean) {
         carDao.setFuelResetPending(carId, pending)
+    }
+
+    /**
+     * Объём между MIN и MAX щупа. Точечный UPDATE, а не updateCar(снимок): снимок машины,
+     * взятый экраном, мог устареть (пробег, флаги), и полная перезапись затёрла бы изменения
+     */
+    suspend fun setOilDipstickVolume(carId: Long, volume: Double, isGuess: Boolean) {
+        carDao.setOilDipstickVolume(carId, volume, isGuess)
     }
 
     suspend fun isFuelResetPending(carId: Long): Boolean {
@@ -123,7 +140,8 @@ class CarRepository @Inject constructor(
             partDao.getMaxMileage(carId),
             partDao.getMaxBreakdownMileage(carId),
             accidentDao.getMaxMileage(carId),
-            expenseDao.getMaxMileage(carId)
+            expenseDao.getMaxMileage(carId),
+            oilTopUpDao.getMaxMileage(carId)
         )
         return maxMileages.maxOrNull() ?: 0
     }
@@ -135,7 +153,8 @@ class CarRepository @Inject constructor(
             consumableDao.getCountAboveMileage(carId, mileage) +
             partDao.getCountAboveMileage(carId, mileage) +
             accidentDao.getCountAboveMileage(carId, mileage) +
-            expenseDao.getCountAboveMileage(carId, mileage)
+            expenseDao.getCountAboveMileage(carId, mileage) +
+            oilTopUpDao.getCountAboveMileage(carId, mileage)
     }
 
     /**
@@ -143,7 +162,6 @@ class CarRepository @Inject constructor(
      * Пробег — производная величина (максимум по всем записям), поэтому одного обновления
      * `cars.currentMileage` недостаточно: записи с большим пробегом «прижимаются» к новому
      * значению, иначе `syncAllCarsMileage()` вернёт прежний максимум при следующем запуске.
-     * После вызова нужно пересчитать расход топлива (`RefuelingRepository.recalculateFuelConsumption`).
      */
     suspend fun lowerMileageWithRecords(carId: Long, newMileage: Int) {
         val now = System.currentTimeMillis()
@@ -157,6 +175,7 @@ class CarRepository @Inject constructor(
         partDao.refreshMileageDriven(carId, now)
         accidentDao.clampMileageTo(carId, newMileage, now)
         expenseDao.clampMileageTo(carId, newMileage, now)
+        oilTopUpDao.clampMileageTo(carId, newMileage, now)
         carDao.clampPurchaseMileage(carId, newMileage, now)
 
         updateMileage(carId, newMileage)
@@ -180,9 +199,10 @@ class CarRepository @Inject constructor(
             consumableDao.getMaxReplacementMileage(carId),
             partDao.getMaxMileage(carId),
             accidentDao.getMaxMileage(carId),
-            expenseDao.getMaxMileage(carId)
+            expenseDao.getMaxMileage(carId),
+            oilTopUpDao.getMaxMileage(carId)
         )
-        
+
         val maxMileage = maxMileages.maxOrNull() ?: 0
         updateMileage(carId, maxMileage)
     }
@@ -198,7 +218,8 @@ class CarRepository @Inject constructor(
                 consumableDao.getMaxReplacementMileage(car.id),
                 partDao.getMaxMileage(car.id),
                 accidentDao.getMaxMileage(car.id),
-                expenseDao.getMaxMileage(car.id)
+                expenseDao.getMaxMileage(car.id),
+                oilTopUpDao.getMaxMileage(car.id)
             )
             
             val maxMileage = maxMileages.maxOrNull()
