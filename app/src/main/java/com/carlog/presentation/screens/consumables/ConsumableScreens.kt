@@ -31,6 +31,7 @@ import com.carlog.domain.model.Consumable
 import com.carlog.domain.model.ConsumableCategories
 import com.carlog.util.ConsumableStatus
 import com.carlog.util.toDecimalOrNull
+import com.carlog.util.toMileageOrNull
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -108,15 +109,18 @@ fun AddConsumableScreen(
                 
                 // Category Dropdown
                 var categoryExpanded by remember { mutableStateOf(false) }
+                // У сохранённого расходника категория не меняется: на ней держится цепочка замен
+                val canChangeCategory = consumableId == null
                 
                 ExposedDropdownMenuBox(
                     expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = !categoryExpanded }
+                    onExpandedChange = { if (canChangeCategory) categoryExpanded = !categoryExpanded }
                 ) {
                     OutlinedTextField(
                         value = state.category,
                         onValueChange = {},
                         readOnly = true,
+                        enabled = canChangeCategory,
                         label = { Text(stringResource(R.string.category_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                         isError = state.categoryError != null,
@@ -356,7 +360,6 @@ fun ConsumableDetailScreen(
     var editingTopUp by remember { mutableStateOf<com.carlog.domain.model.OilTopUp?>(null) }
     var showLevelDropEdit by remember { mutableStateOf(false) }
     var showDipstickDialog by remember { mutableStateOf(false) }
-    var showLevelDropBeforeDifferent by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -461,13 +464,11 @@ fun ConsumableDetailScreen(
                         viewModel.dismissReplaceDialog()
                         val state = uiState
                         if (state is ConsumableDetailUiState.Success) {
-                            if (state.oil != null) {
-                                showLevelDropBeforeDifferent = true
-                            } else {
-                                viewModel.replaceWithDifferentConsumable {
-                                    onNavigateToAddConsumable(carId, state.consumable.category)
-                                }
-                            }
+                            // Текущий расходник здесь не трогаем: его закроет новая карточка
+                            // при сохранении — её датой и пробегом, и уровень старого масла
+                            // спросит она же. Раньше он деактивировался заранее, и «Назад»
+                            // в форме оставлял категорию вовсе без текущего расходника
+                            onNavigateToAddConsumable(carId, state.consumable.category)
                         }
                     }) {
                         Text(stringResource(R.string.different_consumable))
@@ -488,6 +489,11 @@ fun ConsumableDetailScreen(
         var serviceCost by remember { mutableStateOf(currentState.consumable.serviceCost?.toString() ?: "") }
         var replacementDate by remember { mutableStateOf(System.currentTimeMillis()) }
         var showReplacementDatePicker by remember { mutableStateOf(false) }
+        // Пробег замены: по умолчанию текущий, но при замене задним числом он меньше
+        var replacementMileage by remember { mutableStateOf(currentState.currentMileage.toString()) }
+        val parsedReplacementMileage = replacementMileage.toMileageOrNull()
+        val replacementMileageValid = parsedReplacementMileage != null &&
+            parsedReplacementMileage >= currentState.consumable.installationMileage
         // Моторное масло: насколько упал уровень на старом — без доливов угар иначе не виден
         val levelDraft = if (currentState.oil != null) {
             rememberOilLevelDropDraft(
@@ -518,11 +524,11 @@ fun ConsumableDetailScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Дата замены",
+                                    text = stringResource(R.string.replacement_date_label),
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 Text(
-                                    text = SimpleDateFormat("dd MMM yyyy", Locale("ru")).format(Date(replacementDate)),
+                                    text = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(replacementDate)),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -534,6 +540,26 @@ fun ConsumableDetailScreen(
                         }
                     }
                     
+                    OutlinedTextField(
+                        value = replacementMileage,
+                        onValueChange = { replacementMileage = it },
+                        label = { Text(stringResource(R.string.replacement_mileage_label)) },
+                        isError = !replacementMileageValid,
+                        supportingText = if (!replacementMileageValid) {
+                            {
+                                Text(
+                                    stringResource(
+                                        R.string.replacement_mileage_error,
+                                        currentState.consumable.installationMileage
+                                    )
+                                )
+                            }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     OutlinedTextField(
                         value = cost,
                         onValueChange = { cost = it },
@@ -571,7 +597,9 @@ fun ConsumableDetailScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(
+                    enabled = replacementMileageValid,
+                    onClick = {
                     val levelDrop = levelDraft?.let { draft ->
                         draft.toInput() ?: return@TextButton
                     }
@@ -583,6 +611,7 @@ fun ConsumableDetailScreen(
                         isInstalledAtService = isService,
                         serviceCost = if (isService) serviceCost.toDecimalOrNull() else null,
                         replacementDate = replacementDate,
+                        replacementMileage = parsedReplacementMileage,
                         levelDrop = levelDrop,
                         onReplaced = { onNavigateBack() }
                     )
@@ -652,22 +681,6 @@ fun ConsumableDetailScreen(
                     dipstick?.let { (volume, guess) -> viewModel.setDipstickVolume(volume, guess) }
                     viewModel.setOilLevelDrop(input)
                     showLevelDropEdit = false
-                }
-            )
-        }
-        if (showLevelDropBeforeDifferent) {
-            OilLevelDropDialog(
-                initialMl = oilState.consumable.oilLevelDropMl,
-                initialFraction = oilState.consumable.oilLevelDropFraction,
-                car = oilState.car,
-                confirmLabel = stringResource(R.string.replace_button),
-                onDismiss = { showLevelDropBeforeDifferent = false },
-                onConfirm = { input, dipstick ->
-                    dipstick?.let { (volume, guess) -> viewModel.setDipstickVolume(volume, guess) }
-                    showLevelDropBeforeDifferent = false
-                    viewModel.replaceWithDifferentConsumable(input) {
-                        onNavigateToAddConsumable(carId, oilState.consumable.category)
-                    }
                 }
             )
         }

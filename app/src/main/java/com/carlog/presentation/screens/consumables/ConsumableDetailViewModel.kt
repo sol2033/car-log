@@ -159,6 +159,9 @@ class ConsumableDetailViewModel @Inject constructor(
         isInstalledAtService: Boolean,
         serviceCost: Double?,
         replacementDate: Long = System.currentTimeMillis(),
+        // Пробег замены из диалога: при замене задним числом он меньше текущего пробега
+        // машины. Раньше брался всегда текущий — дата была прошлой, а пробег сегодняшним
+        replacementMileage: Int? = null,
         levelDrop: OilLevelDropInput? = null,
         onReplaced: () -> Unit
     ) {
@@ -168,12 +171,15 @@ class ConsumableDetailViewModel @Inject constructor(
                 if (state is ConsumableDetailUiState.Success) {
                     val currentTime = System.currentTimeMillis()
                     val oldConsumable = state.consumable
+                    // Ниже пробега установки старого расходника замена случиться не могла
+                    val mileage = (replacementMileage ?: state.currentMileage)
+                        .coerceAtLeast(oldConsumable.installationMileage)
                     
                     // Обновляем старый расходник: дата замены — выбранная пользователем,
                     // а не «сейчас» (при замене задним числом история врала)
                     val updatedOld = oldConsumable.copy(
                         isActive = false,
-                        replacementMileage = state.currentMileage,
+                        replacementMileage = mileage,
                         replacementDate = replacementDate,
                         oilLevelDropMl = if (levelDrop != null) levelDrop.ml else oldConsumable.oilLevelDropMl,
                         oilLevelDropFraction = if (levelDrop != null) levelDrop.fraction else oldConsumable.oilLevelDropFraction,
@@ -191,7 +197,7 @@ class ConsumableDetailViewModel @Inject constructor(
                         // Уровень относится к старому маслу — новому его не наследовать
                         oilLevelDropMl = null,
                         oilLevelDropFraction = null,
-                        installationMileage = state.currentMileage,
+                        installationMileage = mileage,
                         installationDate = replacementDate,
                         cost = newCost,
                         isInstalledAtService = isInstalledAtService,
@@ -205,7 +211,7 @@ class ConsumableDetailViewModel @Inject constructor(
                     consumableRepository.insertConsumable(newConsumable)
                     
                     // Обновляем пробег автомобиля до максимального
-                    carRepository.updateCarMileageIfNeeded(oldConsumable.carId, state.currentMileage)
+                    carRepository.updateCarMileageIfNeeded(oldConsumable.carId, mileage)
                     
                     // Уведомляем о изменении данных
                     dataChangeNotifier.notifyDataChanged()
@@ -218,34 +224,6 @@ class ConsumableDetailViewModel @Inject constructor(
         }
     }
     
-    // Замена на другой расходник (просто деактивация)
-    fun replaceWithDifferentConsumable(levelDrop: OilLevelDropInput? = null, onReplaced: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                val state = _uiState.value
-                if (state is ConsumableDetailUiState.Success) {
-                    val currentTime = System.currentTimeMillis()
-                    val updatedConsumable = state.consumable.copy(
-                        isActive = false,
-                        replacementMileage = state.currentMileage,
-                        replacementDate = currentTime,
-                        oilLevelDropMl = if (levelDrop != null) levelDrop.ml else state.consumable.oilLevelDropMl,
-                        oilLevelDropFraction = if (levelDrop != null) levelDrop.fraction else state.consumable.oilLevelDropFraction,
-                        updatedAt = currentTime
-                    )
-                    consumableRepository.updateConsumable(updatedConsumable)
-                    // Обновляем пробег автомобиля до максимального
-                    carRepository.updateCarMileageIfNeeded(state.consumable.carId, state.currentMileage)
-                    // Уведомляем о изменении данных
-                    dataChangeNotifier.notifyDataChanged()
-                    onReplaced()
-                }
-            } catch (e: Exception) {
-                _uiState.value = ConsumableDetailUiState.Error(e.message ?: "Ошибка замены")
-            }
-        }
-    }
-
     // === Расход масла ===
 
     /** Падение уровня к замене — указать или исправить на уже заменённом масле */

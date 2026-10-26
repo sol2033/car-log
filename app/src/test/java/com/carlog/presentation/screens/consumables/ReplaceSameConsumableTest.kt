@@ -112,4 +112,31 @@ class ReplaceSameConsumableTest {
             })
         }
     }
+
+    /** Регрессия: замена задним числом получала прошлую дату, но сегодняшний пробег */
+    @Test
+    fun `замена задним числом берёт пробег из диалога`() = runTest(dispatcher) {
+        val vm = ConsumableDetailViewModel(
+            consumableRepository, carRepository, oilTopUpRepository, appPreferences, dataChangeNotifier,
+            SavedStateHandle(mapOf("consumableId" to 20L, "carId" to 1L))
+        )
+        advanceUntilIdle()
+
+        vm.replaceSameConsumable(
+            newCost = 900.0,
+            isInstalledAtService = false,
+            serviceCost = null,
+            replacementDate = 1_000,
+            replacementMileage = 95_000,
+            onReplaced = {}
+        )
+        advanceUntilIdle()
+
+        val inserted = mutableListOf<Consumable>()
+        coVerify { consumableRepository.insertConsumable(capture(inserted)) }
+        assertEquals(95_000, inserted.single().installationMileage)
+        coVerify {
+            consumableRepository.updateConsumable(match { it.id == 20L && it.replacementMileage == 95_000 })
+        }
+    }
 }

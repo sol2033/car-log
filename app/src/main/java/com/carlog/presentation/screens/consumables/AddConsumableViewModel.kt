@@ -289,7 +289,10 @@ class AddConsumableViewModel @Inject constructor(
                     // раньше запись собиралась заново, из-за чего редактирование заменённого
                     // расходника делало его снова активным, а расходник из ТО — «отдельным»
                     val consumable = original.copy(
-                        category = currentState.category,
+                        // Категория сохранённого расходника не меняется — на ней держится
+                        // цепочка замен (так же в форме ТО). Раньше её можно было сменить,
+                        // и в новой категории оказывалось два активных расходника
+                        category = original.category,
                         manufacturer = currentState.manufacturer.ifBlank { null },
                         articleNumber = currentState.articleNumber.ifBlank { null },
                         installationMileage = installationMileage,
@@ -304,6 +307,26 @@ class AddConsumableViewModel @Inject constructor(
                         updatedAt = currentTime
                     )
                     consumableRepository.updateConsumable(consumable)
+
+                    // Исправили дату или пробег установки — у предшественника едет дата
+                    // и пробег замены, иначе связь «кто кого заменил» рвётся
+                    // (тот же приём, что при правке даты ТО)
+                    if (original.installationDate != consumable.installationDate ||
+                        original.installationMileage != consumable.installationMileage
+                    ) {
+                        val carConsumables = consumableRepository
+                            .getConsumablesByCarId(original.carId).firstOrNull() ?: emptyList()
+                        ConsumableChainRepair.predecessorToShift(carConsumables, original)
+                            ?.let { predecessor ->
+                                consumableRepository.updateConsumable(
+                                    predecessor.copy(
+                                        replacementDate = consumable.installationDate,
+                                        replacementMileage = consumable.installationMileage,
+                                        updatedAt = currentTime
+                                    )
+                                )
+                            }
+                    }
                 } else {
                     // В категории активен ровно один расходник — самый свежий по пробегу.
                     // Установку задним числом (вспомнили про пропущенную замену) активной
