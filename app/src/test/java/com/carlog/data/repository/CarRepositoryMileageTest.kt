@@ -102,4 +102,34 @@ class CarRepositoryMileageTest {
 
         coVerify { carDao.updateMileage(1, 99_000, any()) }
     }
+
+    /** Регрессия: исправленная опечатка в пробеге записи оставляла машине завышенный пробег */
+    @Test
+    fun `уменьшение пробега записи при правке пересчитывает пробег машины`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car.copy(currentMileage = 1_000_000)
+        // Запись уже исправлена в базе: максимум теперь 100 000
+        coEvery { refuelingDao.getMaxMileage(1) } returns 100_000
+
+        repository.updateCarMileageAfterEdit(1, oldMileage = 1_000_000, newMileage = 100_000)
+
+        coVerify { carDao.updateMileage(1, 100_000, any()) }
+    }
+
+    @Test
+    fun `правка не самой свежей записи пробег машины не трогает`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car.copy(currentMileage = 100_000)
+
+        repository.updateCarMileageAfterEdit(1, oldMileage = 50_000, newMileage = 40_000)
+
+        coVerify(exactly = 0) { carDao.updateMileage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `увеличение пробега при правке поднимает пробег машины`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car.copy(currentMileage = 100_000)
+
+        repository.updateCarMileageAfterEdit(1, oldMileage = 90_000, newMileage = 110_000)
+
+        coVerify { carDao.updateMileage(1, 110_000, any()) }
+    }
 }

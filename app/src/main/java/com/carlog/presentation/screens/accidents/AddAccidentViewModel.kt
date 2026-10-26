@@ -64,6 +64,8 @@ data class AddAccidentState(
 
     // Сохраняется при редактировании, чтобы не затирать исходное время создания записи
     val createdAt: Long = 0L,
+    // Пробег сохранённой записи до правки: уменьшенный пробег должен пересчитать пробег машины
+    val originalMileage: Int? = null,
     // Запчасти, привязанные к записи на момент загрузки: удалённые из списка нужно
     // удалить и из модуля «Запчасти»
     val originalPartIds: List<Long> = emptyList(),
@@ -187,6 +189,7 @@ class AddAccidentViewModel @Inject constructor(
                         originalDocumentPath = accident.documentPath,
                         notes = accident.notes ?: "",
                         createdAt = accident.createdAt,
+                        originalMileage = accident.mileage,
                         isLoaded = true,
                         isLoading = false
                     )
@@ -550,7 +553,12 @@ class AddAccidentViewModel @Inject constructor(
                     accidentRepository.insertAccident(accident)
                 }
                 
-                carRepository.updateCarMileageIfNeeded(currentState.carId, mileage)
+                val editedFrom = currentState.originalMileage
+                if (currentState.accidentId != null && editedFrom != null) {
+                    carRepository.updateCarMileageAfterEdit(currentState.carId, editedFrom, mileage)
+                } else {
+                    carRepository.updateCarMileageIfNeeded(currentState.carId, mileage)
+                }
 
                 // PDF заменили — файл, на который ссылалась старая версия записи, больше не нужен
                 val originalDocument = currentState.originalDocumentPath

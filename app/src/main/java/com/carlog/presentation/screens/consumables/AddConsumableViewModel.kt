@@ -397,7 +397,12 @@ class AddConsumableViewModel @Inject constructor(
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(carId, installationMileage)
+                val editedFrom = currentState.originalConsumable?.installationMileage
+                if (editedFrom != null) {
+                    carRepository.updateCarMileageAfterEdit(carId, editedFrom, installationMileage)
+                } else {
+                    carRepository.updateCarMileageIfNeeded(carId, installationMileage)
+                }
                 
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()

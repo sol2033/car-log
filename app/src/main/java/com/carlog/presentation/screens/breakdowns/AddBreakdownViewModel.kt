@@ -1053,7 +1053,14 @@ class AddBreakdownViewModel @Inject constructor(
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(currentState.carId, breakdownMileage)
+                // Расходники и запчасти события следуют его пробегу, поэтому достаточно
+                // пробега самого события; уменьшенный при правке тоже учитываем
+                val editedFrom = currentState.originalBreakdown?.breakdownMileage
+                if (editedFrom != null) {
+                    carRepository.updateCarMileageAfterEdit(currentState.carId, editedFrom, breakdownMileage)
+                } else {
+                    carRepository.updateCarMileageIfNeeded(currentState.carId, breakdownMileage)
+                }
 
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()

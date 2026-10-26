@@ -274,7 +274,11 @@ class ConsumableDetailViewModel @Inject constructor(
                     existing.copy(date = date, mileage = mileage, volume = volume, cost = cost, updatedAt = now)
                 )
             }
-            carRepository.updateCarMileageIfNeeded(carId, mileage)
+            if (existing != null) {
+                carRepository.updateCarMileageAfterEdit(carId, existing.mileage, mileage)
+            } else {
+                carRepository.updateCarMileageIfNeeded(carId, mileage)
+            }
             dataChangeNotifier.notifyDataChanged()
         }
     }

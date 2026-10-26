@@ -368,7 +368,13 @@ class AddRefuelingViewModel @Inject constructor(
 
                 // Обновляем пробег автомобиля до максимального. Берём разобранное значение:
                 // toInt() по сырому вводу падал на «80 000», уже прошедшем проверку
-                carRepository.updateCarMileageIfNeeded(carId, mileageValue!!)
+                // Уменьшенный при правке пробег тоже учитываем: исправленная опечатка
+                // не должна оставлять машине завышенный пробег
+                if (existing != null) {
+                    carRepository.updateCarMileageAfterEdit(carId, existing.mileage, mileageValue!!)
+                } else {
+                    carRepository.updateCarMileageIfNeeded(carId, mileageValue!!)
+                }
                 
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()

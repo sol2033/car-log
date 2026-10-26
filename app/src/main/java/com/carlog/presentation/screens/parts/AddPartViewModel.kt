@@ -321,7 +321,12 @@ class AddPartViewModel @Inject constructor(
                 }
                 
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageIfNeeded(currentState.carId, installMileage)
+                val editedFrom = currentState.originalPart?.installMileage
+                if (editedFrom != null) {
+                    carRepository.updateCarMileageAfterEdit(currentState.carId, editedFrom, installMileage)
+                } else {
+                    carRepository.updateCarMileageIfNeeded(currentState.carId, installMileage)
+                }
 
                 // Уведомляем об изменении данных для авто-бэкапа
                 dataChangeNotifier.notifyDataChanged()

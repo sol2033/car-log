@@ -198,6 +198,23 @@ class CarRepository @Inject constructor(
         updateMileage(carId, maxMileage)
     }
     
+    /**
+     * Пробег машины после правки записи: [oldMileage] — пробег записи до правки,
+     * [newMileage] — после (запись в базе уже обновлена).
+     *
+     * Раньше формы правки только поднимали пробег машины: исправленная опечатка
+     * (заправка на 1 000 000 км вместо 100 000) навсегда оставляла машине миллион.
+     * Если запись держала максимум и её пробег уменьшили — пересчитываем максимум,
+     * как после удаления.
+     */
+    suspend fun updateCarMileageAfterEdit(carId: Long, oldMileage: Int, newMileage: Int) {
+        if (newMileage >= oldMileage) {
+            updateCarMileageIfNeeded(carId, newMileage)
+        } else {
+            updateCarMileageAfterDelete(carId, oldMileage)
+        }
+    }
+
     // Синхронизация пробега для всех автомобилей (для миграции существующих данных)
     suspend fun syncAllCarsMileage() {
         val cars = carDao.getAllCarsOnce()

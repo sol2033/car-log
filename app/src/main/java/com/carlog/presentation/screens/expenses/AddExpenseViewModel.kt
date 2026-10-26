@@ -290,14 +290,20 @@ class AddExpenseViewModel @Inject constructor(
                 )
             }
 
+            // Пробег записи до правки — снимок до сохранения: поток записи после него обновится
+            val originalMileage = _expense.value?.mileage
             if (isEditMode) {
                 expenseRepository.updateExpense(expenseToSave)
             } else {
                 expenseRepository.insertExpense(expenseToSave)
             }
 
-            // Обновляем пробег автомобиля
-            carRepository.updateCarMileageIfNeeded(carId, mileageValue)
+            // Обновляем пробег автомобиля; уменьшенный при правке пробег тоже учитываем
+            if (originalMileage != null) {
+                carRepository.updateCarMileageAfterEdit(carId, originalMileage, mileageValue)
+            } else {
+                carRepository.updateCarMileageIfNeeded(carId, mileageValue)
+            }
             
             // Уведомляем о изменении данных для резервного копирования
             dataChangeNotifier.notifyDataChanged()
