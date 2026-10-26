@@ -28,6 +28,7 @@ import com.carlog.presentation.screens.settings.CloudBackupSection
 import com.carlog.presentation.screens.settings.SettingsSection
 import com.carlog.presentation.screens.settings.SettingsViewModel
 import com.carlog.util.AppRestart
+import com.carlog.util.NotABackupFileException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,13 +68,13 @@ fun BackupScreen(
                     if (outputStream != null) {
                         val result = viewModel.exportDatabase(outputStream)
                         if (result.isSuccess) {
-                            Toast.makeText(context, "Данные успешно экспортированы", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.backup_export_success), Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "Ошибка экспорта: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, context.getString(R.string.backup_export_error, result.exceptionOrNull()?.message.orEmpty()), Toast.LENGTH_LONG).show()
                         }
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.backup_generic_error, e.message.orEmpty()), Toast.LENGTH_LONG).show()
                 } finally {
                     isExporting = false
                 }
@@ -95,9 +96,9 @@ fun BackupScreen(
                         if (result.isSuccess) {
                             val photosRestored = result.getOrNull() ?: 0
                             val message = if (photosRestored > 0) {
-                                "Данные успешно импортированы! Восстановлено фотографий: $photosRestored. Перезапуск..."
+                                context.getString(R.string.backup_import_success_photos, photosRestored)
                             } else {
-                                "Данные успешно импортированы! Перезапуск..."
+                                context.getString(R.string.backup_import_success)
                             }
                             Toast.makeText(
                                 context,
@@ -107,11 +108,17 @@ fun BackupScreen(
                             // Полный перезапуск процесса — БД была подменена под работающим приложением
                             AppRestart.restart(context)
                         } else {
-                            Toast.makeText(context, "Ошибка импорта: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                            val error = result.exceptionOrNull()
+                            val message = if (error is NotABackupFileException) {
+                                context.getString(R.string.backup_import_not_backup)
+                            } else {
+                                context.getString(R.string.backup_import_error, error?.message.orEmpty())
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.backup_generic_error, e.message.orEmpty()), Toast.LENGTH_LONG).show()
                 } finally {
                     isImporting = false
                 }
@@ -122,10 +129,10 @@ fun BackupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Резервные сохранения") },
+                title = { Text(stringResource(R.string.backup_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )

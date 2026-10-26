@@ -25,17 +25,32 @@ class DatabaseBackup(
         private const val DATABASE_FILE_IN_ZIP = "car_log_database.db"
         private const val PHOTOS_FOLDER = "photos"
         private const val DOCUMENTS_FOLDER = "documents"
+
+        /** Первые 16 байт любого файла базы SQLite */
+        private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+
+        /**
+         * Похож ли файл на базу SQLite. Проверка до подмены: раньше любой выбранный файл,
+         * не оказавшийся ZIP (фото, PDF), записывался поверх базы, и после перезапуска
+         * Room не мог её открыть — все данные пропадали.
+         */
+        fun isSqliteHeader(header: ByteArray): Boolean =
+            header.size >= SQLITE_HEADER.size &&
+                SQLITE_HEADER.indices.all { header[it] == SQLITE_HEADER[it] }
     }
     
     /**
      * Экспорт всех данных в ZIP архив с базой данных и фотографиями
      */
     suspend fun exportToJson(outputStream: OutputStream): Result<Unit> = withContext(Dispatchers.IO) {
-        // Закрываем все соединения с БД
+        // База остаётся открытой: приложение после экспорта продолжает работать, а Room
+        // после close() дальше работать не рассчитан (раньше база здесь закрывалась).
+        // Чтобы последние транзакции попали в копию, переносим журнал WAL в основной файл —
+        // так же делает облачный бэкап
         try {
-            database.close()
+            database.query("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
         } catch (e: Exception) {
-            // Игнорируем ошибки закрытия
+            // Не повод срывать экспорт: в худшем случае копия будет без самых свежих правок
         }
         
         try {
@@ -92,13 +107,6 @@ class DatabaseBackup(
      * Импорт данных из ZIP архива или старого .db файла (обратная совместимость)
      */
     suspend fun importFromJson(inputStream: InputStream): Result<Int> = withContext(Dispatchers.IO) {
-        // Закрываем базу
-        try {
-            database.close()
-        } catch (e: Exception) {
-            // Игнорируем ошибки закрытия
-        }
-        
         val tempFile = File(context.cacheDir, "import_temp_file")
         try {
             
@@ -114,6 +122,19 @@ class DatabaseBackup(
                 }
             } catch (e: Exception) {
                 false
+            }
+
+            // Сначала убеждаемся, что внутри действительно база, и только потом закрываем
+            // текущую и пишем поверх: на неподходящем файле приложение остаётся как было
+            val hasValidDatabase = if (isZipFile) zipContainsSqliteDatabase(tempFile) else fileIsSqlite(tempFile)
+            if (!hasValidDatabase) {
+                return@withContext Result.failure(NotABackupFileException())
+            }
+
+            try {
+                database.close()
+            } catch (e: Exception) {
+                // Игнорируем ошибки закрытия
             }
             
             if (isZipFile) {
@@ -131,6 +152,35 @@ class DatabaseBackup(
         }
     }
     
+    private fun fileIsSqlite(file: File): Boolean =
+        FileInputStream(file).use { isSqliteHeader(it.readNBytesCompat(SQLITE_HEADER.size)) }
+
+    /** В архиве есть запись .db, и это база SQLite — та самая, что подменит текущую */
+    private fun zipContainsSqliteDatabase(zipFile: File): Boolean =
+        ZipInputStream(FileInputStream(zipFile)).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (entry.name.endsWith(".db")) {
+                    return@use isSqliteHeader(zis.readNBytesCompat(SQLITE_HEADER.size))
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+            false
+        }
+
+    /** Чтение до [count] байт: `InputStream.readNBytes` появился только в API 33 */
+    private fun InputStream.readNBytesCompat(count: Int): ByteArray {
+        val buffer = ByteArray(count)
+        var read = 0
+        while (read < count) {
+            val n = read(buffer, read, count - read)
+            if (n < 0) break
+            read += n
+        }
+        return buffer.copyOf(read)
+    }
+
     /**
      * Импорт из ZIP архива (новый формат)
      */
@@ -229,3 +279,6 @@ class DatabaseBackup(
         return "CarLog_backup_$timestamp.zip"
     }
 }
+
+/** Выбранный для импорта файл — не база Car Log и не архив с ней; текущие данные не тронуты */
+class NotABackupFileException : Exception("Файл не является резервной копией Car Log")
