@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.integrity
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.PickerDates
 import com.carlog.util.toDecimalOrNull
 import androidx.compose.foundation.layout.*
@@ -275,7 +276,7 @@ private fun UnlinkedPartBody(
 
     FindingTitle(stringResource(R.string.data_check_unlinked_part_title))
     Text(
-        text = "${finding.part.name} · %.2f ₽ · %s · %d км".format(
+        text = "${finding.part.name} · %.2f ${LocalCurrency.current.symbol} · %s · %d км".format(
             finding.part.price,
             dateFormat.format(Date(finding.part.installDate)),
             finding.part.installMileage
@@ -304,11 +305,13 @@ private fun UnlinkedPartBody(
                         text = when (candidate.type) {
                             EventType.BREAKDOWN -> stringResource(
                                 R.string.data_check_candidate_breakdown,
-                                candidate.declaredPartsCost ?: 0.0
+                                candidate.declaredPartsCost ?: 0.0,
+                                LocalCurrency.current.symbol
                             )
                             EventType.ACCIDENT -> stringResource(
                                 R.string.data_check_candidate_accident,
-                                candidate.declaredPartsCost ?: 0.0
+                                candidate.declaredPartsCost ?: 0.0,
+                                LocalCurrency.current.symbol
                             )
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -333,7 +336,7 @@ private fun AccidentRepairCostBody(
 
     FindingTitle(stringResource(R.string.data_check_accident_cost_title))
     Text(
-        text = stringResource(R.string.data_check_accident_cost_body, finding.linkedPartsSum),
+        text = stringResource(R.string.data_check_accident_cost_body, finding.linkedPartsSum, LocalCurrency.current.symbol),
         style = MaterialTheme.typography.bodyMedium
     )
 
@@ -350,7 +353,8 @@ private fun AccidentRepairCostBody(
         Text(
             stringResource(
                 R.string.data_check_apply_repair_cost,
-                finding.linkedPartsSum + (serviceCost.toDecimalOrNull() ?: 0.0)
+                finding.linkedPartsSum + (serviceCost.toDecimalOrNull() ?: 0.0),
+                LocalCurrency.current.symbol
             )
         )
     }
@@ -367,12 +371,13 @@ private fun BreakdownMismatchBody(
             R.string.data_check_cost_mismatch_body,
             finding.breakdown.title,
             finding.breakdown.partsCost,
-            finding.expectedPartsCost
+            finding.expectedPartsCost,
+            LocalCurrency.current.symbol
         ),
         style = MaterialTheme.typography.bodyMedium
     )
     Button(onClick = onAlign) {
-        Text(stringResource(R.string.data_check_align_cost, finding.expectedPartsCost))
+        Text(stringResource(R.string.data_check_align_cost, finding.expectedPartsCost, LocalCurrency.current.symbol))
     }
 }
 

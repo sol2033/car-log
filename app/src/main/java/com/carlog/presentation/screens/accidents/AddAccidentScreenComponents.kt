@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.accidents
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.formatCurrency
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -164,7 +165,7 @@ private fun PayoutItem(
                 onValueChange = onAmountChange,
                 label = { Text(stringResource(R.string.amount_label)) },
                 modifier = Modifier.width(140.dp),
-                suffix = { Text("₽") },
+                suffix = { Text(LocalCurrency.current.symbol) },
                 singleLine = true,
                 // Без цифровой клавиатуры сюда легко попадало «15к» — и сумма молча терялась
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -262,7 +263,7 @@ fun RepairSection(
                                     }
                                 }
                                 Text(
-                                    text = "${part.price} ₽",
+                                    text = formatCurrency(part.price),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -287,7 +288,7 @@ fun RepairSection(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "${addedParts.sumOf { part -> part.price }} ₽",
+                                text = formatCurrency(addedParts.sumOf { part -> part.price }),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -312,7 +313,7 @@ fun RepairSection(
                 onValueChange = onServiceCostChange,
                 label = { Text(stringResource(R.string.labor_cost_optional)) },
                 modifier = Modifier.fillMaxWidth(),
-                suffix = { Text("₽") },
+                suffix = { Text(LocalCurrency.current.symbol) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 isError = serviceCostError != null,
@@ -362,7 +363,7 @@ fun RepairSection(
                 onValueChange = onTotalRepairCostChange,
                 label = { Text(stringResource(R.string.total_repair_cost_label)) },
                 modifier = Modifier.fillMaxWidth(),
-                suffix = { Text("₽") },
+                suffix = { Text(LocalCurrency.current.symbol) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 isError = totalRepairCostError != null,

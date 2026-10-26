@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.util.formatCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -487,9 +488,9 @@ private fun PartDetailContent(
                     color = MaterialTheme.colorScheme.primary
                 )
                 
-                InfoRow(label = "Цена запчасти", value = "₽%.2f".format(part.price))
+                InfoRow(label = "Цена запчасти", value = formatCurrency(part.price))
                 part.servicePrice?.let {
-                    InfoRow(label = "Стоимость работы", value = "₽%.2f".format(it))
+                    InfoRow(label = "Стоимость работы", value = formatCurrency(it))
                 }
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -497,7 +498,7 @@ private fun PartDetailContent(
                 val totalCost = part.price + (part.servicePrice ?: 0.0)
                 InfoRow(
                     label = "Общая стоимость",
-                    value = "₽%.2f".format(totalCost),
+                    value = formatCurrency(totalCost),
                     labelStyle = MaterialTheme.typography.titleSmall,
                     valueStyle = MaterialTheme.typography.titleMedium
                 )

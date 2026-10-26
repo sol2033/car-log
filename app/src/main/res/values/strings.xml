@@ -94,17 +94,17 @@
     <string name="data_check_restore_ignored">Вернуть все скрытые</string>
     <string name="data_check_unlinked_part_title">Запчасть не привязана к событию</string>
     <string name="data_check_unlinked_part_explanation">Её стоимость сейчас считается дважды: как отдельная запчасть и внутри стоимости события.</string>
-    <string name="data_check_candidate_breakdown">Обслуживание · запчасти %1$.2f ₽</string>
-    <string name="data_check_candidate_accident">ДТП · ремонт %1$.2f ₽</string>
+    <string name="data_check_candidate_breakdown">Обслуживание · запчасти %1$.2f %2$s</string>
+    <string name="data_check_candidate_accident">ДТП · ремонт %1$.2f %2$s</string>
     <string name="data_check_link_part">Привязать</string>
     <string name="data_check_accident_cost_title">У ДТП не указана стоимость ремонта</string>
-    <string name="data_check_accident_cost_body">Привязанные запчасти на %1$.2f ₽, а стоимость ремонта пустая.</string>
+    <string name="data_check_accident_cost_body">Привязанные запчасти на %1$.2f %2$s, а стоимость ремонта пустая.</string>
     <string name="data_check_service_cost_label">Стоимость работ сервиса</string>
     <string name="data_check_service_cost_hint">Если работ не было — оставьте пустым</string>
-    <string name="data_check_apply_repair_cost">Проставить %1$.2f ₽</string>
+    <string name="data_check_apply_repair_cost">Проставить %1$.2f %2$s</string>
     <string name="data_check_cost_mismatch_title">Стоимость запчастей разошлась</string>
-    <string name="data_check_cost_mismatch_body">«%1$s»: в записи указано %2$.2f ₽, сумма привязанных запчастей и расходников — %3$.2f ₽.</string>
-    <string name="data_check_align_cost">Привести к %1$.2f ₽</string>
+    <string name="data_check_cost_mismatch_body">«%1$s»: в записи указано %2$.2f %4$s, сумма привязанных запчастей и расходников — %3$.2f %4$s.</string>
+    <string name="data_check_align_cost">Привести к %1$.2f %2$s</string>
     <string name="data_check_purchase_title">Не указана покупка автомобиля</string>
     <string name="data_check_purchase_body">Без даты и пробега покупки средний пробег в день считается от даты создания записи и может быть неточным.</string>
     <string name="data_check_duplicate_title">Несколько активных расходников</string>
@@ -253,7 +253,7 @@
     <string name="expense_detail_title">Детали расхода</string>
     <string name="add_expense_title">Добавить расход</string>
     <string name="expense_category">Категория *</string>
-    <string name="expense_cost">Стоимость (₽) *</string>
+    <string name="expense_cost">Стоимость (%1$s) *</string>
     <string name="service_name">Название сервиса</string>
     <string name="service_address">Адрес сервиса</string>
     <string name="delete_expense_title">Удалить расход?</string>
@@ -269,7 +269,7 @@
     <string name="fuel_type_label">Тип топлива</string>
     <string name="select_fuel_type">Выберите тип: %1$s или %2$s</string>
     <string name="auto_calculated_total">Автоматически рассчитана общая стоимость</string>
-    <string name="total_cost_rub">Общая стоимость (₽)</string>
+    <string name="total_cost_rub">Общая стоимость (%1$s)</string>
     <string name="fill_if_no_price_per_liter">Заполняется, если не указана цена за литр</string>
     <string name="disabled_using_price_per_liter">Отключено - используется цена за литр</string>
     <string name="optional">Опционально</string>
@@ -388,9 +388,9 @@
     <string name="manufacturer">Производитель</string>
     <string name="article_number">Артикул</string>
     <string name="installation_mileage">Пробег установки (км) *</string>
-    <string name="cost_rub">Стоимость (₽) *</string>
+    <string name="cost_rub">Стоимость (%1$s) *</string>
     <string name="service_installed">Установлено в сервисе</string>
-    <string name="service_cost_consumable">Стоимость услуги сервиса (₽)</string>
+    <string name="service_cost_consumable">Стоимость услуги сервиса (%1$s)</string>
     <string name="volume_liters">Объем (л)</string>
     <string name="mileage_interval_km">Интервал по пробегу (км)</string>
     <string name="days_interval_label">Интервал по дням</string>
@@ -446,8 +446,8 @@
     <string name="installation_type_label">Способ установки *</string>
     <string name="self_installation">Самостоятельно</string>
     <string name="service_installation">Сервис</string>
-    <string name="part_price">Цена запчасти (₽) *</string>
-    <string name="service_price">Стоимость работы сервиса (₽)</string>
+    <string name="part_price">Цена запчасти (%1$s) *</string>
+    <string name="service_price">Стоимость работы сервиса (%1$s)</string>
     <string name="part_photos">Фотографии запчасти</string>
     <string name="add_photo">Добавить фото</string>
     <string name="total_cost">Общая стоимость</string>
@@ -521,11 +521,11 @@
     <string name="breakdown_date">Дата поломки *</string>
     <string name="breakdown_mileage">Пробег при поломке (км) *</string>
     <string name="broken_part">Сломанная запчасть</string>
-    <string name="parts_cost">Стоимость запчастей (₽) *</string>
-    <string name="service_cost">Стоимость работы (₽)</string>
+    <string name="parts_cost">Стоимость запчастей (%1$s) *</string>
+    <string name="service_cost">Стоимость работы (%1$s)</string>
     <string name="part_name_breakdown_label">Название запчасти</string>
-    <string name="part_price_breakdown_label">Цена (₽)</string>
-    <string name="service_cost_label">Стоимость работы сервиса (₽)</string>
+    <string name="part_price_breakdown_label">Цена (%1$s)</string>
+    <string name="service_cost_label">Стоимость работы сервиса (%1$s)</string>
     <string name="breakdown_info_label">Информация о поломке *</string>
     <string name="repair_cost_label">Стоимость ремонта *</string>
     <string name="general_parts_cost">Общая стоимость запчастей</string>
@@ -548,7 +548,7 @@
     <string name="service_maintenance">В сервисе</string>
     <string name="linked_consumables">Расходники для ТО</string>
     <string name="consumable_name">Название расходника *</string>
-    <string name="consumable_price">Стоимость (₽) *</string>
+    <string name="consumable_price">Стоимость (%1$s) *</string>
     <string name="calculated_parts_cost">Рассчитанная стоимость запчастей</string>
     
     <!-- Refuelings -->
@@ -813,7 +813,7 @@
 
     <!-- Расход топлива без «полного бака», объём бака (1.4.0) -->
     <string name="refueling_amount_label">Количество (%1$s) *</string>
-    <string name="refueling_price_per_unit_label">Цена за %1$s (₽)</string>
+    <string name="refueling_price_per_unit_label">Цена за %1$s (%2$s)</string>
     <string name="refueling_fuel_distance_label">Проехано на этом топливе, км</string>
     <string name="refueling_fuel_distance_hint">С прошлой заправки этим же топливом — по бортовому компьютеру или трипу. Без этого расход газа и бензина считается приблизительно</string>
     <string name="fuel_average_consumption">Средний расход</string>
@@ -853,7 +853,7 @@
     <string name="oil_top_up_add_title">Долив масла</string>
     <string name="oil_top_up_edit_title">Изменить долив</string>
     <string name="oil_top_up_volume_label">Долито, л *</string>
-    <string name="oil_top_up_cost_label">Стоимость, ₽ (необязательно)</string>
+    <string name="oil_top_up_cost_label">Стоимость, %1$s (необязательно)</string>
     <string name="oil_top_up_delete_title">Удалить долив?</string>
     <string name="oil_level_drop_title">Уровень старого масла</string>
     <string name="oil_level_drop_question">Насколько упал уровень к замене?</string>

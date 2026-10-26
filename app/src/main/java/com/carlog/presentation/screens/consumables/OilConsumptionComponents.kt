@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -325,7 +326,7 @@ fun OilTopUpDialog(
                 OutlinedTextField(
                     value = cost,
                     onValueChange = { cost = it; costError = null },
-                    label = { Text(stringResource(R.string.oil_top_up_cost_label)) },
+                    label = { Text(stringResource(R.string.oil_top_up_cost_label, LocalCurrency.current.symbol)) },
                     isError = costError != null,
                     supportingText = costError?.let { { Text(it) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -456,7 +457,7 @@ fun OilConsumptionCard(
                             )
                             Text(
                                 "${formatDate(topUp.date)} · ${topUp.mileage} км" +
-                                    (topUp.cost?.let { " · ${formatVolume(it)} ₽" } ?: ""),
+                                    (topUp.cost?.let { " · ${formatVolume(it)} ${LocalCurrency.current.symbol}" } ?: ""),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

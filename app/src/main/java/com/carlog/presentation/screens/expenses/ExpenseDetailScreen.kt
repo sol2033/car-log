@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.expenses
 
+import com.carlog.presentation.util.LocalCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -146,7 +147,7 @@ private fun ExpenseDetailContent(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = String.format("%.0f ₽", expense.cost),
+                    text = String.format("%.0f", expense.cost) + " " + LocalCurrency.current.symbol,
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2196F3)

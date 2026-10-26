@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.documents
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -265,7 +266,7 @@ fun AddDocumentScreen(
                 isError = costError != null,
                 supportingText = costError?.let { { Text(it) } },
                 trailingIcon = {
-                    Text("₽", style = MaterialTheme.typography.bodyLarge)
+                    Text(LocalCurrency.current.symbol, style = MaterialTheme.typography.bodyLarge)
                 }
             )
 

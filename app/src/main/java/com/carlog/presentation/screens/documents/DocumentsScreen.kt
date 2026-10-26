@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.documents
 
+import com.carlog.util.formatCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -302,7 +303,7 @@ fun ArchivedDocumentsList(
                         )
                         document.cost?.let {
                             Text(
-                                text = "$it ₽",
+                                text = formatCurrency(it),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary

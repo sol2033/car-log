@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.util.formatCurrency
 import com.carlog.presentation.components.consumablesRemovedNote
 import com.carlog.data.repository.ConsumableDeletePlan
 import com.carlog.presentation.components.ConsumableDeleteDialog
@@ -287,7 +288,7 @@ private fun BreakdownCard(
                             style = MaterialTheme.typography.bodySmall
                         )
                         Text(
-                            text = "₽%.2f".format(breakdown.partsCost),
+                            text = formatCurrency(breakdown.partsCost),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -301,7 +302,7 @@ private fun BreakdownCard(
                             style = MaterialTheme.typography.bodySmall
                         )
                         Text(
-                            text = if (breakdown.isWarrantyRepair) "ремонт по гарантии" else "₽%.2f".format(breakdown.serviceCost ?: 0.0),
+                            text = if (breakdown.isWarrantyRepair) "ремонт по гарантии" else formatCurrency(breakdown.serviceCost ?: 0.0),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -317,7 +318,7 @@ private fun BreakdownCard(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "₽%.2f".format(breakdown.totalCost),
+                            text = formatCurrency(breakdown.totalCost),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.error

@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.refuelings
 
+import com.carlog.presentation.util.LocalCurrency
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -149,7 +150,7 @@ fun RefuelingsScreen(
                         
                                 StatItem(
                                     label = "Общая стоимость",
-                                    value = String.format("%.0f ₽", totalCost ?: 0.0)
+                                    value = String.format("%.0f", totalCost ?: 0.0) + " " + LocalCurrency.current.symbol
                                 )
 
                                 // Расход и пробег на баке по каждой группе топлива: у машины с ГБО
@@ -293,7 +294,7 @@ private fun RefuelingCard(
                     
                     if (refueling.totalCost != null) {
                         Text(
-                            text = "${String.format("%.0f", refueling.totalCost)} ₽",
+                            text = "${String.format("%.0f", refueling.totalCost)} ${LocalCurrency.current.symbol}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

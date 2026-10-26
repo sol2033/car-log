@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.presentation.util.LocalCurrency
+import com.carlog.util.formatCurrency
 import com.carlog.presentation.components.ConsumableDeleteDialog
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
@@ -234,7 +236,7 @@ fun AddConsumableScreen(
                 OutlinedTextField(
                     value = state.cost,
                     onValueChange = viewModel::updateCost,
-                    label = { Text(stringResource(R.string.cost_rub)) },
+                    label = { Text(stringResource(R.string.cost_rub, LocalCurrency.current.symbol)) },
                     isError = state.costError != null,
                     supportingText = state.costError?.let { { Text(it) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -257,7 +259,7 @@ fun AddConsumableScreen(
                     OutlinedTextField(
                         value = state.serviceCost,
                         onValueChange = viewModel::updateServiceCost,
-                        label = { Text(stringResource(R.string.service_cost_consumable)) },
+                        label = { Text(stringResource(R.string.service_cost_consumable, LocalCurrency.current.symbol)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         isError = state.serviceCostError != null,
                         supportingText = state.serviceCostError?.let { { Text(it) } },
@@ -584,7 +586,7 @@ fun ConsumableDetailScreen(
                         OutlinedTextField(
                             value = serviceCost,
                             onValueChange = { serviceCost = it },
-                            label = { Text(stringResource(R.string.service_cost_consumable)) },
+                            label = { Text(stringResource(R.string.service_cost_consumable, LocalCurrency.current.symbol)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -775,7 +777,7 @@ fun ConsumableDetailContent(
                 DetailRow("Категория", consumable.category)
                 consumable.manufacturer?.let { DetailRow("Производитель", it) }
                 consumable.articleNumber?.let { DetailRow("Артикул", it) }
-                consumable.cost?.let { DetailRow("Стоимость", "$it ₽") }
+                consumable.cost?.let { DetailRow("Стоимость", formatCurrency(it)) }
                 DetailRow("Установлен в сервисе", if (consumable.isInstalledAtService) "Да" else "Нет")
                 consumable.volume?.let { DetailRow("Объем", "$it л") }
             }

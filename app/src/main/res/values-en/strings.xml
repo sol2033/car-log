@@ -94,17 +94,17 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="data_check_restore_ignored">Restore all hidden</string>
     <string name="data_check_unlinked_part_title">Part is not linked to an event</string>
     <string name="data_check_unlinked_part_explanation">Its price is counted twice right now: as a standalone part and inside the event cost.</string>
-    <string name="data_check_candidate_breakdown">Maintenance · parts %1$.2f ₽</string>
-    <string name="data_check_candidate_accident">Accident · repair %1$.2f ₽</string>
+    <string name="data_check_candidate_breakdown">Maintenance · parts %1$.2f %2$s</string>
+    <string name="data_check_candidate_accident">Accident · repair %1$.2f %2$s</string>
     <string name="data_check_link_part">Link</string>
     <string name="data_check_accident_cost_title">Accident has no repair cost</string>
-    <string name="data_check_accident_cost_body">Linked parts total %1$.2f ₽, but the repair cost is empty.</string>
+    <string name="data_check_accident_cost_body">Linked parts total %1$.2f %2$s, but the repair cost is empty.</string>
     <string name="data_check_service_cost_label">Labor cost</string>
     <string name="data_check_service_cost_hint">Leave empty if there was no labor</string>
-    <string name="data_check_apply_repair_cost">Set %1$.2f ₽</string>
+    <string name="data_check_apply_repair_cost">Set %1$.2f %2$s</string>
     <string name="data_check_cost_mismatch_title">Parts cost does not match</string>
-    <string name="data_check_cost_mismatch_body">"%1$s": the record says %2$.2f ₽, linked parts and consumables add up to %3$.2f ₽.</string>
-    <string name="data_check_align_cost">Set to %1$.2f ₽</string>
+    <string name="data_check_cost_mismatch_body">"%1$s": the record says %2$.2f %4$s, linked parts and consumables add up to %3$.2f %4$s.</string>
+    <string name="data_check_align_cost">Set to %1$.2f %2$s</string>
     <string name="data_check_purchase_title">Purchase details are missing</string>
     <string name="data_check_purchase_body">Without the purchase date and mileage the average km per day is counted from the record creation date and may be inaccurate.</string>
     <string name="data_check_duplicate_title">Several active consumables</string>
@@ -253,7 +253,7 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="expense_detail_title">Expense Details</string>
     <string name="add_expense_title">Add Expense</string>
     <string name="expense_category">Category *</string>
-    <string name="expense_cost">Cost (₽) *</string>
+    <string name="expense_cost">Cost (%1$s) *</string>
     <string name="service_name">Service Name</string>
     <string name="service_address">Service Address</string>
     <string name="delete_expense_title">Delete expense?</string>
@@ -269,7 +269,7 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="fuel_type_label">Fuel Type</string>
     <string name="select_fuel_type">Select type: %1$s or %2$s</string>
     <string name="auto_calculated_total">Total cost calculated automatically</string>
-    <string name="total_cost_rub">Total Cost (₽)</string>
+    <string name="total_cost_rub">Total Cost (%1$s)</string>
     <string name="fill_if_no_price_per_liter">Fill if price per liter not specified</string>
     <string name="disabled_using_price_per_liter">Disabled - using price per liter</string>
     <string name="optional">Optional</string>
@@ -388,9 +388,9 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="manufacturer">Manufacturer</string>
     <string name="article_number">Article Number</string>
     <string name="installation_mileage">Installation Mileage (km) *</string>
-    <string name="cost_rub">Cost (₽) *</string>
+    <string name="cost_rub">Cost (%1$s) *</string>
     <string name="service_installed">Installed at service</string>
-    <string name="service_cost_consumable">Service cost (₽)</string>
+    <string name="service_cost_consumable">Service cost (%1$s)</string>
     <string name="volume_liters">Volume (L)</string>
     <string name="mileage_interval_km">Mileage interval (km)</string>
     <string name="days_interval_label">Days interval</string>
@@ -446,8 +446,8 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="installation_type_label">Installation Type *</string>
     <string name="self_installation">Self</string>
     <string name="service_installation">Service</string>
-    <string name="part_price">Part Price (₽) *</string>
-    <string name="service_price">Service Price (₽)</string>
+    <string name="part_price">Part Price (%1$s) *</string>
+    <string name="service_price">Service Price (%1$s)</string>
     <string name="part_photos">Part Photos</string>
     <string name="add_photo">Add Photo</string>
     <string name="total_cost">Total Cost</string>
@@ -521,11 +521,11 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="breakdown_date">Breakdown Date *</string>
     <string name="breakdown_mileage">Breakdown Mileage (km) *</string>
     <string name="broken_part">Broken Part</string>
-    <string name="parts_cost">Parts Cost (₽) *</string>
-    <string name="service_cost">Service Cost (₽)</string>
+    <string name="parts_cost">Parts Cost (%1$s) *</string>
+    <string name="service_cost">Service Cost (%1$s)</string>
     <string name="part_name_breakdown_label">Part Name</string>
-    <string name="part_price_breakdown_label">Price (₽)</string>
-    <string name="service_cost_label">Service Cost (₽)</string>
+    <string name="part_price_breakdown_label">Price (%1$s)</string>
+    <string name="service_cost_label">Service Cost (%1$s)</string>
     <string name="breakdown_info_label">Breakdown Information *</string>
     <string name="repair_cost_label">Repair Cost *</string>
     <string name="general_parts_cost">General parts cost</string>
@@ -548,7 +548,7 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="service_maintenance">At service</string>
     <string name="linked_consumables">Consumables for service</string>
     <string name="consumable_name">Consumable name *</string>
-    <string name="consumable_price">Price (₽) *</string>
+    <string name="consumable_price">Price (%1$s) *</string>
     <string name="calculated_parts_cost">Calculated parts cost</string>
     
     <!-- Refuelings -->
@@ -807,7 +807,7 @@ The next refueling you add becomes the new starting point — average consumptio
 
     <!-- Расход топлива без «полного бака», объём бака (1.4.0) -->
     <string name="refueling_amount_label">Amount (%1$s) *</string>
-    <string name="refueling_price_per_unit_label">Price per %1$s (₽)</string>
+    <string name="refueling_price_per_unit_label">Price per %1$s (%2$s)</string>
     <string name="refueling_fuel_distance_label">Distance on this fuel, km</string>
     <string name="refueling_fuel_distance_hint">Since the previous refueling with the same fuel — from the trip computer. Without it, gas and gasoline consumption is approximate</string>
     <string name="fuel_average_consumption">Average consumption</string>
@@ -847,7 +847,7 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="oil_top_up_add_title">Oil top-up</string>
     <string name="oil_top_up_edit_title">Edit top-up</string>
     <string name="oil_top_up_volume_label">Added, L *</string>
-    <string name="oil_top_up_cost_label">Cost, ₽ (optional)</string>
+    <string name="oil_top_up_cost_label">Cost, %1$s (optional)</string>
     <string name="oil_top_up_delete_title">Delete top-up?</string>
     <string name="oil_level_drop_title">Old oil level</string>
     <string name="oil_level_drop_question">How much did the level drop before the change?</string>

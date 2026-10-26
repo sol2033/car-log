@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.documents
 
+import com.carlog.util.formatCurrency
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -185,7 +186,7 @@ fun DocumentDetailScreen(
                             dateFormat.format(Date(doc.expiryDate))
                         )
                         doc.cost?.let {
-                            DetailRow(stringResource(R.string.document_cost), "$it ₽")
+                            DetailRow(stringResource(R.string.document_cost), formatCurrency(it))
                         }
                         doc.notes?.let {
                             DetailRow(stringResource(R.string.notes), it)

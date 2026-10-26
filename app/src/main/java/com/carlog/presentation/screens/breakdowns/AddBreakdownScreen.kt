@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.presentation.util.LocalCurrency
+import com.carlog.util.formatCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -307,7 +309,7 @@ fun AddBreakdownScreen(
                 OutlinedTextField(
                     value = state.partsCost,
                     onValueChange = viewModel::updatePartsCost,
-                    label = { Text(stringResource(R.string.parts_cost)) },
+                    label = { Text(stringResource(R.string.parts_cost, LocalCurrency.current.symbol)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     isError = state.partsCostError != null,
                     supportingText = state.partsCostError?.let { { Text(it) } },
@@ -374,7 +376,7 @@ fun AddBreakdownScreen(
                                     )
                                 }
                                 Text(
-                                    text = "₽%.2f".format(part.price),
+                                    text = formatCurrency(part.price),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -461,7 +463,7 @@ fun AddBreakdownScreen(
                                 }
                                 consumable.cost?.let { cost ->
                                     Text(
-                                        text = "₽%.2f".format(cost),
+                                        text = formatCurrency(cost),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -503,7 +505,7 @@ fun AddBreakdownScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "₽%.2f".format(state.consumablesCost),
+                                text = formatCurrency(state.consumablesCost),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -533,7 +535,7 @@ fun AddBreakdownScreen(
                         OutlinedTextField(
                             value = "ремонт по гарантии",
                             onValueChange = {},
-                            label = { Text(stringResource(R.string.service_cost_label)) },
+                            label = { Text(stringResource(R.string.service_cost_label, LocalCurrency.current.symbol)) },
                             readOnly = true,
                             enabled = false,
                             modifier = Modifier.fillMaxWidth()
@@ -571,7 +573,7 @@ fun AddBreakdownScreen(
                             OutlinedTextField(
                                 value = state.serviceCost,
                                 onValueChange = viewModel::updateServiceCost,
-                                label = { Text(stringResource(R.string.service_cost_label)) },
+                                label = { Text(stringResource(R.string.service_cost_label, LocalCurrency.current.symbol)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 isError = state.serviceCostError != null,
                                 supportingText = state.serviceCostError?.let { { Text(it) } },
@@ -616,7 +618,7 @@ fun AddBreakdownScreen(
                                             }
                                         }
                                         Text(
-                                            text = "₽%.2f".format(work.cost),
+                                            text = formatCurrency(work.cost),
                                             style = MaterialTheme.typography.bodyMedium
                                         )
                                         IconButton(onClick = { workItemToRemove = index }) {
@@ -640,7 +642,7 @@ fun AddBreakdownScreen(
                                         style = MaterialTheme.typography.titleSmall
                                     )
                                     Text(
-                                        text = "₽%.2f".format(state.workItems.totalCost()),
+                                        text = formatCurrency(state.workItems.totalCost()),
                                         style = MaterialTheme.typography.titleSmall
                                     )
                                 }
@@ -727,7 +729,7 @@ fun AddBreakdownScreen(
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Text(
-                                    text = "₽%.2f".format(partsCostValue),
+                                    text = formatCurrency(partsCostValue),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -741,7 +743,7 @@ fun AddBreakdownScreen(
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        text = "₽%.2f".format(serviceCostValue),
+                                        text = formatCurrency(serviceCostValue),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -756,7 +758,7 @@ fun AddBreakdownScreen(
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    text = "₽%.2f".format(totalCost),
+                                    text = formatCurrency(totalCost),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.error
                                 )

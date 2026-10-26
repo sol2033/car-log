@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.statistics
 
+import com.carlog.presentation.util.LocalCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -234,8 +235,10 @@ fun EmptyTabContent(
     }
 }
 
+// Символ — выбранной в настройках валюты: раньше здесь всегда был «₽»
+@Composable
 fun formatCurrency(value: Double): String {
-    return DecimalFormat("#,##0.00").format(value) + " ₽"
+    return DecimalFormat("#,##0.00").format(value) + " " + LocalCurrency.current.symbol
 }
 
 fun formatNumber(value: Double): String {

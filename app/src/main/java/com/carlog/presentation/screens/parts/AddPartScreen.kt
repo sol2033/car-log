@@ -1,5 +1,7 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.presentation.util.LocalCurrency
+import com.carlog.util.formatCurrency
 import com.carlog.util.PickerDates
 import com.carlog.util.toDecimalOrNull
 import androidx.compose.foundation.layout.*
@@ -207,7 +209,7 @@ fun AddPartScreen(
                 OutlinedTextField(
                     value = state.price,
                     onValueChange = viewModel::updatePrice,
-                    label = { Text(stringResource(R.string.part_price)) },
+                    label = { Text(stringResource(R.string.part_price, LocalCurrency.current.symbol)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     isError = state.priceError != null,
                     supportingText = state.priceError?.let { { Text(it) } },
@@ -218,7 +220,7 @@ fun AddPartScreen(
                     OutlinedTextField(
                         value = state.servicePrice,
                         onValueChange = viewModel::updateServicePrice,
-                        label = { Text(stringResource(R.string.service_price)) },
+                        label = { Text(stringResource(R.string.service_price, LocalCurrency.current.symbol)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         isError = state.servicePriceError != null,
                         supportingText = state.servicePriceError?.let { { Text(it) } },
@@ -267,7 +269,7 @@ fun AddPartScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = "₽%.2f".format(totalCost),
+                                text = formatCurrency(totalCost),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )

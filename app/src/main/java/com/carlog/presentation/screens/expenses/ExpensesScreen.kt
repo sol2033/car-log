@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.expenses
 
+import com.carlog.presentation.util.LocalCurrency
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -186,7 +187,7 @@ fun ExpensesScreen(
                             
                             StatItem(
                                 label = "Общая стоимость",
-                                value = String.format("%.0f ₽", totalCost ?: 0.0),
+                                value = String.format("%.0f", totalCost ?: 0.0) + " " + LocalCurrency.current.symbol,
                                 valueColor = Color(0xFF2196F3) // Синий
                             )
                         }
@@ -196,7 +197,7 @@ fun ExpensesScreen(
                             
                             StatItem(
                                 label = "Средняя стоимость",
-                                value = String.format("%.0f ₽", averageCost)
+                                value = String.format("%.0f", averageCost) + " " + LocalCurrency.current.symbol
                             )
                         }
                     }
@@ -361,7 +362,7 @@ private fun ExpenseCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = String.format("%.0f ₽", expense.cost),
+                    text = String.format("%.0f", expense.cost) + " " + LocalCurrency.current.symbol,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2196F3)

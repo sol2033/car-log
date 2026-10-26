@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.expenses
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -179,14 +180,14 @@ fun AddExpenseScreen(
             OutlinedTextField(
                 value = cost,
                 onValueChange = { viewModel.updateCost(it) },
-                label = { Text(stringResource(R.string.expense_cost)) },
+                label = { Text(stringResource(R.string.expense_cost, LocalCurrency.current.symbol)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 isError = costError != null,
                 supportingText = costError?.let { { Text(it) } },
                 trailingIcon = {
-                    Text("₽", style = MaterialTheme.typography.bodyLarge)
+                    Text(LocalCurrency.current.symbol, style = MaterialTheme.typography.bodyLarge)
                 }
             )
             

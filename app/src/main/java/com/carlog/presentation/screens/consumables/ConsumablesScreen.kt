@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.util.formatCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -268,7 +269,7 @@ fun ConsumableCard(
                         )
                     } else consumable.cost?.let {
                         Text(
-                            text = "$it ₽",
+                            text = formatCurrency(it),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary

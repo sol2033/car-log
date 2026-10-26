@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.parts
 
+import com.carlog.util.formatCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -520,7 +521,7 @@ private fun PartCard(
             ) {
                 val totalCost = part.price + (part.servicePrice ?: 0.0)
                 Text(
-                    text = "₽%.2f".format(totalCost),
+                    text = formatCurrency(totalCost),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold

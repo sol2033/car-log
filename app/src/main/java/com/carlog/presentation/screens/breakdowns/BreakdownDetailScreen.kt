@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.breakdowns
 
+import com.carlog.util.formatCurrency
 import com.carlog.presentation.components.consumablesRemovedNote
 import com.carlog.presentation.components.ConsumableDeleteDialog
 import androidx.compose.foundation.layout.*
@@ -251,7 +252,7 @@ private fun BreakdownDetailContent(
                     consumables.forEach { consumable ->
                         InfoRow(
                             label = consumable.customName ?: consumable.category,
-                            value = "₽%.2f".format(consumable.cost ?: 0.0)
+                            value = formatCurrency(consumable.cost ?: 0.0)
                         )
                     }
                 }
@@ -278,7 +279,7 @@ private fun BreakdownDetailContent(
                     workItems.forEach { work ->
                         InfoRow(
                             label = work.name,
-                            value = "₽%.2f".format(work.cost)
+                            value = formatCurrency(work.cost)
                         )
                         if (!work.notes.isNullOrBlank()) {
                             Text(
@@ -293,7 +294,7 @@ private fun BreakdownDetailContent(
 
                     InfoRow(
                         label = stringResource(R.string.work_items_total),
-                        value = "₽%.2f".format(workItems.totalCost()),
+                        value = formatCurrency(workItems.totalCost()),
                         labelStyle = MaterialTheme.typography.titleSmall,
                         valueStyle = MaterialTheme.typography.titleSmall
                     )
@@ -322,31 +323,31 @@ private fun BreakdownDetailContent(
                 if (costSplit.scheduledService != 0.0) {
                     InfoRow(
                         label = stringResource(R.string.event_cost_consumables),
-                        value = "₽%.2f".format(costSplit.scheduledService)
+                        value = formatCurrency(costSplit.scheduledService)
                     )
                 }
                 if (costSplit.repair != 0.0) {
                     InfoRow(
                         label = stringResource(R.string.event_cost_repair_parts),
-                        value = "₽%.2f".format(costSplit.repair)
+                        value = formatCurrency(costSplit.repair)
                     )
                 }
                 if (costSplit.modification != 0.0) {
                     InfoRow(
                         label = stringResource(R.string.event_cost_modification_parts),
-                        value = "₽%.2f".format(costSplit.modification)
+                        value = formatCurrency(costSplit.modification)
                     )
                 }
                 InfoRow(
                     label = stringResource(R.string.event_cost_works),
-                    value = "₽%.2f".format(breakdown.serviceCost ?: 0.0)
+                    value = formatCurrency(breakdown.serviceCost ?: 0.0)
                 )
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 
                 InfoRow(
                     label = "Общая стоимость",
-                    value = "₽%.2f".format(breakdown.totalCost),
+                    value = formatCurrency(breakdown.totalCost),
                     labelStyle = MaterialTheme.typography.titleSmall,
                     valueStyle = MaterialTheme.typography.titleMedium
                 )

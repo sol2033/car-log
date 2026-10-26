@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.consumables
 
+import com.carlog.util.formatCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -208,7 +209,7 @@ fun HistoryConsumableCard(
                 }
                 consumable.cost?.let {
                     Text(
-                        text = "$it ₽",
+                        text = formatCurrency(it),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold

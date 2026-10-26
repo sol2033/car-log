@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.accidents
 
+import com.carlog.util.formatCurrency
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -236,7 +237,7 @@ private fun AccidentCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "₽%.2f".format(accident.repairCost),
+                            text = formatCurrency(accident.repairCost),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.error
@@ -256,7 +257,7 @@ private fun AccidentCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "₽%.2f".format(totalPayout),
+                            text = formatCurrency(totalPayout),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary

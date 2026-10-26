@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.refuelings
 
+import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.PickerDates
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -264,7 +265,7 @@ fun AddRefuelingScreen(
             OutlinedTextField(
                 value = pricePerLiter,
                 onValueChange = viewModel::onPricePerLiterChanged,
-                label = { Text(stringResource(R.string.refueling_price_per_unit_label, unit)) },
+                label = { Text(stringResource(R.string.refueling_price_per_unit_label, unit, LocalCurrency.current.symbol)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -284,7 +285,7 @@ fun AddRefuelingScreen(
             OutlinedTextField(
                 value = totalCost,
                 onValueChange = viewModel::onTotalCostChanged,
-                label = { Text(stringResource(R.string.total_cost_rub)) },
+                label = { Text(stringResource(R.string.total_cost_rub, LocalCurrency.current.symbol)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
