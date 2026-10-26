@@ -30,9 +30,12 @@ class ConsumablesHistoryViewModel @Inject constructor(
     }
     
     private fun loadCategories() {
-        consumableRepository.getActiveConsumablesByCarId(carId)
+        // Все расходники, а не только активные: у категории, где текущий удалили и
+        // предыдущий не вернули, история есть, а активной записи нет — раньше такая
+        // категория пропадала из истории целиком
+        consumableRepository.getConsumablesByCarId(carId)
             .map { consumables ->
-                // Получаем уникальные категории из активных расходников.
+                // Уникальные категории машины.
                 // Разовые позиции «Другое» историей замен не обладают — пропускаем
                 val categories = consumables
                     .map { it.category }
