@@ -256,4 +256,41 @@ class FuelConsumptionCalculatorTest {
         // 30 кВт·ч на 200 км = 15 кВт·ч/100км, батарея 60 → 400 км
         assertEquals(400.0, summary.rangeKm!!, 0.0001)
     }
+
+    // region Удаление точки отсчёта (регрессия: расход молча возвращался ко всей истории)
+
+    @Test
+    fun `удаление действующей точки передаёт её следующей заправке`() {
+        val point = refueling(2, 100_500, 40.0, isResetPoint = true)
+        val all = listOf(refueling(1, 100_000, 40.0), point, refueling(3, 101_000, 42.0))
+
+        val result = FuelConsumptionCalculator.resetPointOnDelete(all, point)
+
+        assertEquals(3L, (result as FuelConsumptionCalculator.ResetPointOnDelete.MoveTo).successor.id)
+    }
+
+    @Test
+    fun `удаление точки без следующей заправки ставит запрос нового отсчёта`() {
+        val point = refueling(2, 100_500, 40.0, isResetPoint = true)
+
+        val result = FuelConsumptionCalculator.resetPointOnDelete(listOf(refueling(1, 100_000, 40.0), point), point)
+
+        assertEquals(FuelConsumptionCalculator.ResetPointOnDelete.Pending, result)
+    }
+
+    @Test
+    fun `удаление обычной или устаревшей точки отсчёт не трогает`() {
+        val oldPoint = refueling(1, 100_000, 40.0, isResetPoint = true)
+        val plain = refueling(2, 100_500, 40.0)
+        val all = listOf(oldPoint, plain, refueling(3, 101_000, 42.0, isResetPoint = true))
+
+        assertEquals(
+            FuelConsumptionCalculator.ResetPointOnDelete.Unaffected,
+            FuelConsumptionCalculator.resetPointOnDelete(all, plain)
+        )
+        assertEquals(
+            FuelConsumptionCalculator.ResetPointOnDelete.Unaffected,
+            FuelConsumptionCalculator.resetPointOnDelete(all, oldPoint)
+        )
+    }
 }

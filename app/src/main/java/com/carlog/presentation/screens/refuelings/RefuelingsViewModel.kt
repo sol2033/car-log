@@ -112,7 +112,21 @@ class RefuelingsViewModel @Inject constructor(
 
     fun deleteRefueling(refueling: Refueling) {
         viewModelScope.launch {
+            // Точку отсчёта расхода не теряем вместе с записью — см. resetPointOnDelete
+            val all = refuelingRepository.getRefuelingsByCarId(refueling.carId).first()
+            val resetPoint = FuelConsumptionCalculator.resetPointOnDelete(all, refueling)
             refuelingRepository.deleteRefueling(refueling)
+            when (resetPoint) {
+                is FuelConsumptionCalculator.ResetPointOnDelete.MoveTo -> refuelingRepository.updateRefueling(
+                    resetPoint.successor.copy(
+                        isConsumptionResetPoint = true,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+                FuelConsumptionCalculator.ResetPointOnDelete.Pending ->
+                    carRepository.setFuelResetPending(refueling.carId, true)
+                FuelConsumptionCalculator.ResetPointOnDelete.Unaffected -> Unit
+            }
             // Обновляем пробег автомобиля до максимального
             carRepository.updateCarMileageAfterDelete(refueling.carId, refueling.mileage)
             // Уведомляем о изменении данных

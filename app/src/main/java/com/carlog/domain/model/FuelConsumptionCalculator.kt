@@ -48,6 +48,37 @@ object FuelConsumptionCalculator {
         return if (resetIndex > 0) sorted.drop(resetIndex) else sorted
     }
 
+    /** Что сделать с точкой отсчёта, когда удаляют заправку */
+    sealed interface ResetPointOnDelete {
+        /** Удаляемая заправка не действующая точка отсчёта — ничего не меняется */
+        object Unaffected : ResetPointOnDelete
+        /** Точка переходит к следующей заправке: окно расчёта остаётся тем же */
+        data class MoveTo(val successor: Refueling) : ResetPointOnDelete
+        /** Следующей заправки нет — точкой станет следующая добавленная (как запрос отсчёта) */
+        object Pending : ResetPointOnDelete
+    }
+
+    /**
+     * Удаление заправки, с которой считается расход (§4.5).
+     *
+     * Раньше точка отсчёта просто пропадала вместе с записью, и расход молча начинал
+     * считаться по всей истории — вместе с пропущенной заправкой, из-за которой отсчёт
+     * и начинали заново. Теперь окно расчёта сохраняется: точка переходит к следующей
+     * заправке, а если её нет — ею станет следующая добавленная.
+     *
+     * @param all все заправки машины, включая удаляемую
+     */
+    fun resetPointOnDelete(all: List<Refueling>, deleted: Refueling): ResetPointOnDelete {
+        if (!deleted.isConsumptionResetPoint) return ResetPointOnDelete.Unaffected
+        val sorted = sortedByMileage(all)
+        // Действует только последняя точка: более ранняя на расчёт уже не влияет
+        if (sorted.lastOrNull { it.isConsumptionResetPoint }?.id != deleted.id) {
+            return ResetPointOnDelete.Unaffected
+        }
+        val successor = sorted.getOrNull(sorted.indexOfFirst { it.id == deleted.id } + 1)
+        return successor?.let { ResetPointOnDelete.MoveTo(it) } ?: ResetPointOnDelete.Pending
+    }
+
     /** Дата точки отсчёта расхода; null — расход считается по всей истории */
     fun consumptionSince(refuelings: List<Refueling>): LocalDate? =
         sortedByMileage(refuelings).lastOrNull { it.isConsumptionResetPoint }
