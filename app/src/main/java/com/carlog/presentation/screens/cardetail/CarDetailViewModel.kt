@@ -35,7 +35,13 @@ class CarDetailViewModel @Inject constructor(
     val lowerMileageConfirmation: StateFlow<LowerMileageConfirmation?> =
         _lowerMileageConfirmation.asStateFlow()
 
+    // Машина, на которую уже подписаны. loadCar зовётся из LaunchedEffect и повторяется при
+    // каждом пересоздании экрана — без проверки копились одинаковые подписки на одну запись
+    private var loadedCarId: Long? = null
+
     fun loadCar(carId: Long) {
+        if (loadedCarId == carId) return
+        loadedCarId = carId
         viewModelScope.launch {
             try {
                 carRepository.getCarById(carId).collect { car ->

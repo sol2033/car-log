@@ -111,7 +111,15 @@ class AddRefuelingViewModel @Inject constructor(
     private val _saveError = mutableStateOf<String?>(null)
     val saveError: State<String?> = _saveError
     
+    // Для каких аргументов форма уже инициализирована. setCarId вызывается из LaunchedEffect
+    // и повторяется при каждом пересоздании экрана (поворот, тема, язык), а ViewModel живёт
+    // дальше: раньше каждый повтор заводил ещё один сборщик и заново заливал поля значениями
+    // из базы — набранная правка пропадала
+    private var initializedFor: Pair<Long, Long?>? = null
+
     fun setCarId(carId: Long, refuelingId: Long? = null) {
+        if (initializedFor == (carId to refuelingId)) return
+        initializedFor = carId to refuelingId
         _carId.value = carId
         _refuelingId.value = refuelingId
 
@@ -126,20 +134,18 @@ class AddRefuelingViewModel @Inject constructor(
         // Если редактируем существующую заправку
         if (refuelingId != null) {
             viewModelScope.launch {
-                _refueling.collect { refueling ->
-                    if (refueling != null) {
-                        _date.value = refueling.date
-                        _mileage.value = refueling.mileage.toString()
-                        _liters.value = refueling.liters.toString()
-                        _fuelType.value = refueling.fuelType
-                        _pricePerLiter.value = refueling.pricePerLiter?.toString() ?: ""
-                        _totalCost.value = refueling.totalCost?.toString() ?: ""
-                        _fuelDistance.value = refueling.fuelDistanceKm?.toString() ?: ""
-                        _stationName.value = refueling.stationName ?: ""
-                        stationNameInput.value = _stationName.value
-                        _notes.value = refueling.notes ?: ""
-                    }
-                }
+                // Поля заполняются один раз: дальше они принадлежат пользователю
+                val refueling = _refueling.filterNotNull().first()
+                _date.value = refueling.date
+                _mileage.value = refueling.mileage.toString()
+                _liters.value = refueling.liters.toString()
+                _fuelType.value = refueling.fuelType
+                _pricePerLiter.value = refueling.pricePerLiter?.toString() ?: ""
+                _totalCost.value = refueling.totalCost?.toString() ?: ""
+                _fuelDistance.value = refueling.fuelDistanceKm?.toString() ?: ""
+                _stationName.value = refueling.stationName ?: ""
+                stationNameInput.value = _stationName.value
+                _notes.value = refueling.notes ?: ""
             }
         }
     }
