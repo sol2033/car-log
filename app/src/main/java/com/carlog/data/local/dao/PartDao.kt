@@ -21,6 +21,10 @@ interface PartDao {
     
     @Query("SELECT * FROM parts WHERE id = :partId")
     fun getPartById(partId: Long): Flow<Part?>
+
+    // Запчасти события (обслуживания или ДТП) — удаляются вместе с ним
+    @Query("SELECT * FROM parts WHERE id IN (:ids)")
+    suspend fun getPartsByIds(ids: List<Long>): List<Part>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPart(part: Part): Long

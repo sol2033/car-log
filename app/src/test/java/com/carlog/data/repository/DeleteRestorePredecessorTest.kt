@@ -2,6 +2,7 @@ package com.carlog.data.repository
 
 import com.carlog.data.local.dao.BreakdownDao
 import com.carlog.data.local.dao.ConsumableDao
+import com.carlog.data.local.dao.PartDao
 import com.carlog.domain.model.Breakdown
 import com.carlog.domain.model.Consumable
 import io.mockk.coVerify
@@ -22,6 +23,7 @@ class DeleteRestorePredecessorTest {
 
     private val consumableDao = mockk<ConsumableDao>(relaxed = true)
     private val breakdownDao = mockk<BreakdownDao>(relaxed = true)
+    private val partDao = mockk<PartDao>(relaxed = true)
 
     private fun consumable(
         id: Long,
@@ -53,7 +55,7 @@ class DeleteRestorePredecessorTest {
 
     @Test
     fun `план удаления ТО называет число расходников и кого можно вернуть`() = runTest {
-        val plan = BreakdownRepository(breakdownDao, consumableDao).deletePlan(maintenance)
+        val plan = BreakdownRepository(breakdownDao, consumableDao, partDao).deletePlan(maintenance)
 
         assertEquals(1, plan.removedCount)
         assertEquals(listOf(1L), plan.restorable.map { it.predecessor.id })
@@ -61,7 +63,7 @@ class DeleteRestorePredecessorTest {
 
     @Test
     fun `удаление ТО с возвратом делает предыдущее масло текущим`() = runTest {
-        BreakdownRepository(breakdownDao, consumableDao).deleteBreakdown(maintenance, restorePredecessors = true)
+        BreakdownRepository(breakdownDao, consumableDao, partDao).deleteBreakdown(maintenance, restorePredecessors = true)
 
         coVerify { consumableDao.deleteConsumablesByIds(listOf(2L)) }
         coVerify {
@@ -74,7 +76,7 @@ class DeleteRestorePredecessorTest {
 
     @Test
     fun `удаление ТО без возврата оставляет категорию пустой`() = runTest {
-        BreakdownRepository(breakdownDao, consumableDao).deleteBreakdown(maintenance, restorePredecessors = false)
+        BreakdownRepository(breakdownDao, consumableDao, partDao).deleteBreakdown(maintenance, restorePredecessors = false)
 
         coVerify { consumableDao.deleteConsumablesByIds(listOf(2L)) }
         coVerify(exactly = 0) { consumableDao.updateConsumable(any()) }

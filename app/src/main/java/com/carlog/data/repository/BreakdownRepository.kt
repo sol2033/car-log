@@ -3,6 +3,7 @@ package com.carlog.data.repository
 import com.carlog.domain.model.ConsumableChainRepair
 import com.carlog.data.local.dao.BreakdownDao
 import com.carlog.data.local.dao.ConsumableDao
+import com.carlog.data.local.dao.PartDao
 import com.carlog.domain.model.Breakdown
 import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +14,8 @@ import javax.inject.Singleton
 @Singleton
 class BreakdownRepository @Inject constructor(
     private val breakdownDao: BreakdownDao,
-    private val consumableDao: ConsumableDao
+    private val consumableDao: ConsumableDao,
+    private val partDao: PartDao
 ) {
     fun getBreakdownsByCarId(carId: Long): Flow<List<Breakdown>> =
         breakdownDao.getBreakdownsByCarId(carId)
@@ -55,6 +57,11 @@ class BreakdownRepository @Inject constructor(
         }
         val now = System.currentTimeMillis()
         toRestore.forEach { consumableDao.updateConsumable(ConsumableChainRepair.reactivated(it.predecessor, now)) }
+        // Запчасти события уходят вместе с ним — так же, как запчасть, убранная из события
+        // при редактировании. Раньше они оставались в модуле «Запчасти» и, потеряв событие,
+        // начинали считаться в статистике «отдельными»: деньги удалённой записи возвращались
+        // в «Ремонты», а скрытая мелочь продолжала там числиться незаметно для пользователя
+        deleteEventParts(partDao, breakdown.carId, breakdown.installedPartIds)
         // Фото принадлежат только этой записи — иначе файлы остаются в хранилище навсегда
         FileHelper.deleteFiles(breakdown.photosPaths)
         breakdownDao.deleteBreakdown(breakdown)

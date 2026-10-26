@@ -1,6 +1,7 @@
 package com.carlog.data.repository
 
 import com.carlog.data.local.dao.AccidentDao
+import com.carlog.data.local.dao.PartDao
 import com.carlog.domain.model.Accident
 import com.carlog.util.FileHelper
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,8 @@ import javax.inject.Singleton
 
 @Singleton
 class AccidentRepository @Inject constructor(
-    private val accidentDao: AccidentDao
+    private val accidentDao: AccidentDao,
+    private val partDao: PartDao
 ) {
     
     fun getAccidentsByCarId(carId: Long): Flow<List<Accident>> =
@@ -46,6 +48,9 @@ class AccidentRepository @Inject constructor(
         // (старые записи хранят content:// URI, такие файлы нам не принадлежат)
         FileHelper.deleteFiles(accident.photosPaths)
         FileHelper.deleteFiles(accident.documentPath?.let { listOf(it) })
+        // Запчасти ремонта после ДТП принадлежат аварии (см. BreakdownRepository.deleteBreakdown):
+        // без неё они считались бы в статистике обычным ремонтом
+        deleteEventParts(partDao, accident.carId, accident.installedPartIds)
         accidentDao.deleteAccident(accident)
     }
 
