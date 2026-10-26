@@ -69,7 +69,9 @@ data class AddAccidentState(
     // Запчасти, привязанные к записи на момент загрузки: удалённые из списка нужно
     // удалить и из модуля «Запчасти»
     val originalPartIds: List<Long> = emptyList(),
-    // Фото запчастей: исходные и все прошедшие через экран (для чистки файлов-сирот)
+    // Вложения записи — фото ДТП и фото запчастей: исходные и все прошедшие через экран
+    // (для чистки файлов-сирот). Фото самого ДТП сюда раньше не попадали: убранное
+    // сохранённое фото и выбранное, но брошенное без сохранения оставались в хранилище
     val originalPartPhotos: Set<String> = emptySet(),
     val touchedPartPhotos: Set<String> = emptySet(),
     // Загружено ли редактируемое ДТП (до загрузки сохранять нельзя — будет дубликат)
@@ -181,8 +183,8 @@ class AddAccidentViewModel @Inject constructor(
                         addedParts = addedParts,
                         serviceCost = serviceCost?.toString() ?: "",
                         originalPartIds = linkedParts.map { it.id },
-                        originalPartPhotos = linkedPartPhotos,
-                        touchedPartPhotos = linkedPartPhotos,
+                        originalPartPhotos = linkedPartPhotos + accident.photosPaths.orEmpty(),
+                        touchedPartPhotos = linkedPartPhotos + accident.photosPaths.orEmpty(),
                         totalRepairCost = accident.repairCost?.toString() ?: "",
                         photosPaths = accident.photosPaths ?: emptyList(),
                         documentPath = accident.documentPath,
@@ -342,7 +344,8 @@ class AddAccidentViewModel @Inject constructor(
     fun addPhoto(photoPath: String) {
         val currentState = _state.value
         _state.value = currentState.copy(
-            photosPaths = currentState.photosPaths + photoPath
+            photosPaths = currentState.photosPaths + photoPath,
+            touchedPartPhotos = currentState.touchedPartPhotos + photoPath
         )
     }
     

@@ -130,6 +130,10 @@ class AddFineViewModel @Inject constructor(
                 _paidDate.value = loaded.paidDate
                 _paidAmount.value = loaded.paidAmount?.toString() ?: ""
                 _photosPaths.value = loaded.photosPaths ?: emptyList()
+                // Сохранённые вложения тоже «затронуты»: убранное при правке удаляется при
+                // сохранении (раньше файл оставался навсегда), а при уходе без сохранения
+                // исходные защищены сравнением с исходной записью в onCleared
+                touchedPhotos.addAll(loaded.photosPaths.orEmpty())
                 _notes.value = loaded.notes ?: ""
             }
         }
