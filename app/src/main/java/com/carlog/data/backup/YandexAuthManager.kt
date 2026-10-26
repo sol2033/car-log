@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,6 +30,28 @@ class YandexAuthManager @Inject constructor(
 
         private const val PREFS_NAME = "backup_prefs"
         private const val KEY_TOKEN = "yandex_token"
+        // Случайная метка начатого входа: редирект без неё (или с чужой) не принимается
+        private const val KEY_PENDING_STATE = "yandex_oauth_state"
+
+        /**
+         * Токен из фрагмента редиректа (`access_token=…&state=…`) — только если `state`
+         * совпал с меткой входа, который начали в приложении.
+         *
+         * Раньше принимался любой `carlog://oauth#access_token=…`: ссылка на веб-странице
+         * или другое приложение могли подключить Car Log к чужому Диску, и бэкапы
+         * (VIN, номера, фото документов) уезжали бы туда.
+         */
+        fun extractToken(fragment: String?, expectedState: String?): String? {
+            if (fragment.isNullOrEmpty() || expectedState.isNullOrEmpty()) return null
+            val params = fragment.split("&")
+                .mapNotNull { param ->
+                    val parts = param.split("=", limit = 2)
+                    if (parts.size == 2) parts[0] to parts[1] else null
+                }
+                .toMap()
+            if (params["state"] != expectedState) return null
+            return params["access_token"]?.takeIf { it.isNotEmpty() }
+        }
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -50,22 +73,27 @@ class YandexAuthManager @Inject constructor(
         _isConnectedFlow.value = false
     }
 
-    /** URL для открытия в браузере — начало OAuth flow */
-    fun getAuthUrl(): String =
-        "https://oauth.yandex.ru/authorize?response_type=token&client_id=$CLIENT_ID&redirect_uri=carlog://oauth/yandex"
+    /**
+     * URL для открытия в браузере — начало OAuth flow. Каждый вызов начинает новый вход
+     * со своей меткой `state`: Яндекс вернёт её в редиректе вместе с токеном
+     */
+    fun getAuthUrl(): String {
+        val state = ByteArray(16).also { SecureRandom().nextBytes(it) }
+            .joinToString("") { "%02x".format(it) }
+        prefs.edit().putString(KEY_PENDING_STATE, state).commit()
+        return "https://oauth.yandex.ru/authorize?response_type=token&client_id=$CLIENT_ID" +
+            "&redirect_uri=carlog://oauth/yandex&state=$state"
+    }
 
     /**
      * Извлекает access_token из URI после редиректа.
-     * Яндекс редиректит на: carlog://oauth/yandex#access_token=TOKEN&...
+     * Яндекс редиректит на: carlog://oauth/yandex#access_token=TOKEN&state=STATE&...
+     * Метка входа одноразовая: после принятого токена повторить тот же редирект нельзя.
      */
     fun parseTokenFromUri(uri: Uri): String? {
-        val fragment = uri.fragment ?: return null
-        return fragment.split("&")
-            .mapNotNull { param ->
-                val parts = param.split("=")
-                if (parts.size == 2) parts[0] to parts[1] else null
-            }
-            .firstOrNull { it.first == "access_token" }
-            ?.second
+        val token = extractToken(uri.fragment, prefs.getString(KEY_PENDING_STATE, null))
+            ?: return null
+        prefs.edit().remove(KEY_PENDING_STATE).apply()
+        return token
     }
 }
