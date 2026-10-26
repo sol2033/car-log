@@ -9,6 +9,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.carlog.util.BackupDatabaseCheck
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -167,6 +168,14 @@ class CloudBackupManager @Inject constructor(
         try {
             val api = getApi()
             api.downloadFile(remotePath, tempZipFile)
+
+            // База копии должна быть базой Car Log не новее этой версии приложения:
+            // копия с более новой схемой роняла бы приложение при каждом запуске.
+            // Проверяем до скачивания медиа и до закрытия текущей базы
+            val header = BackupDatabaseCheck.headerInZip(tempZipFile) { it == DATABASE_FILE_IN_ZIP }
+            BackupDatabaseCheck.failureFor(
+                header?.let { BackupDatabaseCheck.verdict(it) } ?: BackupDatabaseCheck.Verdict.NOT_DATABASE
+            )?.let { return@withContext Result.failure(it) }
 
             // Опись есть только у формата v2; её отсутствие означает старый цельный архив
             val manifest = readManifestFromZip(tempZipFile)

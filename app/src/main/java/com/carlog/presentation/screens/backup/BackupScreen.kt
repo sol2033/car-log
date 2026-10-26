@@ -28,6 +28,7 @@ import com.carlog.presentation.screens.settings.CloudBackupSection
 import com.carlog.presentation.screens.settings.SettingsSection
 import com.carlog.presentation.screens.settings.SettingsViewModel
 import com.carlog.util.AppRestart
+import com.carlog.util.BackupFromNewerAppException
 import com.carlog.util.NotABackupFileException
 import kotlinx.coroutines.launch
 
@@ -111,6 +112,8 @@ fun BackupScreen(
                             val error = result.exceptionOrNull()
                             val message = if (error is NotABackupFileException) {
                                 context.getString(R.string.backup_import_not_backup)
+                            } else if (error is BackupFromNewerAppException) {
+                                context.getString(R.string.backup_import_newer_version)
                             } else {
                                 context.getString(R.string.backup_import_error, error?.message.orEmpty())
                             }

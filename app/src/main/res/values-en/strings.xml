@@ -203,6 +203,7 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="backup_import_success_photos">Data imported successfully! Photos restored: %1$d. Restarting…</string>
     <string name="backup_import_error">Import failed: %1$s</string>
     <string name="backup_import_not_backup">Import failed: the file is not a Car Log backup. Your current data is unchanged</string>
+    <string name="backup_import_newer_version">Import failed: the backup was made by a newer version of Car Log. Update the app and try again. Your current data is unchanged</string>
     <string name="backup_generic_error">Error: %1$s</string>
     <string name="settings_backup_title">Backup &amp; Restore</string>
     <string name="settings_export_data">Export Data</string>

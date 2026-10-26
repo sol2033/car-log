@@ -203,6 +203,7 @@
     <string name="backup_import_success_photos">Данные успешно импортированы! Восстановлено фотографий: %1$d. Перезапуск…</string>
     <string name="backup_import_error">Ошибка импорта: %1$s</string>
     <string name="backup_import_not_backup">Ошибка импорта: файл не является резервной копией Car Log. Текущие данные не изменены</string>
+    <string name="backup_import_newer_version">Ошибка импорта: копия сделана более новой версией Car Log. Обновите приложение и повторите. Текущие данные не изменены</string>
     <string name="backup_generic_error">Ошибка: %1$s</string>
     <string name="settings_backup_title">Резервное копирование</string>
     <string name="settings_export_data">Экспорт данных</string>

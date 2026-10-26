@@ -61,5 +61,12 @@ abstract class CarLogDatabase : RoomDatabase() {
     
     companion object {
         const val DATABASE_NAME = "car_log_database"
+
+        /**
+         * Версия схемы — та же, что в `@Database(version = …)`: копию с более новой схемой
+         * восстанавливать нельзя (см. `BackupDatabaseCheck`). Совпадение с последней схемой
+         * в app/schemas проверяет `BackupDatabaseCheckTest`.
+         */
+        const val SCHEMA_VERSION = 28
     }
 }
