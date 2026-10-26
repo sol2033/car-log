@@ -178,14 +178,19 @@ class PartsViewModel @Inject constructor(
     fun markPartAsBroken(part: Part, breakdownDate: Long, breakdownMileage: Int) {
         viewModelScope.launch {
             try {
+                // Сломаться раньше установки запчасть не могла: диалог такой пробег
+                // не пропускает, а здесь — страховка от отрицательного ресурса
+                val mileage = breakdownMileage.coerceAtLeast(part.installMileage)
                 val updatedPart = part.copy(
                     isBroken = true,
                     breakdownDate = breakdownDate,
-                    breakdownMileage = breakdownMileage,
-                    mileageDriven = breakdownMileage - part.installMileage,
+                    breakdownMileage = mileage,
+                    mileageDriven = mileage - part.installMileage,
                     updatedAt = System.currentTimeMillis()
                 )
                 partRepository.updatePart(updatedPart)
+                // Пробег поломки — тоже запись журнала: пробег машины не может быть ниже
+                carRepository.updateCarMileageIfNeeded(part.carId, mileage)
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {
@@ -199,7 +204,7 @@ class PartsViewModel @Inject constructor(
             try {
                 partRepository.deletePart(part)
                 // Обновляем пробег автомобиля до максимального
-                carRepository.updateCarMileageAfterDelete(part.carId, part.installMileage)
+                carRepository.updateCarMileageAfterDelete(part.carId, maxOf(part.installMileage, part.breakdownMileage ?: 0))
                 // Уведомляем о изменении данных
                 dataChangeNotifier.notifyDataChanged()
             } catch (e: Exception) {

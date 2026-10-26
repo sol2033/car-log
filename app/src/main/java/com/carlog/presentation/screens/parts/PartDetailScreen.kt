@@ -183,6 +183,11 @@ fun PartDetailScreen(
                             breakdownMileage = input.filter { it.isDigit() }
                         },
                         label = { Text(stringResource(R.string.breakdown_mileage_label)) },
+                        // Поломка раньше установки — отрицательный «пройденный ресурс»
+                        isError = breakdownMileageBelowInstall(breakdownMileage, part),
+                        supportingText = if (breakdownMileageBelowInstall(breakdownMileage, part)) {
+                            { Text(stringResource(R.string.replacement_mileage_error, part.installMileage)) }
+                        } else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -194,7 +199,7 @@ fun PartDetailScreen(
                         viewModel.dismissMarkBrokenDialog()
                         viewModel.showReplacePartDialog()
                     },
-                    enabled = breakdownMileage.toIntOrNull()?.let { it > 0 } == true
+                    enabled = isValidBreakdownMileage(breakdownMileage, part)
                 ) {
                     Text(stringResource(R.string.yes))
                 }

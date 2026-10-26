@@ -605,6 +605,11 @@ private fun PartCard(
                         value = breakdownMileage,
                         onValueChange = { breakdownMileage = it.filter { char -> char.isDigit() } },
                         label = { Text(stringResource(R.string.breakdown_mileage_label)) },
+                        // Поломка раньше установки — отрицательный «пройденный ресурс»
+                        isError = breakdownMileageBelowInstall(breakdownMileage, part),
+                        supportingText = if (breakdownMileageBelowInstall(breakdownMileage, part)) {
+                            { Text(stringResource(R.string.replacement_mileage_error, part.installMileage)) }
+                        } else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -614,12 +619,12 @@ private fun PartCard(
                 TextButton(
                     onClick = {
                         val mileage = breakdownMileage.toIntOrNull()
-                        if (mileage != null && mileage > 0) {
-                            onMarkAsBroken(breakdownDateMillis, mileage)
+                        if (isValidBreakdownMileage(breakdownMileage, part)) {
+                            onMarkAsBroken(breakdownDateMillis, mileage!!)
                             showMarkBrokenDialog = false
                         }
                     },
-                    enabled = breakdownMileage.toIntOrNull()?.let { it > 0 } == true
+                    enabled = isValidBreakdownMileage(breakdownMileage, part)
                 ) {
                     Text(stringResource(R.string.mark))
                 }
