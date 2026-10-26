@@ -27,13 +27,14 @@ class CarRepositoryMileageTest {
     private val carDao = mockk<CarDao>(relaxed = true)
     private val refuelingDao = mockk<RefuelingDao>(relaxed = true)
     private val oilTopUpDao = mockk<OilTopUpDao>(relaxed = true)
+    private val partDao = mockk<PartDao>(relaxed = true)
 
     private val repository = CarRepository(
         carDao,
         mockk<BreakdownDao>(relaxed = true),
         refuelingDao,
         mockk<ConsumableDao>(relaxed = true),
-        mockk<PartDao>(relaxed = true),
+        partDao,
         mockk<AccidentDao>(relaxed = true),
         mockk<ExpenseDao>(relaxed = true),
         mockk<CarDocumentDao>(relaxed = true),
@@ -69,5 +70,36 @@ class CarRepositoryMileageTest {
         repository.syncAllCarsMileage()
 
         coVerify { carDao.updateMileage(1, 98_000, any()) }
+    }
+
+    /** Регрессия: удаление единственной записи обнуляло пробег машины */
+    @Test
+    fun `удаление последней записи не обнуляет пробег, а опирается на пробег покупки`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car.copy(currentMileage = 100_500, purchaseMileage = 80_000)
+
+        repository.updateCarMileageAfterDelete(1, 100_500)
+
+        coVerify { carDao.updateMileage(1, 80_000, any()) }
+        coVerify(exactly = 0) { carDao.updateMileage(1, 0, any()) }
+    }
+
+    @Test
+    fun `без записей и пробега покупки пробег после удаления не трогается`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car.copy(currentMileage = 100_500)
+
+        repository.updateCarMileageAfterDelete(1, 100_500)
+
+        coVerify(exactly = 0) { carDao.updateMileage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `пробег поломки запчасти держит пробег машины после удаления`() = runTest {
+        coEvery { carDao.getCarByIdOnce(1) } returns car
+        coEvery { refuelingDao.getMaxMileage(1) } returns 95_000
+        coEvery { partDao.getMaxBreakdownMileage(1) } returns 99_000
+
+        repository.updateCarMileageAfterDelete(1, 100_000)
+
+        coVerify { carDao.updateMileage(1, 99_000, any()) }
     }
 }

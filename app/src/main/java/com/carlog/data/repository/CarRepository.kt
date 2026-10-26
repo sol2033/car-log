@@ -191,19 +191,10 @@ class CarRepository @Inject constructor(
             return
         }
         
-        // Ищем новый максимальный пробег через SQL MAX() - быстро!
-        val maxMileages = listOfNotNull(
-            breakdownDao.getMaxMileage(carId),
-            refuelingDao.getMaxMileage(carId),
-            consumableDao.getMaxInstallationMileage(carId),
-            consumableDao.getMaxReplacementMileage(carId),
-            partDao.getMaxMileage(carId),
-            accidentDao.getMaxMileage(carId),
-            expenseDao.getMaxMileage(carId),
-            oilTopUpDao.getMaxMileage(carId)
-        )
-
-        val maxMileage = maxMileages.maxOrNull() ?: 0
+        // Нижняя граница — пробег при покупке: раньше при удалении последней записи
+        // пробег машины обнулялся (максимум по пустому списку превращался в 0).
+        // Ни записей, ни пробега покупки — опереться не на что, пробег не трогаем
+        val maxMileage = maxKnownMileage(currentCar) ?: return
         updateMileage(carId, maxMileage)
     }
     
@@ -211,21 +202,23 @@ class CarRepository @Inject constructor(
     suspend fun syncAllCarsMileage() {
         val cars = carDao.getAllCarsOnce()
         cars.forEach { car ->
-            val maxMileages = listOfNotNull(
-                breakdownDao.getMaxMileage(car.id),
-                refuelingDao.getMaxMileage(car.id),
-                consumableDao.getMaxInstallationMileage(car.id),
-                consumableDao.getMaxReplacementMileage(car.id),
-                partDao.getMaxMileage(car.id),
-                accidentDao.getMaxMileage(car.id),
-                expenseDao.getMaxMileage(car.id),
-                oilTopUpDao.getMaxMileage(car.id)
-            )
-            
-            val maxMileage = maxMileages.maxOrNull()
+            val maxMileage = maxKnownMileage(car)
             if (maxMileage != null && maxMileage > car.currentMileage) {
                 updateMileage(car.id, maxMileage)
             }
         }
+    }
+
+    /**
+     * Максимальный пробег, известный по записям машины и её пробегу при покупке;
+     * null — нет ни того, ни другого.
+     *
+     * Набор источников тот же, что у [getMaxRecordedMileage] (включая пробег поломки
+     * запчасти): раньше пересчёт после удаления и синхронизация при запуске его не видели,
+     * и пробег машины мог оказаться ниже записанного в журнале
+     */
+    private suspend fun maxKnownMileage(car: Car): Int? {
+        val recorded = getMaxRecordedMileage(car.id).takeIf { it > 0 }
+        return listOfNotNull(recorded, car.purchaseMileage).maxOrNull()
     }
 }

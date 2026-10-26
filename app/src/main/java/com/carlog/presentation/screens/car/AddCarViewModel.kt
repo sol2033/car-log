@@ -380,6 +380,20 @@ class AddCarViewModel @Inject constructor(
                 val oilDipstickVolumeIsGuess = currentState.oilDipstickVolumeUnknown
                 
                 val original = currentState.original
+                if (original != null && currentMileage != original.currentMileage) {
+                    // Пробег ниже записей журнала форма молча сохраняла, а при следующем
+                    // запуске синхронизация возвращала прежний максимум. Уменьшение с
+                    // «прижатием» записей есть на карточке машины — там оно и подтверждается
+                    val maxRecorded = carRepository.getMaxRecordedMileage(original.id)
+                    if (currentMileage < maxRecorded) {
+                        _state.value = currentState.copy(
+                            isSaving = false,
+                            mileageError = "В журнале есть записи на $maxRecorded км. " +
+                                "Уменьшить пробег можно кнопкой обновления пробега на карточке автомобиля"
+                        )
+                        return@launch
+                    }
+                }
                 if (original != null) {
                     // copy, а не новая сущность: поля вне формы (fuelResetPending,
                     // createdAt — по нему считается возраст авто) должны уцелеть
