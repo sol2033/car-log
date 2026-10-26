@@ -88,7 +88,7 @@ class DataCheckViewModel @Inject constructor(
     }
 
     fun alignBreakdownCost(finding: IntegrityFinding.BreakdownCostMismatch) = fix {
-        checker.alignBreakdownPartsCost(finding.breakdown.id, finding.linkedPartsSum)
+        checker.alignBreakdownPartsCost(finding.breakdown.id, finding.expectedPartsCost)
     }
 
     fun setPurchaseInfo(finding: IntegrityFinding.CarWithoutPurchaseInfo, date: Long, mileage: Int) = fix {

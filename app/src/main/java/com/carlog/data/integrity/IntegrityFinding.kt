@@ -58,8 +58,14 @@ sealed interface IntegrityFinding {
         override val id: String,
         override val carLabel: String,
         val breakdown: Breakdown,
-        val linkedPartsSum: Double
-    ) : IntegrityFinding
+        val linkedPartsSum: Double,
+        // Расходники события тоже входят в его partsCost (с 1.2.4 событие бывает и ТО,
+        // и ремонтом сразу) — без них сравнение давало ложное расхождение
+        val linkedConsumablesSum: Double = 0.0
+    ) : IntegrityFinding {
+        /** Какой должна быть стоимость запчастей события: запчасти плюс расходники */
+        val expectedPartsCost: Double get() = linkedPartsSum + linkedConsumablesSum
+    }
 
     /** Без даты и пробега покупки средний пробег в день считается от даты создания записи */
     data class CarWithoutPurchaseInfo(

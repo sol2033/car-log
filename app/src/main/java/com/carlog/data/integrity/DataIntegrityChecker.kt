@@ -54,7 +54,7 @@ class DataIntegrityChecker @Inject constructor(
         val findings = mutableListOf<IntegrityFinding>()
         findings += unlinkedParts(label, parts, breakdowns, accidents)
         findings += accidentsWithoutRepairCost(label, accidents, parts)
-        findings += breakdownCostMismatches(label, breakdowns, parts)
+        findings += breakdownCostMismatches(label, breakdowns, parts, consumables)
         findings += carWithoutPurchaseInfo(label, car)
         findings += duplicateActiveConsumables(label, consumables)
         findings += staleActiveConsumables(label, consumables)
@@ -140,19 +140,26 @@ class DataIntegrityChecker @Inject constructor(
     private fun breakdownCostMismatches(
         carLabel: String,
         breakdowns: List<Breakdown>,
-        parts: List<Part>
+        parts: List<Part>,
+        consumables: List<Consumable>
     ): List<IntegrityFinding> = breakdowns.mapNotNull { breakdown ->
         val linkedIds = breakdown.installedPartIds.orEmpty()
         if (linkedIds.isEmpty()) return@mapNotNull null
 
         val sum = parts.filter { linkedIds.contains(it.id) }.sumOf { it.price }
-        if (abs(sum - breakdown.partsCost) <= MONEY_TOLERANCE) return@mapNotNull null
+        // partsCost события = его расходники + запчасти (AddBreakdownState.calculatedPartsCost).
+        // Раньше расходники здесь не учитывались: любое ТО с запчастями списком числилось
+        // «разошедшимся», а исправление вычёркивало стоимость расходников из события
+        val consumableIds = breakdown.linkedConsumableIds.orEmpty().toSet()
+        val consumablesSum = consumables.filter { it.id in consumableIds }.sumOf { it.cost ?: 0.0 }
+        if (abs(sum + consumablesSum - breakdown.partsCost) <= MONEY_TOLERANCE) return@mapNotNull null
 
         IntegrityFinding.BreakdownCostMismatch(
             id = "breakdown_cost_${breakdown.id}",
             carLabel = carLabel,
             breakdown = breakdown,
-            linkedPartsSum = sum
+            linkedPartsSum = sum,
+            linkedConsumablesSum = consumablesSum
         )
     }
 
@@ -251,7 +258,11 @@ class DataIntegrityChecker @Inject constructor(
         )
     }
 
-    /** Приводит стоимость запчастей обслуживания к сумме привязанных к нему запчастей */
+    /**
+     * Приводит стоимость запчастей обслуживания к сумме его позиций.
+     *
+     * @param partsSum запчасти **и расходники** события ([IntegrityFinding.BreakdownCostMismatch.expectedPartsCost])
+     */
     suspend fun alignBreakdownPartsCost(breakdownId: Long, partsSum: Double) {
         val breakdown = breakdownDao.getBreakdownById(breakdownId).firstOrNull() ?: return
         breakdownDao.updateBreakdown(

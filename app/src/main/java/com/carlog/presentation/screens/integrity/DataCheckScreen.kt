@@ -367,12 +367,12 @@ private fun BreakdownMismatchBody(
             R.string.data_check_cost_mismatch_body,
             finding.breakdown.title,
             finding.breakdown.partsCost,
-            finding.linkedPartsSum
+            finding.expectedPartsCost
         ),
         style = MaterialTheme.typography.bodyMedium
     )
     Button(onClick = onAlign) {
-        Text(stringResource(R.string.data_check_align_cost, finding.linkedPartsSum))
+        Text(stringResource(R.string.data_check_align_cost, finding.expectedPartsCost))
     }
 }
 

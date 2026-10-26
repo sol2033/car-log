@@ -241,6 +241,45 @@ class DataIntegrityCheckerTest {
         assertEquals(5_000.0, findings.first().linkedPartsSum, 0.01)
     }
 
+    /**
+     * Регрессия: partsCost события — расходники плюс запчасти. Сравнение только с запчастями
+     * объявляло «разошедшимся» любое ТО с запчастями списком, а исправление вычёркивало
+     * стоимость расходников из события.
+     */
+    @Test
+    fun `расходники события входят в сверку стоимости`() = runTest {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, price = 5_000.0)))
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(consumable(30, "Масло в двигателе", isActive = true, linkedMaintenanceId = 20, cost = 2_500.0))
+        )
+        every { breakdownDao.getBreakdownsByCarId(1) } returns flowOf(
+            listOf(
+                breakdown(20, partsCost = 7_500.0, installedPartIds = listOf(10))
+                    .copy(linkedConsumableIds = listOf(30))
+            )
+        )
+
+        assertTrue(checker.scan().filterIsInstance<IntegrityFinding.BreakdownCostMismatch>().isEmpty())
+    }
+
+    @Test
+    fun `исправление расхождения сохраняет стоимость расходников`() = runTest {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, price = 5_000.0)))
+        every { consumableDao.getConsumablesByCarId(1) } returns flowOf(
+            listOf(consumable(30, "Масло в двигателе", isActive = true, linkedMaintenanceId = 20, cost = 2_500.0))
+        )
+        every { breakdownDao.getBreakdownsByCarId(1) } returns flowOf(
+            listOf(
+                breakdown(20, partsCost = 9_000.0, installedPartIds = listOf(10))
+                    .copy(linkedConsumableIds = listOf(30))
+            )
+        )
+
+        val finding = checker.scan().filterIsInstance<IntegrityFinding.BreakdownCostMismatch>().single()
+
+        assertEquals(7_500.0, finding.expectedPartsCost, 0.01)
+    }
+
     @Test
     fun `сошедшаяся стоимость находкой не считается`() = runTest {
         every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, price = 5_000.0)))
