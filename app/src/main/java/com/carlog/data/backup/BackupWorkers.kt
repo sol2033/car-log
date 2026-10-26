@@ -99,7 +99,10 @@ abstract class BaseBackupWorker(
 
         return backupResult.fold(
             onSuccess = { info ->
-                prefs.edit().putLong(BackupPrefs.KEY_LAST_BACKUP, System.currentTimeMillis()).apply()
+                // Отметка — момент начала, а не конца: снимок базы снимается в начале заливки,
+                // и правки, сделанные пока она шла, в копию не попали. С отметкой «по концу»
+                // догоняющий бэкап считал бы их сохранёнными
+                prefs.edit().putLong(BackupPrefs.KEY_LAST_BACKUP, startedAt).apply()
                 backupLogStore.record(
                     BackupLogEntry(
                         timestamp = System.currentTimeMillis(),
