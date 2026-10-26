@@ -1,5 +1,6 @@
 package com.carlog.presentation.screens.accidents
 
+import com.carlog.presentation.components.rememberAttachmentSaver
 import com.carlog.presentation.util.LocalCurrency
 import com.carlog.util.formatCurrency
 import androidx.compose.ui.text.input.KeyboardType
@@ -430,16 +431,13 @@ fun DocumentSection(
     // Открепление протокола — тоже потеря: файл уже выбран и скопирован в хранилище
     var showDetachDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val saveAttachment = rememberAttachmentSaver()
     val documentPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         // Копируем PDF во внутреннее хранилище (как фото): сырой content:// URI
-        // со временем протухает и не попадает в бэкапы
-        uri?.let {
-            FileHelper.saveDocumentToInternalStorage(context, it)?.let { savedPath ->
-                onDocumentSelected(savedPath)
-            }
-        }
+        // со временем протухает и не попадает в бэкапы. Копирование — в фоне
+        uri?.let { saveAttachment(it, true) { savedPath -> onDocumentSelected(savedPath) } }
     }
     
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

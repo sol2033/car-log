@@ -705,6 +705,7 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="attachment_photo">Photo</string>
     <string name="attachment_main_photo">Main photo</string>
     <string name="attachment_open_failed">Could not open the document</string>
+    <string name="photo_save_failed">Could not save the photo</string>
     <string name="attachment_save_failed">Could not save the document</string>
     <string name="attachments_empty">No files added</string>
     <string name="attachments_count">Files: %1$d</string>

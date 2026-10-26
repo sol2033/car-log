@@ -33,6 +33,9 @@ import coil.compose.AsyncImage
 import com.carlog.R
 import com.carlog.util.Attachments
 import com.carlog.util.FileHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val PDF_MIME_TYPE = "application/pdf"
 
@@ -65,10 +68,12 @@ fun AttachmentsPicker(
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
+    val saveAttachment = rememberAttachmentSaver()
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let { FileHelper.saveImageToInternalStorage(context, it)?.let(onAdd) }
+        uri?.let { saveAttachment(it, false, onAdd) }
     }
 
     val pdfPickerLauncher = rememberLauncherForActivityResult(
@@ -76,14 +81,7 @@ fun AttachmentsPicker(
     ) { uri: Uri? ->
         // PDF копируем в хранилище так же, как фото: сырой content:// URI со временем
         // протухает и не попадает в бэкапы
-        uri?.let {
-            val saved = FileHelper.saveDocumentToInternalStorage(context, it)
-            if (saved != null) {
-                onAdd(saved)
-            } else {
-                Toast.makeText(context, R.string.attachment_save_failed, Toast.LENGTH_SHORT).show()
-            }
-        }
+        uri?.let { saveAttachment(it, true, onAdd) }
     }
 
     val launchPhotoPicker = {
@@ -218,22 +216,17 @@ fun SingleAttachmentPicker(
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
+    val saveAttachment = rememberAttachmentSaver()
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let { FileHelper.saveImageToInternalStorage(context, it)?.let(onSelected) }
+        uri?.let { saveAttachment(it, false, onSelected) }
     }
     val pdfPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            val saved = FileHelper.saveDocumentToInternalStorage(context, it)
-            if (saved != null) {
-                onSelected(saved)
-            } else {
-                Toast.makeText(context, R.string.attachment_save_failed, Toast.LENGTH_SHORT).show()
-            }
-        }
+        uri?.let { saveAttachment(it, true, onSelected) }
     }
 
     Box(modifier = modifier) {
@@ -396,5 +389,39 @@ private fun AttachmentSourceMenu(
                 onPickPdf()
             }
         )
+    }
+}
+
+/**
+ * Копирует выбранный файл во внутреннее хранилище **в фоне** и отдаёт путь на главном потоке.
+ *
+ * Раньше копирование шло прямо в колбэке выбора, то есть в UI-потоке: декодирование,
+ * поворот и пережатие фото, копирование PDF. Файл из облачного провайдера ещё и скачивается
+ * при чтении — экран замирал, вплоть до ANR. Неудача с фото к тому же проходила молча.
+ *
+ * @return (uri, это PDF, куда отдать сохранённый путь)
+ */
+@Composable
+internal fun rememberAttachmentSaver(): (Uri, Boolean, (String) -> Unit) -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    return remember(context, scope) {
+        { uri: Uri, isPdf: Boolean, onSaved: (String) -> Unit ->
+            scope.launch {
+                val saved = withContext(Dispatchers.IO) {
+                    if (isPdf) {
+                        FileHelper.saveDocumentToInternalStorage(context, uri)
+                    } else {
+                        FileHelper.saveImageToInternalStorage(context, uri)
+                    }
+                }
+                if (saved != null) {
+                    onSaved(saved)
+                } else {
+                    val message = if (isPdf) R.string.attachment_save_failed else R.string.photo_save_failed
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 }

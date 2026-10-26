@@ -709,6 +709,7 @@
     <string name="attachment_photo">Фотография</string>
     <string name="attachment_main_photo">Основное фото</string>
     <string name="attachment_open_failed">Не удалось открыть документ</string>
+    <string name="photo_save_failed">Не удалось сохранить фото</string>
     <string name="attachment_save_failed">Не удалось сохранить документ</string>
     <string name="attachments_empty">Файлы не добавлены</string>
     <string name="attachments_count">Файлов: %1$d</string>
