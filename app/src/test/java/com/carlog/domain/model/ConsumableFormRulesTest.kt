@@ -29,6 +29,13 @@ class ConsumableFormRulesTest {
         intervalDays = intervalDays
     )
 
+    /** Регрессия: отрицательная стоимость принималась и уменьшала стоимость ТО */
+    @Test
+    fun `отрицательная стоимость позицию не пропускает, ноль — пропускает`() {
+        assertFalse(canAdd("Фильтр масляный", cost = "-500"))
+        assertTrue(canAdd("Фильтр масляный", cost = "0"))
+    }
+
     @Test
     fun `объём спрашивается только у жидкостей`() {
         assertTrue(ConsumableFormRules.requiresVolume("Масло в двигателе"))

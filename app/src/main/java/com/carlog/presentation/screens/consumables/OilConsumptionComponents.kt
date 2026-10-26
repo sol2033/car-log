@@ -27,6 +27,7 @@ import com.carlog.domain.model.OilConsumptionCalculator
 import com.carlog.domain.model.OilInterval
 import com.carlog.domain.model.OilLevelDropInput
 import com.carlog.domain.model.OilTopUp
+import com.carlog.util.moneyInputError
 import com.carlog.util.toDecimalOrNull
 import com.carlog.util.toMileageOrNull
 import java.text.DecimalFormat
@@ -340,8 +341,9 @@ fun OilTopUpDialog(
                 if (saved) return@TextButton
                 mileageError = BreakdownFormRules.mileageError(mileage)
                 volumeError = CarFormRules.volumeError(volume, required = true)
-                // Стоимость необязательна, но введённый мусор молча не теряем
-                costError = CarFormRules.volumeError(cost, required = false)
+                // Стоимость необязательна, но введённый мусор молча не теряем. Правило денег,
+                // а не объёма: долив бесплатного масла (0) раньше не сохранялся
+                costError = moneyInputError(cost)
                 if (mileageError == null && volumeError == null && costError == null) {
                     saved = true
                     onSave(date, mileage.toMileageOrNull()!!, volume.toDecimalOrNull()!!, cost.toDecimalOrNull())

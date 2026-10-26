@@ -293,14 +293,18 @@ class AddRefuelingViewModel @Inject constructor(
                 if (_liters.value.isBlank()) {
                     _litersError.value = "Обязательное поле"
                     hasError = true
-                } else if (litersValue == null) {
+                } else if (litersValue == null || litersValue <= 0) {
+                    // Ноль и минус раньше принимались и ломали средний расход
                     _litersError.value = "Введите корректное число"
                     hasError = true
                 }
                 
                 // Проверяем, что указана хотя бы одна стоимость
-                val hasPricePerLiter = _pricePerLiter.value.isNotBlank() && _pricePerLiter.value.toDecimalOrNull() != null
-                val hasTotalCost = _totalCost.value.isNotBlank() && _totalCost.value.toDecimalOrNull() != null
+                // Отрицательная цена или сумма — не цена: раньше уменьшала расходы на топливо
+                val hasPricePerLiter = _pricePerLiter.value.isNotBlank() &&
+                    (_pricePerLiter.value.toDecimalOrNull() ?: -1.0) >= 0
+                val hasTotalCost = _totalCost.value.isNotBlank() &&
+                    (_totalCost.value.toDecimalOrNull() ?: -1.0) >= 0
                 
                 if (!hasPricePerLiter && !hasTotalCost) {
                     _pricePerLiterError.value = "Укажите цену за литр"

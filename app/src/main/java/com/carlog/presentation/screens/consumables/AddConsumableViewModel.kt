@@ -250,7 +250,12 @@ class AddConsumableViewModel @Inject constructor(
 
         val categoryError = if (currentState.category.isBlank()) "Обязательное поле" else null
         val mileageError = BreakdownFormRules.mileageError(currentState.installationMileage)
-        val costError = if (currentState.cost.isBlank() || currentState.cost.toDecimalOrNull() == null) "Обязательное поле" else null
+        // Отрицательная стоимость раньше принималась и уменьшала расходы в статистике
+        val costError = when {
+            currentState.cost.isBlank() || currentState.cost.toDecimalOrNull() == null -> "Обязательное поле"
+            currentState.cost.toDecimalOrNull()!! < 0 -> "Стоимость не может быть отрицательной"
+            else -> null
+        }
         
         val serviceCostError = if (currentState.isInstalledAtService) moneyInputError(currentState.serviceCost) else null
         val volumeError = if (ConsumableCategories.FLUID_CATEGORIES.contains(currentState.category)) {

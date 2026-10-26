@@ -51,7 +51,8 @@ object ConsumableFormRules {
     ): Boolean {
         if (category.isBlank()) return false
         if (requiresCustomName(category) && customName.isBlank()) return false
-        if (cost.toDecimalOrNull() == null) return false
+        // Отрицательная стоимость уменьшала бы стоимость ТО
+        if ((cost.toDecimalOrNull() ?: return false) < 0) return false
         if (requiresVolume(category) && volume.toDecimalOrNull() == null) return false
         if (supportsReminders(category) &&
             parseInterval(intervalMileage) == null &&

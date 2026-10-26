@@ -256,7 +256,8 @@ class AddExpenseViewModel @Inject constructor(
             }
 
             val costValue = _cost.value.toDecimalOrNull()
-            if (costValue == null && _cost.value.isNotBlank()) {
+            // Отрицательная стоимость раньше принималась и уменьшала расходы в статистике
+            if ((costValue == null || costValue < 0) && _cost.value.isNotBlank()) {
                 _costError.value = "Введите корректное значение"
                 hasError = true
             }
