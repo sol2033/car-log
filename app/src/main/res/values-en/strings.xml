@@ -103,7 +103,7 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="data_check_service_cost_hint">Leave empty if there was no labor</string>
     <string name="data_check_apply_repair_cost">Set %1$.2f ₽</string>
     <string name="data_check_cost_mismatch_title">Parts cost does not match</string>
-    <string name="data_check_cost_mismatch_body">"%1$s": the record says %2$.2f ₽, linked parts add up to %3$.2f ₽.</string>
+    <string name="data_check_cost_mismatch_body">"%1$s": the record says %2$.2f ₽, linked parts and consumables add up to %3$.2f ₽.</string>
     <string name="data_check_align_cost">Set to %1$.2f ₽</string>
     <string name="data_check_purchase_title">Purchase details are missing</string>
     <string name="data_check_purchase_body">Without the purchase date and mileage the average km per day is counted from the record creation date and may be inaccurate.</string>
@@ -196,6 +196,14 @@ Oil consumption: the engine oil screen has a \"Top up oil\" button, and on repla
     <string name="settings_drive2">My Drive2</string>
     <string name="settings_repository">Project Repository</string>
     <string name="settings_language_title">App Language</string>
+    <string name="backup_screen_title">Backups</string>
+    <string name="backup_export_success">Data exported successfully</string>
+    <string name="backup_export_error">Export failed: %1$s</string>
+    <string name="backup_import_success">Data imported successfully! Restarting…</string>
+    <string name="backup_import_success_photos">Data imported successfully! Photos restored: %1$d. Restarting…</string>
+    <string name="backup_import_error">Import failed: %1$s</string>
+    <string name="backup_import_not_backup">Import failed: the file is not a Car Log backup. Your current data is unchanged</string>
+    <string name="backup_generic_error">Error: %1$s</string>
     <string name="settings_backup_title">Backup &amp; Restore</string>
     <string name="settings_export_data">Export Data</string>
     <string name="settings_export_description">Save all data to file</string>
@@ -398,7 +406,11 @@ The next refueling you add becomes the new starting point — average consumptio
     <string name="replace_consumable_message">Are you installing the same consumable or a different one?</string>
     <string name="same_consumable">Same</string>
     <string name="different_consumable">Different</string>
+    <string name="statistics_week_range">week %1$d: %2$s - %3$s</string>
     <string name="replace_same_title">Replace with same consumable</string>
+    <string name="replacement_date_label">Replacement date</string>
+    <string name="replacement_mileage_label">Replacement mileage (km)</string>
+    <string name="replacement_mileage_error">Must not be below the install mileage: %1$d km</string>
     <string name="consumable_cost_label">Consumable cost</string>
     <string name="replace_button">Replace</string>
     <string name="consumable_history_title">Consumable History</string>

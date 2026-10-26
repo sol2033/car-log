@@ -103,7 +103,7 @@
     <string name="data_check_service_cost_hint">Если работ не было — оставьте пустым</string>
     <string name="data_check_apply_repair_cost">Проставить %1$.2f ₽</string>
     <string name="data_check_cost_mismatch_title">Стоимость запчастей разошлась</string>
-    <string name="data_check_cost_mismatch_body">«%1$s»: в записи указано %2$.2f ₽, сумма привязанных запчастей — %3$.2f ₽.</string>
+    <string name="data_check_cost_mismatch_body">«%1$s»: в записи указано %2$.2f ₽, сумма привязанных запчастей и расходников — %3$.2f ₽.</string>
     <string name="data_check_align_cost">Привести к %1$.2f ₽</string>
     <string name="data_check_purchase_title">Не указана покупка автомобиля</string>
     <string name="data_check_purchase_body">Без даты и пробега покупки средний пробег в день считается от даты создания записи и может быть неточным.</string>
@@ -196,6 +196,14 @@
     <string name="settings_drive2">Мой Drive2</string>
     <string name="settings_repository">Репозиторий проекта</string>
     <string name="settings_language_title">Язык приложения</string>
+    <string name="backup_screen_title">Резервные сохранения</string>
+    <string name="backup_export_success">Данные успешно экспортированы</string>
+    <string name="backup_export_error">Ошибка экспорта: %1$s</string>
+    <string name="backup_import_success">Данные успешно импортированы! Перезапуск…</string>
+    <string name="backup_import_success_photos">Данные успешно импортированы! Восстановлено фотографий: %1$d. Перезапуск…</string>
+    <string name="backup_import_error">Ошибка импорта: %1$s</string>
+    <string name="backup_import_not_backup">Ошибка импорта: файл не является резервной копией Car Log. Текущие данные не изменены</string>
+    <string name="backup_generic_error">Ошибка: %1$s</string>
     <string name="settings_backup_title">Резервное копирование</string>
     <string name="settings_export_data">Экспорт данных</string>
     <string name="settings_export_description">Сохранить все данные в файл</string>
@@ -398,7 +406,11 @@
     <string name="replace_consumable_message">Вы устанавливаете тот же расходник или другой?</string>
     <string name="same_consumable">Тот же</string>
     <string name="different_consumable">Другой</string>
+    <string name="statistics_week_range">неделя %1$d: %2$s - %3$s</string>
     <string name="replace_same_title">Замена на тот же расходник</string>
+    <string name="replacement_date_label">Дата замены</string>
+    <string name="replacement_mileage_label">Пробег замены (км)</string>
+    <string name="replacement_mileage_error">Не меньше пробега установки: %1$d км</string>
     <string name="consumable_cost_label">Стоимость расходника</string>
     <string name="replace_button">Заменить</string>
     <string name="consumable_history_title">История расходников</string>

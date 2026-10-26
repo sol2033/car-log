@@ -306,6 +306,25 @@ class StatisticsViewModelTest {
         assertEquals(null, vm.uiState.value.statistics.general)
     }
 
+    /**
+     * Регрессия: при «Исключить ДТП» запчасти аварии теряли связь с ней и считались
+     * отдельными — их цены всплывали в «Ремонтах» и в стоимости километра.
+     */
+    @Test
+    fun `исключение ДТП не переносит его запчасти в ремонты`() = runTest(dispatcher) {
+        every { partDao.getPartsByCarId(1) } returns flowOf(listOf(part(10, 30_000.0)))
+        every { accidentDao.getAccidentsByPeriod(1, any(), any()) } returns
+            flowOf(listOf(accident(partIds = listOf(10), repairCost = 50_000.0)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.toggleExcludeAccidents()
+        advanceUntilIdle()
+
+        assertEquals(null, vm.uiState.value.statistics.general)
+        assertEquals(null, vm.uiState.value.statistics.repairs)
+    }
+
     private fun consumable(
         id: Long,
         category: String,
@@ -592,6 +611,50 @@ class StatisticsViewModelTest {
             trend.sumOf { it.amount },
             0.01
         )
+    }
+
+    /**
+     * Регрессия: у периода «Месяц» было ровно 4 недели от начала диапазона — траты текущей
+     * недели попадали в четвёртую, которая заканчивалась раньше «сегодня».
+     */
+    @Test
+    fun `трата текущей недели попадает в текущую неделю графика за месяц`() = runTest(dispatcher) {
+        every { tollPaymentDao.getTollPaymentsByCarId(1) } returns flowOf(listOf(toll(amount = 300.0, date = now)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.setPeriod(StatisticsPeriod.MONTH)
+        advanceUntilIdle()
+
+        val today = java.time.LocalDate.now()
+        val currentMonday = today.minusDays(today.dayOfWeek.value.toLong() - 1)
+        val point = vm.uiState.value.statistics.general!!.costTrend.single { it.amount > 0 }
+        assertEquals(currentMonday, point.date)
+        assertEquals(300.0, point.amount, 0.01)
+    }
+
+    /**
+     * Регрессия: «Год» строился за последние 12 месяцев, а месяц относился к ближайшему
+     * началу блока — последний месяц каждого блока уезжал в соседний столбец.
+     */
+    @Test
+    fun `год делится на блоки календарного года, трата попадает в свой блок`() = runTest(dispatcher) {
+        every { tollPaymentDao.getTollPaymentsByCarId(1) } returns flowOf(listOf(toll(amount = 300.0, date = now)))
+
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.setPeriod(StatisticsPeriod.YEAR)
+        advanceUntilIdle()
+
+        val today = java.time.LocalDate.now()
+        val yearStart = java.time.LocalDate.of(today.year, 1, 1)
+        val trend = vm.uiState.value.statistics.general!!.costTrend
+        assertEquals(
+            listOf(yearStart, yearStart.plusMonths(4), yearStart.plusMonths(8)),
+            trend.map { it.date }
+        )
+        val expectedBlock = yearStart.plusMonths(((today.monthValue - 1) / 4 * 4).toLong())
+        assertEquals(expectedBlock, trend.single { it.amount > 0 }.date)
     }
 
     /**

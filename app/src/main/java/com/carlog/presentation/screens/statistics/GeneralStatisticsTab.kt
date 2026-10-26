@@ -14,55 +14,7 @@ import com.carlog.domain.model.GeneralStatistics
 import com.carlog.domain.model.StatisticsPeriod
 import com.carlog.presentation.screens.statistics.charts.*
 import java.text.DecimalFormat
-import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-
-private fun getDateRangeText(period: StatisticsPeriod, specificMonth: YearMonth?): String {
-    val now = LocalDate.now()
-    val formatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
-    
-    // Для 2 недель показываем детальные интервалы
-    if (period == StatisticsPeriod.TWO_WEEKS) {
-        val currentMonday = now.minusDays(now.dayOfWeek.value.toLong() - 1)
-        val previousMonday = currentMonday.minusWeeks(1)
-        val previousSunday = previousMonday.plusDays(6)
-        return "неделя 1: ${previousMonday.format(formatter)} - ${previousSunday.format(formatter)}\n" +
-               "неделя 2: ${currentMonday.format(formatter)} - ${now.format(formatter)}"
-    }
-    
-    // Для месяца показываем 4 недели
-    if (period == StatisticsPeriod.MONTH) {
-        val startDate = now.minusMonths(1)
-        val currentMonday = startDate.minusDays(startDate.dayOfWeek.value.toLong() - 1)
-        val weeks = StringBuilder()
-        for (i in 0..3) {
-            val weekMonday = currentMonday.plusWeeks(i.toLong())
-            val weekSunday = weekMonday.plusDays(6)
-            if (i > 0) weeks.append("\n")
-            weeks.append("неделя ${i + 1}: ${weekMonday.format(formatter)} - ${weekSunday.format(formatter)}")
-        }
-        return weeks.toString()
-    }
-    
-    val (start, end) = when {
-        specificMonth != null -> {
-            val startDate = specificMonth.atDay(1)
-            val endDate = specificMonth.atEndOfMonth()
-            startDate to endDate
-        }
-        period == StatisticsPeriod.WEEK -> {
-            val monday = now.minusDays(now.dayOfWeek.value.toLong() - 1)
-            val sunday = monday.plusDays(6)
-            monday to sunday
-        }
-        else -> return ""
-    }
-    
-    val dateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale("ru"))
-    return "${start.format(dateFormatter)} - ${end.format(dateFormatter)}"
-}
 
 @Composable
 fun GeneralStatisticsTab(
@@ -126,7 +78,7 @@ fun GeneralStatisticsTab(
                         style = MaterialTheme.typography.titleMedium
                     )
                     
-                    val dateRange = getDateRangeText(selectedPeriod, specificMonth)
+                    val dateRange = statisticsDateRangeText(selectedPeriod, specificMonth)
                     if (dateRange.isNotEmpty()) {
                         Text(
                             text = dateRange,

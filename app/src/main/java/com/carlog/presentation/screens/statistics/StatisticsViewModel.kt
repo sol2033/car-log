@@ -213,8 +213,10 @@ class StatisticsViewModel @Inject constructor(
                 // ДТП — источник двойного учёта: repairCost аварии уже включает свои запчасти)
                 val partIdsInBreakdowns =
                     filteredByMileage.breakdowns.flatMap { it.installedPartIds ?: emptyList() }
+                // Запчасти аварий берём из всех ДТП в фильтре, даже когда аварии исключены:
+                // иначе при «Исключить ДТП» их цены переезжали в «Ремонты» как отдельные
                 val partIdsInAccidents =
-                    filteredAccidents.flatMap { it.installedPartIds ?: emptyList() }
+                    filteredByMileage.accidents.flatMap { it.installedPartIds ?: emptyList() }
                 val countedPartIds = (partIdsInBreakdowns + partIdsInAccidents).toSet()
 
                 // Filter parts: only those not already counted in breakdowns/accidents
@@ -379,28 +381,25 @@ class StatisticsViewModel @Inject constructor(
                 // Только число дня
                 date.dayOfMonth.toString()
             }
-            GroupingType.BY_WEEK_TWO_WEEKS -> {
-                // Просто "неделя 1", "неделя 2"
-                "неделя ${index + 1}"
-            }
+            GroupingType.BY_WEEK_TWO_WEEKS,
             GroupingType.BY_WEEK_MONTH -> {
-                // Для месяца: "неделя 1", "неделя 2", "неделя 3", "неделя 4"
-                "неделя ${index + 1}"
+                // «неделя 1», «неделя 2»… — номер совпадает с легендой под графиком
+                weekPointLabel(index + 1)
             }
             GroupingType.BY_MONTH -> {
                 // Названия месяцев: дек, янв, фев
-                date.month.getDisplayName(TextStyle.SHORT, Locale("ru"))
+                date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
             }
             GroupingType.BY_TWO_MONTHS -> {
                 // Названия месяцев для 6 месяцев (по 2 месяца)
-                val month1 = date.month.getDisplayName(TextStyle.SHORT, Locale("ru"))
-                val month2 = date.plusMonths(1).month.getDisplayName(TextStyle.SHORT, Locale("ru"))
+                val month1 = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                val month2 = date.plusMonths(1).month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
                 "$month1-$month2"
             }
             GroupingType.BY_FOUR_MONTHS -> {
                 // Названия месяцев для года (по 4 месяца)
-                val month1 = date.month.getDisplayName(TextStyle.SHORT, Locale("ru"))
-                val month4 = date.plusMonths(3).month.getDisplayName(TextStyle.SHORT, Locale("ru"))
+                val month1 = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                val month4 = date.plusMonths(3).month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
                 "$month1-$month4"
             }
         }
@@ -420,7 +419,15 @@ class StatisticsViewModel @Inject constructor(
     ): List<LocalDate> {
         val rangeStart = DateUtils.toLocalDate(startDate)
         val end = DateUtils.toLocalDate(endDate)
-        val start = if (earliestData != null && earliestData.isAfter(rangeStart)) earliestData else rangeStart
+        // Сдвиг к первой записи — только там, где подписи точек говорят сами за себя (число
+        // дня, название месяца). У недель подписи «неделя N» привязаны к легенде под графиком,
+        // и сдвиг делал «неделей 1» совсем другую неделю
+        val trimToData = groupingType == GroupingType.BY_DAY || groupingType == GroupingType.BY_MONTH
+        val start = if (trimToData && earliestData != null && earliestData.isAfter(rangeStart)) {
+            earliestData
+        } else {
+            rangeStart
+        }
         val now = LocalDate.now()
 
         val periods = mutableListOf<LocalDate>()
@@ -441,9 +448,10 @@ class StatisticsViewModel @Inject constructor(
                 periods.add(week1Start.plusWeeks(1))
             }
             GroupingType.BY_WEEK_MONTH -> {
-                // Месяц: 4 недели
+                // Месяц: все недели диапазона (4–5). Раньше бралось ровно 4 недели от начала,
+                // и траты последних дней до «сегодня» уходили в четвёртую неделю
                 var current = start.minusDays(start.dayOfWeek.value.toLong() - 1)
-                repeat(4) {
+                while (!current.isAfter(end)) {
                     periods.add(current)
                     current = current.plusWeeks(1)
                 }
@@ -469,11 +477,13 @@ class StatisticsViewModel @Inject constructor(
                 periods.add(currentMonth.minusMonths(1)) // месяцы 5-6
             }
             GroupingType.BY_FOUR_MONTHS -> {
-                // Год: 3 точки (по 4 месяца)
-                val currentMonth = now.withDayOfMonth(1)
-                periods.add(currentMonth.minusMonths(11)) // месяцы 1-4
-                periods.add(currentMonth.minusMonths(7))  // месяцы 5-8
-                periods.add(currentMonth.minusMonths(3))  // месяцы 9-12
+                // Год: 3 точки по 4 месяца текущего календарного года — фильтр периода
+                // «Год» тоже берёт его с 1 января. Раньше точки строились за последние
+                // 12 месяцев, и первая («ноя-фев») наполовину лежала вне периода
+                val yearStart = LocalDate.of(now.year, 1, 1)
+                periods.add(yearStart)                  // янв-апр
+                periods.add(yearStart.plusMonths(4))    // май-авг
+                periods.add(yearStart.plusMonths(8))    // сен-дек
             }
         }
         
@@ -808,32 +818,30 @@ class StatisticsViewModel @Inject constructor(
     private fun getGroupKey(date: LocalDate, groupingType: GroupingType, allPeriods: List<LocalDate>): LocalDate {
         return when (groupingType) {
             GroupingType.BY_DAY -> date
-            GroupingType.BY_WEEK_TWO_WEEKS -> {
-                // Находим ближайший период (начало недели)
-                val weekStart = date.minusDays(date.dayOfWeek.value.toLong() - 1)
-                allPeriods.minByOrNull { Math.abs(ChronoUnit.DAYS.between(it, weekStart)) } ?: weekStart
-            }
+            GroupingType.BY_WEEK_TWO_WEEKS,
             GroupingType.BY_WEEK_MONTH -> {
-                // Находим начало недели
+                // Начало недели записи — и неделя-точка, в которую оно попадает
                 val weekStart = date.minusDays(date.dayOfWeek.value.toLong() - 1)
-                allPeriods.minByOrNull { Math.abs(ChronoUnit.DAYS.between(it, weekStart)) } ?: weekStart
+                containingPeriod(weekStart, allPeriods)
             }
             GroupingType.BY_MONTH -> {
                 // Первое число месяца
                 date.withDayOfMonth(1)
             }
-            GroupingType.BY_TWO_MONTHS -> {
-                // Находим ближайший период (начало 2-месячного блока)
-                val monthStart = date.withDayOfMonth(1)
-                allPeriods.minByOrNull { Math.abs(ChronoUnit.MONTHS.between(it, monthStart)) } ?: monthStart
-            }
-            GroupingType.BY_FOUR_MONTHS -> {
-                // Находим ближайший период (начало 4-месячного блока)
-                val monthStart = date.withDayOfMonth(1)
-                allPeriods.minByOrNull { Math.abs(ChronoUnit.MONTHS.between(it, monthStart)) } ?: monthStart
-            }
+            GroupingType.BY_TWO_MONTHS,
+            GroupingType.BY_FOUR_MONTHS -> containingPeriod(date.withDayOfMonth(1), allPeriods)
         }
     }
+
+    /**
+     * Точка графика, **внутри** которой лежит [key]: последняя, начавшаяся не позже него.
+     *
+     * Раньше бралась ближайшая по расстоянию до начала, и последний месяц четырёхмесячного
+     * блока (а при равенстве — и другие) уезжал в соседний столбец. Запись раньше первой
+     * точки (неполный первый месяц диапазона «6 месяцев») относится к первой.
+     */
+    private fun containingPeriod(key: LocalDate, allPeriods: List<LocalDate>): LocalDate =
+        allPeriods.lastOrNull { !it.isAfter(key) } ?: allPeriods.firstOrNull() ?: key
     
     private fun findMostExpensiveMonth(
         breakdowns: List<Breakdown>,
@@ -912,7 +920,7 @@ class StatisticsViewModel @Inject constructor(
         val year = dateParts[0].toInt()
         val month = dateParts[1].toInt()
         val monthName = LocalDate.of(year, month, 1).month
-            .getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
+            .getDisplayName(TextStyle.FULL_STANDALONE, Locale.getDefault())
         
         return "$monthName $year"
     }
